@@ -13,9 +13,10 @@
   .kedu-tick-cheer { animation: none; }
 }
 
-/* Columns ease from the right edge. Single column on a wide frame stays a centered measure. */
+/* Side and rhythm share one measure. The center column is the page. */
 .kedu-stage {
   --kedu-single: 720px;
+  --kedu-rail: 400px;
   justify-content: center;
 }
 
@@ -30,6 +31,10 @@
 .kedu-rail {
   overflow: hidden;
 }
+
+.kedu-preview { order: 0; }
+.kedu-main { order: 1; }
+.kedu-rail { order: 2; }
 
 .kedu-main {
   flex: 1 1 0px;
@@ -49,9 +54,9 @@
 }
 
 .kedu-stage[data-layout="desk"] .kedu-preview {
-  flex-grow: 1;
-  flex-shrink: 1;
-  flex-basis: 0px;
+  flex-grow: 0;
+  flex-shrink: 0;
+  flex-basis: var(--kedu-rail);
   opacity: 1;
 }
 
@@ -65,7 +70,7 @@
 
 .kedu-stage[data-layout="wide"] .kedu-rail,
 .kedu-stage[data-layout="desk"] .kedu-rail {
-  flex-basis: 400px;
+  flex-basis: var(--kedu-rail);
 }
 
 .kedu-stage[data-settle="1"] .kedu-preview {

@@ -230,7 +230,7 @@ function Row(props: {
 
 function emptyCopy(lens: ViewId, filtered: boolean): { title: string; hint: string } {
   if (filtered) return { title: "没有符合的事", hint: "清掉筛选，或者换一个词。" };
-  if (lens === "today") return { title: "今天没有要做的", hint: "上面写一条。用 @明天 会排到之后。" };
+  if (lens === "today") return { title: "今天没有要做的", hint: "写一条就能加进来。用 @明天 会排到之后。" };
   if (lens === "next") return { title: "后面还是空的", hint: "用 @周五 或 @下周一 把事情排进来。" };
   return { title: "收集是空的", hint: "没写日期的事会落在这里。点今天、明天或周末就排走。" };
 }

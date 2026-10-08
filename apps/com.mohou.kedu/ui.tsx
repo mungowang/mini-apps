@@ -47,10 +47,6 @@ function resolveLayout(pin: LayoutMode | null, width: number): LayoutMode {
   return pin;
 }
 
-function beside(lens: ViewId): ViewId {
-  return lens === "today" ? "next" : "today";
-}
-
 function LayoutGlyph(props: { cols: 1 | 2 | 3 }) {
   const cuts: number[] = [];
   for (let i = 1; i < props.cols; i++) cuts.push(i);
@@ -617,8 +613,8 @@ export default function Ui() {
     );
   }
 
-  const companion = beside(lens);
-  const companionLabel = companion === "next" ? "之后" : "今天";
+  const desk = layout === "desk";
+  const pageLens: ViewId = desk && lens !== "inbox" ? "today" : lens;
   const overlay = layout === "narrow" && Boolean(selectedId || rhythmOpen);
   const showPreview = layout === "desk" || holdPreview;
   const showRail = layout !== "narrow" || overlay || collapseRail;
@@ -719,12 +715,12 @@ export default function Ui() {
             </button>
           </div>
 
-          <Capture inputRef={addRef} />
+          {desk ? null : <Capture inputRef={addRef} />}
 
           <div className="mt-3 flex items-end gap-1 px-3">
             <div className="flex min-w-0 flex-1 items-end" role="tablist" aria-label="清单">
               {LENSES.map(function (item) {
-                const on = lens === item.id;
+                const on = pageLens === item.id;
                 return (
                   <button
                     key={item.id}
@@ -734,6 +730,7 @@ export default function Ui() {
                     data-lens={item.id}
                     aria-selected={on}
                     onClick={function () {
+                      if (desk && item.id === "next") return;
                       setLens(item.id);
                     }}
                     className={cn(
@@ -859,7 +856,7 @@ export default function Ui() {
         </header>
 
         <div ref={scroller} className="min-h-0 flex-1 overflow-auto">
-          <TaskList onClearFilters={clearFilters} />
+          <TaskList lens={desk ? pageLens : undefined} onClearFilters={clearFilters} />
         </div>
 
         {selectMode ? (
@@ -892,27 +889,18 @@ export default function Ui() {
             </Button>
           </div>
         ) : null}
+        {desk ? <Capture inputRef={addRef} dock /> : null}
         </div>
 
         <section className="kedu-preview flex justify-end" data-kedu="preview" aria-hidden={layout === "desk" ? undefined : true}>
           {showPreview ? (
-            <div className="flex h-full min-w-[360px] w-full flex-col border-l border-border">
+            <div className="flex h-full w-[400px] shrink-0 flex-col border-r border-border">
               <div className="flex shrink-0 items-center gap-2 px-4 pb-3 pt-4">
-                <h2 className="text-sm font-medium">{companionLabel}</h2>
-                {counts[companion] ? <Mono className="text-muted-foreground">{counts[companion]}</Mono> : null}
-                <span className="flex-1" />
-                <button
-                  type="button"
-                  onClick={function () {
-                    setLens(companion);
-                  }}
-                  className="text-xs text-muted-foreground hover:text-foreground"
-                >
-                  换过来
-                </button>
+                <h2 className="text-sm font-medium">之后</h2>
+                {counts.next ? <Mono className="text-muted-foreground">{counts.next}</Mono> : null}
               </div>
               <div className="min-h-0 flex-1 overflow-auto">
-                <TaskList lens={companion} quiet />
+                <TaskList lens="next" quiet />
               </div>
             </div>
           ) : null}
