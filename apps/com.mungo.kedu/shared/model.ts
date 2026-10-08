@@ -23,6 +23,13 @@ export function shiftKey(key: string, days: number): string {
   return dateKey(d);
 }
 
+/** Saturday of this week. Sunday lands on the coming Saturday, matching @本周末. */
+export function weekendKey(today: string): string {
+  const cur = parseKey(today).getDay();
+  const delta = (6 - cur + 7) % 7;
+  return shiftKey(today, delta);
+}
+
 export function diffDays(a: string, b: string): number {
   return Math.round((parseKey(a).getTime() - parseKey(b).getTime()) / 86400000);
 }
@@ -47,6 +54,11 @@ export function dueMeta(due: string | null, today: string): DueMeta | null {
 export function fullDate(due: string): string {
   const d = parseKey(due);
   return String(d.getFullYear()) + " 年 " + String(d.getMonth() + 1) + " 月 " + String(d.getDate()) + " 日";
+}
+
+export function dayHeading(key: string): string {
+  const d = parseKey(key);
+  return String(d.getMonth() + 1) + "月" + String(d.getDate()) + "日 · 周" + WEEK_CHARS[d.getDay()];
 }
 
 export type Parsed = {
@@ -230,15 +242,18 @@ export function parseQuickAdd(raw: string, today: string): Parsed {
   return { title: kept.join(" ").trim(), priority, tags, starts, due, startTime, endTime, warnings };
 }
 
+export function completedOn(task: Task, day: string): boolean {
+  if (!task.done || task.completedAt === null) return false;
+  return dateKey(new Date(task.completedAt)) === day;
+}
+
 export function inView(task: Task, view: ViewId, today: string): boolean {
-  if (view === "done") return task.done;
   if (task.done) return false;
   if (view === "today") return Boolean(task.due) && diffDays(task.due as string, today) <= 0;
-  if (view === "upcoming") return Boolean(task.due) && diffDays(task.due as string, today) > 0;
-  // 收集箱 is a workflow state, not a time slice: the capture bucket holds what has not been
-  // triaged yet. Giving it a date or a tag is what moves it out — the views then partition.
-  if (view === "inbox") return !task.due && task.tags.length === 0;
-  return true;
+  if (view === "next") return Boolean(task.due) && diffDays(task.due as string, today) > 0;
+  // A date is the only thing that schedules a task. A tag is a label, so it stays in 收集
+  // until someone puts the task on a day. Otherwise tagged-but-undated work disappears.
+  return !task.due;
 }
 
 export type GroupId = "overdue" | "today" | "tomorrow" | "week" | "later" | "none" | "done";

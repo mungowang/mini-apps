@@ -2,43 +2,27 @@
 
 [English](README.md) | 中文
 
-可分享的 [monkey-mini-app](https://github.com/MungoWang/monkey-mini-app) / dsh 小程序合集。
+可分享的 mini-app 合集。界面用 `@mohou/ui`，后端用 `@mohou/contract`，由本机宿主注入。
 
-`apps/<appId>/` 下每个目录是一个独立 app（`manifest.json` + `ui.tsx` + `main.api.ts`，以及可选的 `ui/` / `api/` / `shared/`）。拷进本机 runtime 后，就会出现在聊天旁边的小程序画廊里。
-
-## 前置
-
-先装好 dsh 适配插件（每台机器一次即可）：
-
-```bash
-dsh plugin add --profile web -w @monkey-mini-app/dsh-mini-app@0.1.15
-```
-
-然后：
-
-```bash
-dsh web --no-open   # http://127.0.0.1:3080 ；apps 宿主默认 :17880
-```
+`apps/<appId>/` 下每个目录是一个独立 app（`manifest.json` + `ui.tsx` + `main.api.ts`，以及可选的 `ui/` / `api/` / `shared/`）。拷进本机 runtime 后，就会出现在小程序面板里。
 
 ## 安装某一个 app
 
-**刻度清单**（`com.mungo.kedu`）— 本地待办：今日 / 收集箱 / 即将 / 看板 / 统计，快速解析、子任务、标签、快捷键。
+**刻度清单**（`com.mungo.kedu`）— 先做完今天。同一张清单的三面：今天（含逾期）、之后、收集。快速解析、子任务、标签、图片、节奏都在，不再和看板、统计抢同一层导航。
 
 ```bash
-npx --yes degit MungoWang/mini-apps/apps/com.mungo.kedu ~/.monkey-mini-app/runtime/apps/com.mungo.kedu
+mkdir -p ~/.mini-app/runtime/apps
+rm -rf ~/.mini-app/runtime/apps/com.mungo.kedu
+cp -R apps/com.mungo.kedu ~/.mini-app/runtime/apps/
 ```
 
-或用 git：
+远程安装：
 
 ```bash
-git clone --depth 1 https://github.com/MungoWang/mini-apps.git /tmp/mini-apps \
-  && mkdir -p ~/.monkey-mini-app/runtime/apps \
-  && rm -rf ~/.monkey-mini-app/runtime/apps/com.mungo.kedu \
-  && cp -R /tmp/mini-apps/apps/com.mungo.kedu ~/.monkey-mini-app/runtime/apps/ \
-  && rm -rf /tmp/mini-apps
+npx --yes degit MungoWang/mini-apps/apps/com.mungo.kedu ~/.mini-app/runtime/apps/com.mungo.kedu
 ```
 
-打开 dsh web →「小程序」，应能看到 **刻度清单**。列表没刷新就重启 `dsh web`，或对该 app 做一次 reload。
+打开小程序面板，应能看到 **刻度清单**。列表没刷新就对这个 app 做一次 reload。
 
 > `storage/` 不进仓库：每台机器各自有本地数据。
 

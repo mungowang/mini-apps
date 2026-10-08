@@ -1,0 +1,129 @@
+@keyframes kedu-tick-cheer {
+  0% { transform: scaleY(0.35); }
+  45% { transform: scaleY(1.7); }
+  100% { transform: scaleY(1); }
+}
+
+.kedu-tick-cheer {
+  transform-origin: center bottom;
+  animation: kedu-tick-cheer 720ms ease both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kedu-tick-cheer { animation: none; }
+}
+
+/* Columns ease from the right edge. Single column on a wide frame stays a centered measure. */
+.kedu-stage {
+  --kedu-single: 720px;
+  justify-content: center;
+}
+
+.kedu-main,
+.kedu-preview,
+.kedu-rail {
+  min-width: 0;
+  min-height: 0;
+}
+
+.kedu-preview,
+.kedu-rail {
+  overflow: hidden;
+}
+
+.kedu-main {
+  flex: 1 1 0px;
+}
+
+.kedu-stage[data-center="1"] .kedu-main {
+  flex-grow: 0;
+  flex-basis: var(--kedu-single);
+  max-width: var(--kedu-single);
+}
+
+.kedu-preview {
+  flex-grow: 0;
+  flex-shrink: 0;
+  flex-basis: 0px;
+  opacity: 0;
+}
+
+.kedu-stage[data-layout="desk"] .kedu-preview {
+  flex-grow: 1;
+  flex-shrink: 1;
+  flex-basis: 0px;
+  opacity: 1;
+}
+
+.kedu-rail {
+  display: flex;
+  justify-content: flex-end;
+  flex-grow: 0;
+  flex-shrink: 0;
+  flex-basis: 0px;
+}
+
+.kedu-stage[data-layout="wide"] .kedu-rail,
+.kedu-stage[data-layout="desk"] .kedu-rail {
+  flex-basis: 400px;
+}
+
+.kedu-stage[data-settle="1"] .kedu-preview {
+  transition:
+    flex-grow 560ms cubic-bezier(0.22, 1, 0.36, 1),
+    flex-basis 560ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 380ms ease;
+}
+
+.kedu-stage[data-settle="1"] .kedu-rail,
+.kedu-stage[data-settle="1"] .kedu-main {
+  transition:
+    flex-grow 560ms cubic-bezier(0.22, 1, 0.36, 1),
+    flex-basis 560ms cubic-bezier(0.22, 1, 0.36, 1),
+    max-width 560ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.kedu-stage .kedu-rail[data-overlay="1"] {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 40;
+  width: 400px;
+  flex-basis: auto;
+  transition: none;
+}
+
+.kedu-stage[data-center="1"] .kedu-rail[data-overlay="1"] {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: calc(50% - (var(--kedu-single) / 2));
+  width: 400px;
+  height: auto;
+}
+
+.kedu-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  border: 0;
+  padding: 0;
+  background: color-mix(in oklab, var(--background) 42%, transparent);
+  animation: kedu-scrim-in 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes kedu-scrim-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kedu-stage .kedu-rail,
+  .kedu-stage .kedu-preview,
+  .kedu-stage .kedu-main,
+  .kedu-scrim {
+    transition: none;
+    animation: none;
+  }
+}

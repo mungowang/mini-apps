@@ -14,7 +14,6 @@ export type Actions = {
   clearDone: () => Promise<void>;
   addImage: (taskId: string, data: string, w: number, h: number) => Promise<void>;
   removeImage: (taskId: string, id: string) => Promise<void>;
-  loadImages: (ids: string[]) => Promise<Record<string, string>>;
   reset: () => Promise<void>;
 };
 
@@ -23,20 +22,22 @@ export type Store = {
   tags: string[];
   stats: Stats;
   today: string;
-  view: ViewId;
-  setView: (v: ViewId) => void;
+  lens: ViewId;
+  setLens: (v: ViewId) => void;
   sort: SortId;
   setSort: (s: SortId) => void;
   query: string;
   setQuery: (q: string) => void;
+  searchOpen: boolean;
+  setSearchOpen: (v: boolean) => void;
   tagFilter: string | null;
   setTagFilter: (t: string | null) => void;
+  prioFilter: Priority[];
+  setPrioFilter: (p: Priority[]) => void;
   hoverTag: string | null;
   setHoverTag: (t: string | null) => void;
   hoverPrio: Priority | null;
   setHoverPrio: (p: Priority | null) => void;
-  prioFilter: Priority[];
-  setPrioFilter: (p: Priority[]) => void;
   selectedId: string | null;
   openTask: (id: string | null) => void;
   selectMode: boolean;
@@ -44,10 +45,9 @@ export type Store = {
   chosen: string[];
   toggleSelect: (id: string) => void;
   clearSelection: () => void;
-  expandSubs: boolean;
   graceIds: string[];
-  assistOpen: boolean;
-  setAssistOpen: (v: boolean) => void;
+  rhythmOpen: boolean;
+  setRhythmOpen: (v: boolean) => void;
   actions: Actions;
 };
 

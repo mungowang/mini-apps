@@ -2,43 +2,27 @@
 
 [English](README.md) | [中文](README.zh.md)
 
-A public collection of shareable [monkey-mini-app](https://github.com/MungoWang/monkey-mini-app) / dsh mini-apps.
+A public collection of shareable mini-apps. UI imports `@mohou/ui`. The backend imports `@mohou/contract`. The local host injects both.
 
-Each folder under `apps/<appId>/` is one self-contained app (`manifest.json` + `ui.tsx` + `main.api.ts`, plus optional `ui/` / `api/` / `shared/`). Drop it into your local runtime and it shows up in the gallery next to chat.
-
-## Prerequisites
-
-Install the dsh adapter first (once per machine):
-
-```bash
-dsh plugin add --profile web -w @monkey-mini-app/dsh-mini-app@0.1.15
-```
-
-Then:
-
-```bash
-dsh web --no-open   # http://127.0.0.1:3080 ; apps host default :17880
-```
+Each folder under `apps/<appId>/` is one self-contained app (`manifest.json` + `ui.tsx` + `main.api.ts`, plus optional `ui/` / `api/` / `shared/`). Drop it into the local runtime and it shows up in the mini-app panel.
 
 ## Install one app
 
-**刻度清单** (`com.mungo.kedu`) — local todos: today / inbox / upcoming / board / stats, quick parse, subtasks, tags, shortcuts.
+**刻度清单** (`com.mungo.kedu`) — finish today first. One list, three lenses: today (including overdue), later, and the unscheduled inbox. Quick parse, subtasks, tags, images, and a rhythm sheet stay. The board and the stats page are no longer peers of today.
 
 ```bash
-npx --yes degit MungoWang/mini-apps/apps/com.mungo.kedu ~/.monkey-mini-app/runtime/apps/com.mungo.kedu
+mkdir -p ~/.mini-app/runtime/apps
+rm -rf ~/.mini-app/runtime/apps/com.mungo.kedu
+cp -R apps/com.mungo.kedu ~/.mini-app/runtime/apps/
 ```
 
-Or with git:
+From the published repo:
 
 ```bash
-git clone --depth 1 https://github.com/MungoWang/mini-apps.git /tmp/mini-apps \
-  && mkdir -p ~/.monkey-mini-app/runtime/apps \
-  && rm -rf ~/.monkey-mini-app/runtime/apps/com.mungo.kedu \
-  && cp -R /tmp/mini-apps/apps/com.mungo.kedu ~/.monkey-mini-app/runtime/apps/ \
-  && rm -rf /tmp/mini-apps
+npx --yes degit MungoWang/mini-apps/apps/com.mungo.kedu ~/.mini-app/runtime/apps/com.mungo.kedu
 ```
 
-Open dsh web →「小程序」. You should see **刻度清单**. If the gallery does not refresh, restart `dsh web` or reload that app.
+Open the mini-app panel. You should see **刻度清单**. If the gallery does not refresh, reload that app.
 
 > `storage/` is gitignored. Each machine keeps its own data.
 

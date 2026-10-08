@@ -1,11 +1,10 @@
-import { defineApp } from "@monkey-mini-app/api";
+import { defineApp } from "@mohou/contract";
 
 import { collectTags, parseQuickAdd, shiftKey, todayKey } from "./shared/model";
 import type { Priority, Task, TaskPatch } from "./shared/types";
 
 const K_TASKS = "tasks";
 const K_SEEDED = "seeded";
-// images live under their own keys: task payloads stay small, so the list stays fast
 const K_IMG = "img_";
 
 function uid(prefix: string): string {
@@ -38,7 +37,7 @@ function seed(today: string): Task[] {
       due,
       startTime: null,
       endTime: null,
-      subtasks: subs.map(function (s, i) {
+      subtasks: subs.map(function (s) {
         return { id: uid("s"), title: s.title, done: s.done };
       }),
       images: [],
@@ -68,17 +67,11 @@ function seed(today: string): Task[] {
     ]),
     task("整理本周会议纪要并归档", 2, shiftKey(today, 2), ["工作"], "", []),
     task("给妈妈打电话", 2, null, ["生活"], "问问体检结果。", []),
-    task("研究 motion 的 layout 动画", 4, null, ["学习", "前端"], "看 Reorder 与 layout 的区别，做个小样例。", []),
+    task("研究 motion 的 layout 动画", 4, null, [], "看 Reorder 与 layout 的区别，做个小样例。", []),
     task("续费域名", 2, shiftKey(today, 6), ["杂务"], "", []),
     task("晨跑 5 公里", 3, today, ["健康"], "", [], now - 2 * 3600000),
     task("提交周报", 2, shiftKey(today, -1), ["工作"], "", [], now - day),
-    task("清理下载目录", 4, shiftKey(today, -3), ["杂务"], "", [], now - 3 * day),
-    task("复盘上季度 OKR", 3, shiftKey(today, -4), ["工作"], "", [], now - 4 * day),
-    task("整理书架的待读清单", 4, shiftKey(today, -1), ["阅读"], "", [], now - day - 3600000),
-    task("备份照片到硬盘", 3, shiftKey(today, -5), ["杂务"], "", [], now - 5 * day),
-    task("给团队写周报模板", 3, shiftKey(today, -6), ["工作"], "", [], now - 6 * day),
   ];
-  // demo a multi-day span and a time block so both shapes are visible on first run
   seeded[0].startTime = "14:00";
   seeded[0].endTime = "16:30";
   seeded[4].starts = shiftKey(today, 1);
@@ -86,7 +79,6 @@ function seed(today: string): Task[] {
   return seeded;
 }
 
-// older records predate starts / startTime / endTime, so every load normalises them
 function normalize(raw: any): Task {
   return {
     id: String(raw.id),
@@ -115,19 +107,20 @@ function normalize(raw: any): Task {
   };
 }
 
-async function load(ctx: any): Promise<Task[]> {
-  const raw = await ctx.storage.get(K_TASKS);
+async function load(ctx): Promise<Task[]> {
+  const kv = ctx.storage.kv();
+  const raw = await kv.get(K_TASKS);
   if (Array.isArray(raw)) return raw.map(normalize);
-  const seeded = await ctx.storage.get(K_SEEDED);
+  const seeded = await kv.get(K_SEEDED);
   if (seeded) return [];
   const fresh = seed(todayKey());
-  await ctx.storage.set(K_TASKS, fresh);
-  await ctx.storage.set(K_SEEDED, true);
+  await kv.set(K_TASKS, fresh);
+  await kv.set(K_SEEDED, true);
   return fresh;
 }
 
-async function save(ctx: any, tasks: Task[]): Promise<void> {
-  await ctx.storage.set(K_TASKS, tasks);
+async function save(ctx, tasks: Task[]): Promise<void> {
+  await ctx.storage.kv().set(K_TASKS, tasks);
 }
 
 function pack(tasks: Task[]) {
@@ -150,6 +143,7 @@ function applyPatch(task: Task, patch: TaskPatch | undefined): Task {
     startTime: task.startTime,
     endTime: task.endTime,
     subtasks: task.subtasks.slice(),
+    images: (task.images || []).slice(),
     order: task.order,
     createdAt: task.createdAt,
     completedAt: task.completedAt,
@@ -190,25 +184,27 @@ function applyPatch(task: Task, patch: TaskPatch | undefined): Task {
 
 export default defineApp({
   name: "刻度清单",
-  description: "本地待办：五视图 + 快速解析 + 子任务 + 标签 + 统计",
+  description: "先做完今天。收集和之后是同一张清单的另外两面。",
 
   api: {
-    async list(ctx: any) {
+    async list(ctx) {
       return pack(await load(ctx));
     },
 
-    async add(ctx: any, args: any) {
+    async add(ctx, args) {
       const today = todayKey();
       const raw = String((args && args.title) || "").trim();
       if (!raw) throw new Error("先写点什么再回车");
       const parsed = parseQuickAdd(raw, today);
+      const title = parsed.title.trim();
+      if (!title) throw new Error("除了日期和标签，还要写上要做什么");
       const tasks = await load(ctx);
       let minOrder = 0;
       for (let i = 0; i < tasks.length; i++) if (tasks[i].order < minOrder) minOrder = tasks[i].order;
       const hasDue = args && Object.prototype.hasOwnProperty.call(args, "due");
       const created: Task = {
         id: uid("t"),
-        title: (parsed.title || raw).slice(0, 200),
+        title: title.slice(0, 200),
         notes: "",
         done: false,
         priority: args && args.priority ? (args.priority as Priority) : parsed.priority,
@@ -228,7 +224,7 @@ export default defineApp({
       return pack(tasks);
     },
 
-    async update(ctx: any, args: any) {
+    async update(ctx, args) {
       const id = String((args && args.id) || "");
       const tasks = await load(ctx);
       let hit = false;
@@ -242,7 +238,7 @@ export default defineApp({
       return pack(next);
     },
 
-    async toggle(ctx: any, args: any) {
+    async toggle(ctx, args) {
       const id = String((args && args.id) || "");
       const tasks = await load(ctx);
       let hit = false;
@@ -257,7 +253,7 @@ export default defineApp({
       return pack(next);
     },
 
-    async remove(ctx: any, args: any) {
+    async remove(ctx, args) {
       const id = String((args && args.id) || "");
       const tasks = await load(ctx);
       const next = tasks.filter(function (t) {
@@ -268,7 +264,7 @@ export default defineApp({
       return pack(next);
     },
 
-    async restore(ctx: any, args: any) {
+    async restore(ctx, args) {
       const task = args && args.task;
       if (!task || !task.id) throw new Error("缺少任务");
       const tasks = await load(ctx);
@@ -281,13 +277,12 @@ export default defineApp({
       }
       let minOrder = 0;
       for (let i = 0; i < tasks.length; i++) if (tasks[i].order < minOrder) minOrder = tasks[i].order;
-      const revived = Object.assign({}, task, { order: minOrder - 1 });
-      tasks.push(revived);
+      tasks.push(Object.assign({}, normalize(task), { order: minOrder - 1 }));
       await save(ctx, tasks);
       return pack(tasks);
     },
 
-    async reorder(ctx: any, args: any) {
+    async reorder(ctx, args) {
       const ids: string[] = Array.isArray(args && args.ids) ? args.ids.map(String) : [];
       const tasks = await load(ctx);
       const sorted = tasks.slice().sort(function (a, b) {
@@ -317,7 +312,7 @@ export default defineApp({
       return pack(final);
     },
 
-    async bulk(ctx: any, args: any) {
+    async bulk(ctx, args) {
       const ids: string[] = Array.isArray(args && args.ids) ? args.ids.map(String) : [];
       const action = String((args && args.action) || "done");
       const tasks = await load(ctx);
@@ -340,7 +335,7 @@ export default defineApp({
       return pack(next);
     },
 
-    async clearDone(ctx: any) {
+    async clearDone(ctx) {
       const tasks = await load(ctx);
       const next = tasks.filter(function (t) {
         return !t.done;
@@ -349,12 +344,12 @@ export default defineApp({
       return pack(next);
     },
 
-    async imageAdd(ctx: any, args: any) {
+    async imageAdd(ctx, args) {
       const tasks = await load(ctx);
       const id = uid("i");
       const data = String((args && args.data) || "");
       if (!data) return pack(tasks);
-      await ctx.storage.set(K_IMG + id, data);
+      await ctx.storage.kv().set(K_IMG + id, data);
       const meta = { id, w: Number(args && args.w) || 0, h: Number(args && args.h) || 0 };
       const next = tasks.map(function (t) {
         if (t.id !== String(args && args.taskId)) return t;
@@ -364,10 +359,10 @@ export default defineApp({
       return pack(next);
     },
 
-    async imageRemove(ctx: any, args: any) {
+    async imageRemove(ctx, args) {
       const tasks = await load(ctx);
       const id = String((args && args.id) || "");
-      if (id) await ctx.storage.set(K_IMG + id, null);
+      if (id) await ctx.storage.kv().delete(K_IMG + id);
       const next = tasks.map(function (t) {
         if (t.id !== String(args && args.taskId)) return t;
         return Object.assign({}, t, {
@@ -380,20 +375,21 @@ export default defineApp({
       return pack(next);
     },
 
-    async imagesGet(ctx: any, args: any) {
+    async imagesGet(ctx, args) {
       const ids: string[] = Array.isArray(args && args.ids) ? args.ids.map(String) : [];
+      const kv = ctx.storage.kv();
       const out: Record<string, string> = {};
       for (let i = 0; i < ids.length; i++) {
-        const v = await ctx.storage.get(K_IMG + ids[i]);
+        const v = await kv.get(K_IMG + ids[i]);
         if (typeof v === "string") out[ids[i]] = v;
       }
       return out;
     },
 
-    async reset(ctx: any) {
+    async reset(ctx) {
       const fresh = seed(todayKey());
       await save(ctx, fresh);
-      await ctx.storage.set(K_SEEDED, true);
+      await ctx.storage.kv().set(K_SEEDED, true);
       return pack(fresh);
     },
   },

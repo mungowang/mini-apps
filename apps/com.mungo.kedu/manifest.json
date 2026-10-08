@@ -1,8 +1,9 @@
 {
   "id": "com.mungo.kedu",
   "name": "刻度清单",
-  "description": "本地待办：今日/收集箱/即将/看板/统计五视图 · 快速解析 · 子任务 · 标签 · 快捷键",
-  "version": "0.1.1",
+  "description": "先做完今天。收集和之后是同一张清单的另外两面。",
+  "version": "0.2.0",
   "entry": "ui.tsx",
-  "acronym": "KD"
+  "acronym": "刻度",
+  "tags": ["daily", "todo", "personal"]
 }

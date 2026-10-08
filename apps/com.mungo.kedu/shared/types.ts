@@ -30,7 +30,8 @@ export type Task = {
   completedAt: number | null;
 };
 
-export type ViewId = "today" | "inbox" | "upcoming" | "done" | "board" | "stats";
+/** 今天 = 逾期+今日；之后 = 已排到未来；收集 = 还没有日期。 */
+export type ViewId = "today" | "next" | "inbox";
 
 export type SortId = "manual" | "due" | "priority" | "created";
 
