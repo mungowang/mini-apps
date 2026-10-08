@@ -14,20 +14,20 @@ The default runtime root is `~/.mini-app/runtime`. On Windows it is `%USERPROFIL
 
 ## Install one app
 
-**刻度清单** (`com.mungo.kedu`) — finish today first. One list, three lenses: today (including overdue), later, and the unscheduled inbox.
+**刻度清单** (`com.mohou.kedu`) — finish today first. One list, three lenses: today (including overdue), later, and the unscheduled inbox.
 
 ```bash
 root="${MINI_APP_RUNTIME:-$HOME/.mini-app/runtime}"
-npx --yes degit MungoWang/mini-apps/apps/com.mungo.kedu "$root/apps/com.mungo.kedu"
+npx --yes degit MungoWang/mini-apps/apps/com.mohou.kedu "$root/apps/com.mohou.kedu"
 ```
 
 That writes a new folder. When the folder is already there, copy the sources from a checkout and leave `storage/` in place:
 
 ```bash
 root="${MINI_APP_RUNTIME:-$HOME/.mini-app/runtime}"
-mkdir -p "$root/apps/com.mungo.kedu"
+mkdir -p "$root/apps/com.mohou.kedu"
 rsync -a --exclude storage --exclude .git --exclude node_modules --exclude .autogen --exclude .ui-build \
-  apps/com.mungo.kedu/ "$root/apps/com.mungo.kedu/"
+  apps/com.mohou.kedu/ "$root/apps/com.mohou.kedu/"
 ```
 
 Open Mohou and refresh the library. **刻度清单** is listed there. An app that is already open needs a reload before the new source runs.
@@ -38,7 +38,7 @@ Open Mohou and refresh the library. **刻度清单** is listed there. An app tha
 
 | App ID | Name | Path |
 |---|---|---|
-| `com.mungo.kedu` | 刻度清单 | [`apps/com.mungo.kedu`](./apps/com.mungo.kedu) |
+| `com.mohou.kedu` | 刻度清单 | [`apps/com.mohou.kedu`](./apps/com.mohou.kedu) |
 
 ## Add another app
 

@@ -14,20 +14,20 @@
 
 ## 安装某一个 app
 
-**刻度清单**（`com.mungo.kedu`）— 先做完今天。同一张清单的三面：今天（含逾期）、之后、收集。
+**刻度清单**（`com.mohou.kedu`）— 先做完今天。同一张清单的三面：今天（含逾期）、之后、收集。
 
 ```bash
 root="${MINI_APP_RUNTIME:-$HOME/.mini-app/runtime}"
-npx --yes degit MungoWang/mini-apps/apps/com.mungo.kedu "$root/apps/com.mungo.kedu"
+npx --yes degit MungoWang/mini-apps/apps/com.mohou.kedu "$root/apps/com.mohou.kedu"
 ```
 
 这条命令写入一个新目录。目录已经在时，从本仓库把源码拷进去，`storage/` 留在原地：
 
 ```bash
 root="${MINI_APP_RUNTIME:-$HOME/.mini-app/runtime}"
-mkdir -p "$root/apps/com.mungo.kedu"
+mkdir -p "$root/apps/com.mohou.kedu"
 rsync -a --exclude storage --exclude .git --exclude node_modules --exclude .autogen --exclude .ui-build \
-  apps/com.mungo.kedu/ "$root/apps/com.mungo.kedu/"
+  apps/com.mohou.kedu/ "$root/apps/com.mohou.kedu/"
 ```
 
 打开墨猴，刷新库，就能看到 **刻度清单**。这个 app 已经开着时，reload 一次，新源码才会跑起来。
@@ -38,7 +38,7 @@ rsync -a --exclude storage --exclude .git --exclude node_modules --exclude .auto
 
 | App ID | 名称 | 路径 |
 |---|---|---|
-| `com.mungo.kedu` | 刻度清单 | [`apps/com.mungo.kedu`](./apps/com.mungo.kedu) |
+| `com.mohou.kedu` | 刻度清单 | [`apps/com.mohou.kedu`](./apps/com.mohou.kedu) |
 
 ## 再加一个 app
 
