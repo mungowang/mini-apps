@@ -2,29 +2,37 @@
 
 [English](README.md) | [中文](README.zh.md)
 
-A public collection of shareable mini-apps. UI imports `@mohou/ui`. The backend imports `@mohou/contract`. The local host injects both.
+Shareable apps for [Mohou](https://github.com/mungowang/mohou-mini-app).
 
-Each folder under `apps/<appId>/` is one self-contained app (`manifest.json` + `ui.tsx` + `main.api.ts`, plus optional `ui/` / `api/` / `shared/`). Drop it into the local runtime and it shows up in the mini-app panel.
+One app is a directory named with its id. It contains `manifest.json`, `ui.tsx`, and `main.api.ts`. Add `ui/`, `api/`, `shared/`, `schema/`, or `assets/` when the app needs them. The view imports `@mohou/ui`. The backend imports `defineApp` from `@mohou/contract`. Mohou provides both.
+
+## Default directory
+
+Mohou reads apps from `<runtime>/apps/<appId>/`.
+
+The default runtime root is `~/.mini-app/runtime`. On Windows it is `%USERPROFILE%\.mini-app\runtime`. When `MINI_APP_RUNTIME` is set, that path is the root. The library lists the directories inside that `apps/` folder.
 
 ## Install one app
 
-**刻度清单** (`com.mungo.kedu`) — finish today first. One list, three lenses: today (including overdue), later, and the unscheduled inbox. Quick parse, subtasks, tags, images, and a rhythm sheet stay. The board and the stats page are no longer peers of today.
+**刻度清单** (`com.mungo.kedu`) — finish today first. One list, three lenses: today (including overdue), later, and the unscheduled inbox.
 
 ```bash
-mkdir -p ~/.mini-app/runtime/apps
-rm -rf ~/.mini-app/runtime/apps/com.mungo.kedu
-cp -R apps/com.mungo.kedu ~/.mini-app/runtime/apps/
+root="${MINI_APP_RUNTIME:-$HOME/.mini-app/runtime}"
+npx --yes degit MungoWang/mini-apps/apps/com.mungo.kedu "$root/apps/com.mungo.kedu"
 ```
 
-From the published repo:
+That writes a new folder. When the folder is already there, copy the sources from a checkout and leave `storage/` in place:
 
 ```bash
-npx --yes degit MungoWang/mini-apps/apps/com.mungo.kedu ~/.mini-app/runtime/apps/com.mungo.kedu
+root="${MINI_APP_RUNTIME:-$HOME/.mini-app/runtime}"
+mkdir -p "$root/apps/com.mungo.kedu"
+rsync -a --exclude storage --exclude .git --exclude node_modules --exclude .autogen --exclude .ui-build \
+  apps/com.mungo.kedu/ "$root/apps/com.mungo.kedu/"
 ```
 
-Open the mini-app panel. You should see **刻度清单**. If the gallery does not refresh, reload that app.
+Open Mohou and refresh the library. **刻度清单** is listed there. An app that is already open needs a reload before the new source runs.
 
-> `storage/` is gitignored. Each machine keeps its own data.
+`storage/` stays on this machine. The `.git` history Mohou keeps in the app directory stays there too.
 
 ## Catalog
 
@@ -34,6 +42,6 @@ Open the mini-app panel. You should see **刻度清单**. If the gallery does no
 
 ## Add another app
 
-1. Put sources under `apps/<reverse-dns-id>/` with a valid `manifest.json`.
-2. Do not commit `storage/`, `.autogen/`, or `node_modules/`.
+1. Put it at `apps/<appId>/`. The directory name is the manifest `id`.
+2. Do not commit `storage/`, `.autogen/`, `node_modules/`, or `.ui-build/`.
 3. Document the install line in both READMEs.

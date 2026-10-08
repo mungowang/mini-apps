@@ -2,29 +2,37 @@
 
 [English](README.md) | 中文
 
-可分享的 mini-app 合集。界面用 `@mohou/ui`，后端用 `@mohou/contract`，由本机宿主注入。
+给 [墨猴 Mohou](https://github.com/mungowang/mohou-mini-app) 用的可分享小程序。
 
-`apps/<appId>/` 下每个目录是一个独立 app（`manifest.json` + `ui.tsx` + `main.api.ts`，以及可选的 `ui/` / `api/` / `shared/`）。拷进本机 runtime 后，就会出现在小程序面板里。
+一个 app 是一个以 id 命名的目录，里面有 `manifest.json`、`ui.tsx`、`main.api.ts`。需要时再加 `ui/`、`api/`、`shared/`、`schema/`、`assets/`。界面从 `@mohou/ui` 引入，后端从 `@mohou/contract` 引入 `defineApp`。这两份由墨猴提供。
+
+## 默认目录
+
+墨猴从 `<runtime>/apps/<appId>/` 读取 app。
+
+默认的 runtime 根目录是 `~/.mini-app/runtime`。Windows 上是 `%USERPROFILE%\.mini-app\runtime`。设置了 `MINI_APP_RUNTIME` 时，用那个路径当根。库里列出的就是这个 `apps/` 下面的目录。
 
 ## 安装某一个 app
 
-**刻度清单**（`com.mungo.kedu`）— 先做完今天。同一张清单的三面：今天（含逾期）、之后、收集。快速解析、子任务、标签、图片、节奏都在，不再和看板、统计抢同一层导航。
+**刻度清单**（`com.mungo.kedu`）— 先做完今天。同一张清单的三面：今天（含逾期）、之后、收集。
 
 ```bash
-mkdir -p ~/.mini-app/runtime/apps
-rm -rf ~/.mini-app/runtime/apps/com.mungo.kedu
-cp -R apps/com.mungo.kedu ~/.mini-app/runtime/apps/
+root="${MINI_APP_RUNTIME:-$HOME/.mini-app/runtime}"
+npx --yes degit MungoWang/mini-apps/apps/com.mungo.kedu "$root/apps/com.mungo.kedu"
 ```
 
-远程安装：
+这条命令写入一个新目录。目录已经在时，从本仓库把源码拷进去，`storage/` 留在原地：
 
 ```bash
-npx --yes degit MungoWang/mini-apps/apps/com.mungo.kedu ~/.mini-app/runtime/apps/com.mungo.kedu
+root="${MINI_APP_RUNTIME:-$HOME/.mini-app/runtime}"
+mkdir -p "$root/apps/com.mungo.kedu"
+rsync -a --exclude storage --exclude .git --exclude node_modules --exclude .autogen --exclude .ui-build \
+  apps/com.mungo.kedu/ "$root/apps/com.mungo.kedu/"
 ```
 
-打开小程序面板，应能看到 **刻度清单**。列表没刷新就对这个 app 做一次 reload。
+打开墨猴，刷新库，就能看到 **刻度清单**。这个 app 已经开着时，reload 一次，新源码才会跑起来。
 
-> `storage/` 不进仓库：每台机器各自有本地数据。
+`storage/` 留在本机。app 目录里墨猴自己的 `.git` 历史也留着。
 
 ## 目录
 
@@ -34,6 +42,6 @@ npx --yes degit MungoWang/mini-apps/apps/com.mungo.kedu ~/.mini-app/runtime/apps
 
 ## 再加一个 app
 
-1. 把源码放到 `apps/<反向域名 id>/`，并写好合法的 `manifest.json`。
-2. 不要提交 `storage/`、`.autogen/`、`node_modules/`。
+1. 放到 `apps/<appId>/`。目录名就是 manifest 里的 `id`。
+2. 不要提交 `storage/`、`.autogen/`、`node_modules/`、`.ui-build/`。
 3. 在中英文 README 里补上安装命令。
