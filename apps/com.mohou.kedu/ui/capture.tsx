@@ -139,7 +139,7 @@ export function Capture(props: { inputRef: React.RefObject<HTMLInputElement | nu
   const showChips = Boolean(!showSuggest && parsed && (schedule || parsed.priority !== 3 || parsed.tags.length || parsed.warnings.length));
 
   const field = (
-    <div className={props.dock ? "rounded-xl border border-input px-3 py-2 focus-within:border-foreground" : "contents"}>
+    <div className={props.dock ? "kedu-edge rounded-xl border px-3 py-2.5" : "contents"}>
       <input
         ref={props.inputRef}
         data-kedu="capture"
@@ -191,7 +191,10 @@ export function Capture(props: { inputRef: React.RefObject<HTMLInputElement | nu
           }
           void submit();
         }}
-        className="h-8 w-full bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
+        className={
+          "w-full bg-transparent text-sm text-foreground outline-none transition-[height] duration-200 placeholder:text-muted-foreground " +
+          (focused ? "h-14" : "h-10")
+        }
       />
 
       {showSuggest ? (
@@ -254,7 +257,7 @@ export function Capture(props: { inputRef: React.RefObject<HTMLInputElement | nu
       className={
         props.dock
           ? "shrink-0 border-t border-border bg-background px-4 pb-4 pt-3"
-          : "mx-4 mt-3 rounded-xl border border-input px-3 py-2 focus-within:border-foreground"
+          : "kedu-edge mx-4 mt-3 rounded-xl border px-3 py-2.5"
       }
     >
       {props.dock ? <p className="pb-2 text-xs text-muted-foreground">快记</p> : null}

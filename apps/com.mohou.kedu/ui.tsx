@@ -806,7 +806,7 @@ export default function Ui() {
           ) : null}
 
           {hasFilters ? (
-            <div className="flex flex-wrap items-center gap-1.5 px-4 pb-2">
+            <div className="flex flex-wrap items-center gap-1.5 px-4 pt-3 pb-3">
               {prioFilter.map(function (p) {
                 return (
                   <button

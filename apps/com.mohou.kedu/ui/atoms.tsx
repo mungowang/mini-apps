@@ -85,7 +85,7 @@ export function TaskCheck(props: { done: boolean; onToggle: () => void }) {
       }}
       className={cn(
         "mt-0.5 grid size-4 shrink-0 place-items-center rounded-full border",
-        props.done ? "border-foreground bg-foreground text-background" : "border-input hover:border-foreground"
+        props.done ? "border-foreground bg-foreground text-background" : "kedu-edge"
       )}
     >
       {props.done ? <Icon.Check size={10} strokeWidth={2.8} /> : null}

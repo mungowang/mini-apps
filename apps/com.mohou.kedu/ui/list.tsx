@@ -32,10 +32,7 @@ function Row(props: {
   drop: boolean;
   inGrace: boolean;
   sweep: number;
-  onDragStart: () => void;
-  onDragOver: (e: React.DragEvent) => void;
-  onDrop: () => void;
-  onDragEnd: () => void;
+  onGripDown: (e: React.PointerEvent<HTMLSpanElement>) => void;
 }) {
   const { openTask, actions, selectedId, selectMode, chosen, toggleSelect, hoverTag, hoverPrio, today } = useStore();
   const t = props.task;
@@ -64,25 +61,17 @@ function Row(props: {
       data-id={t.id}
       className={cn("relative list-none border-b border-border", faded ? "opacity-40" : "", props.dragging ? "opacity-50" : "")}
       style={{ backgroundColor: selected ? "var(--muted)" : TINT[tier] || undefined }}
-      onDragOver={props.onDragOver}
-      onDrop={function (e) {
-        e.preventDefault();
-        props.onDrop();
-      }}
     >
       {props.drop ? <span className="absolute inset-x-0 top-0 h-px bg-foreground" /> : null}
       <div className="flex items-start gap-2.5 px-3 py-2.5">
         {props.draggable ? (
           <span
-            draggable
             aria-label="拖动排序"
-            onDragStart={function (e) {
-              e.dataTransfer.effectAllowed = "move";
-              e.dataTransfer.setData("text/plain", t.id);
-              props.onDragStart();
+            onPointerDown={props.onGripDown}
+            onClick={function (e) {
+              e.stopPropagation();
             }}
-            onDragEnd={props.onDragEnd}
-            className="mt-0.5 cursor-grab text-muted-foreground active:cursor-grabbing"
+            className="kedu-grip mt-0.5 cursor-grab text-muted-foreground active:cursor-grabbing"
           >
             <Icon.GripVertical size={14} strokeWidth={2} />
           </span>
@@ -321,6 +310,55 @@ export function TaskList(props: { onClearFilters?: () => void; lens?: ViewId; qu
     void actions.reorder(ids);
   }
 
+  function gripDown(taskId: string, groupIds: string[], event: React.PointerEvent<HTMLSpanElement>) {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const pointerId = event.pointerId;
+    const startY = event.clientY;
+    let active = false;
+    const handle = event.currentTarget;
+    try {
+      handle.setPointerCapture(pointerId);
+    } catch (e) {
+      /* the window listeners still follow the pointer */
+    }
+    function rowAt(x: number, y: number): string | null {
+      const el = document.elementFromPoint(x, y);
+      const row = el && el.closest ? el.closest("[data-kedu=row]") : null;
+      return row ? row.getAttribute("data-id") : null;
+    }
+    function onMove(ev: PointerEvent) {
+      if (ev.pointerId !== pointerId) return;
+      if (!active && Math.abs(ev.clientY - startY) < 5) return;
+      if (!active) {
+        active = true;
+        dragId.current = taskId;
+        setDragging(taskId);
+      }
+      const id = rowAt(ev.clientX, ev.clientY);
+      setOverId(function (prev) {
+        return prev === id ? prev : id;
+      });
+    }
+    function finish(ev: PointerEvent) {
+      if (ev.pointerId !== pointerId) return;
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", finish);
+      window.removeEventListener("pointercancel", finish);
+      if (active) {
+        const id = rowAt(ev.clientX, ev.clientY);
+        if (id) move(groupIds, id);
+      }
+      dragId.current = null;
+      setDragging(null);
+      setOverId(null);
+    }
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", finish);
+    window.addEventListener("pointercancel", finish);
+  }
+
   function renderRow(t: Task, groupIds: string[], allowDrag: boolean) {
     return (
       <Row
@@ -333,25 +371,9 @@ export function TaskList(props: { onClearFilters?: () => void; lens?: ViewId; qu
         drop={overId === t.id && dragging !== t.id}
         inGrace={graceIds.indexOf(t.id) >= 0}
         sweep={sweepLeft(t.completedAt, clock)}
-        onDragStart={function () {
-          dragId.current = t.id;
-          setDragging(t.id);
-        }}
-        onDragOver={function (e) {
-          if (!allowDrag || !dragId.current) return;
-          e.preventDefault();
-          if (overId !== t.id) setOverId(t.id);
-        }}
-        onDrop={function () {
-          move(groupIds, t.id);
-          dragId.current = null;
-          setDragging(null);
-          setOverId(null);
-        }}
-        onDragEnd={function () {
-          dragId.current = null;
-          setDragging(null);
-          setOverId(null);
+        onGripDown={function (e) {
+          if (!allowDrag) return;
+          gripDown(t.id, groupIds, e);
         }}
       />
     );

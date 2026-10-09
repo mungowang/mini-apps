@@ -13,6 +13,21 @@
   .kedu-tick-cheer { animation: none; }
 }
 
+/* --input sits darker than the page, so rings drawn with it disappear. */
+.kedu-edge {
+  border-color: color-mix(in oklab, var(--foreground) 42%, transparent);
+}
+
+.kedu-edge:hover,
+.kedu-edge:focus-within {
+  border-color: var(--foreground);
+}
+
+.kedu-grip {
+  touch-action: none;
+  user-select: none;
+}
+
 /* Side and rhythm share one measure. The center column is the page. */
 .kedu-stage {
   --kedu-single: 720px;
