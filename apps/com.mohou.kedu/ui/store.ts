@@ -34,6 +34,8 @@ export type Store = {
   setTagFilter: (t: string | null) => void;
   prioFilter: Priority[];
   setPrioFilter: (p: Priority[]) => void;
+  dayFilter: string | null;
+  setDayFilter: (day: string | null) => void;
   hoverTag: string | null;
   setHoverTag: (t: string | null) => void;
   hoverPrio: Priority | null;

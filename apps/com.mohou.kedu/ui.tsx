@@ -90,6 +90,7 @@ export default function Ui() {
   const [searchOpen, setSearchOpen] = React.useState(false);
   const [tagFilter, setTagFilter] = React.useState<string | null>(null);
   const [prioFilter, setPrioFilter] = React.useState<Priority[]>([]);
+  const [dayFilter, setDayFilter] = React.useState<string | null>(null);
   const [hoverTag, setHoverTag] = React.useState<string | null>(null);
   const [hoverPrio, setHoverPrio] = React.useState<Priority | null>(null);
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
@@ -519,6 +520,8 @@ export default function Ui() {
         setTagFilter,
         prioFilter,
         setPrioFilter,
+        dayFilter,
+        setDayFilter,
         hoverTag,
         setHoverTag,
         hoverPrio,
@@ -555,6 +558,7 @@ export default function Ui() {
       searchOpen,
       tagFilter,
       prioFilter,
+      dayFilter,
       hoverTag,
       hoverPrio,
       selectedId,
@@ -571,7 +575,7 @@ export default function Ui() {
   const load = stats.dueToday + stats.doneToday;
   const ratio = load === 0 ? 0 : stats.doneToday / load;
   const cleared = load > 0 && stats.dueToday === 0;
-  const hasFilters = Boolean(query.trim() || tagFilter || prioFilter.length);
+  const hasFilters = Boolean(query.trim() || tagFilter || prioFilter.length || dayFilter);
   let chosenActive = 0;
   let chosenDone = 0;
   for (let i = 0; i < chosen.length; i++) {
@@ -586,6 +590,7 @@ export default function Ui() {
     setQuery("");
     setTagFilter(null);
     setPrioFilter([]);
+    setDayFilter(null);
   }
 
   if (loading) {
@@ -642,7 +647,7 @@ export default function Ui() {
         data-settle={settled ? "1" : "0"}
         className="kedu-stage flex h-full min-h-0 overflow-hidden bg-background text-foreground"
       >
-        <div className="kedu-main flex min-h-0 min-w-0 flex-col">
+        <div className="kedu-main relative flex min-h-0 min-w-0 flex-col">
         <header className="shrink-0">
           <div className="flex items-center gap-3 px-4 pt-4">
             <h1 className="min-w-0 truncate text-base font-medium">{dayHeading(today)}</h1>
@@ -825,6 +830,17 @@ export default function Ui() {
                   </button>
                 );
               })}
+              {dayFilter ? (
+                <button
+                  type="button"
+                  onClick={function () {
+                    setDayFilter(null);
+                  }}
+                  className="rounded-full bg-muted px-2 py-0.5 text-xs"
+                >
+                  {dayHeading(dayFilter).split(" · ")[0] + " ×"}
+                </button>
+              ) : null}
               {tagFilter ? (
                 <button
                   type="button"
@@ -855,7 +871,7 @@ export default function Ui() {
           <div className="h-px bg-border" />
         </header>
 
-        <div ref={scroller} className="min-h-0 flex-1 overflow-auto">
+        <div ref={scroller} className={"min-h-0 flex-1 overflow-auto" + (desk ? " pb-32" : "")}>
           <TaskList lens={desk ? pageLens : undefined} onClearFilters={clearFilters} />
         </div>
 

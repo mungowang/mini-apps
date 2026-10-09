@@ -1,4 +1,5 @@
 import * as React from "react";
+import { motion } from "motion/react";
 import { toast } from "@mohou/ui";
 
 import { diffDays, parseQuickAdd, scheduleOf } from "../shared/model";
@@ -73,6 +74,19 @@ export function Capture(props: { inputRef: React.RefObject<HTMLInputElement | nu
   const [suppress, setSuppress] = React.useState<string | null>(null);
   const [index, setIndex] = React.useState(0);
   const [pending, setPending] = React.useState(false);
+  const [reduceMotion, setReduceMotion] = React.useState(false);
+
+  React.useEffect(function () {
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    function apply() {
+      setReduceMotion(mq.matches);
+    }
+    apply();
+    mq.addEventListener("change", apply);
+    return function () {
+      mq.removeEventListener("change", apply);
+    };
+  }, []);
 
   const assist = assistAt(raw, caret, suppress);
   const options = assist ? optionsFor(assist, tags) : [];
@@ -175,9 +189,9 @@ export function Capture(props: { inputRef: React.RefObject<HTMLInputElement | nu
             }
             return;
           }
-          if (showSuggest && (e.key === "ArrowDown" || e.key === "ArrowUp")) {
+          if (showSuggest && (e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "ArrowLeft" || e.key === "ArrowRight")) {
             e.preventDefault();
-            const dir = e.key === "ArrowDown" ? 1 : -1;
+            const dir = e.key === "ArrowDown" || e.key === "ArrowRight" ? 1 : -1;
             setIndex(function (prev) {
               return (prev + dir + options.length) % options.length;
             });
@@ -193,7 +207,7 @@ export function Capture(props: { inputRef: React.RefObject<HTMLInputElement | nu
         }}
         className={
           "w-full bg-transparent text-sm text-foreground outline-none transition-[height] duration-200 placeholder:text-muted-foreground " +
-          (focused ? "h-14" : "h-10")
+          (focused && props.dock ? "h-24" : focused ? "h-14" : "h-10")
         }
       />
 
@@ -251,17 +265,74 @@ export function Capture(props: { inputRef: React.RefObject<HTMLInputElement | nu
     </div>
   );
 
-  return (
-    <div
-      data-kedu={props.dock ? "quick" : undefined}
-      className={
-        props.dock
-          ? "shrink-0 border-t border-border bg-background px-4 pb-4 pt-3"
-          : "kedu-edge mx-4 mt-3 rounded-xl border px-3 py-2.5"
+  const boxRef = React.useRef<HTMLDivElement>(null);
+  const lifted = Boolean(props.dock && focused);
+  const [liftY, setLiftY] = React.useState(0);
+
+  React.useEffect(
+    function () {
+      if (!lifted) {
+        setLiftY(0);
+        return;
       }
-    >
-      {props.dock ? <p className="pb-2 text-xs text-muted-foreground">快记</p> : null}
-      {field}
-    </div>
+      function measure() {
+        const el = boxRef.current;
+        const parent = el ? (el.offsetParent as HTMLElement | null) : null;
+        if (!el || !parent) return;
+        const input = el.querySelector("input");
+        const inputH = input ? input.getBoundingClientRect().height : 96;
+        const parentH = parent.clientHeight;
+        const cardH = el.offsetHeight + Math.max(0, 96 - inputH);
+        const restingTop = parentH - cardH;
+        const minTop = 120;
+        let targetTop = Math.round(parentH * 0.34 - cardH / 2);
+        const maxTop = Math.max(minTop, parentH - cardH - 12);
+        if (targetTop < minTop) targetTop = minTop;
+        if (targetTop > maxTop) targetTop = maxTop;
+        setLiftY(Math.min(0, targetTop - restingTop));
+      }
+      measure();
+      const frame = window.requestAnimationFrame(measure);
+      const timer = window.setTimeout(measure, 240);
+      return function () {
+        window.cancelAnimationFrame(frame);
+        window.clearTimeout(timer);
+      };
+    },
+    [lifted, raw]
+  );
+
+  return (
+    <>
+      {lifted ? (
+        <button
+          type="button"
+          aria-label="收起快记"
+          className="kedu-quick-scrim"
+          onMouseDown={function (e) {
+            e.preventDefault();
+            const el = props.inputRef.current;
+            if (el) el.blur();
+          }}
+        />
+      ) : null}
+      <motion.div
+        ref={boxRef}
+        data-kedu={props.dock ? "quick" : undefined}
+        data-active={lifted ? "1" : "0"}
+        initial={false}
+        animate={props.dock ? { y: lifted ? liftY : 0 } : { y: 0 }}
+        transition={reduceMotion ? { duration: 0 } : { duration: 0.42, ease: [0.22, 1, 0.36, 1] }}
+        className={
+          props.dock
+            ? "absolute inset-x-0 bottom-0 z-30 bg-background px-4 pb-4 pt-3 " +
+              (lifted ? "border" : "border-t border-border")
+            : "kedu-edge mx-4 mt-3 rounded-xl border px-3 py-2.5"
+        }
+      >
+        {props.dock ? <p className="pb-2 text-xs text-muted-foreground">快记</p> : null}
+        {field}
+      </motion.div>
+    </>
   );
 }

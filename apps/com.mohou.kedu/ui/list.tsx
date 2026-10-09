@@ -2,7 +2,7 @@ import * as React from "react";
 import { Checkbox, Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle, Icon, IlluEmpty, IlluSearch, cn } from "@mohou/ui";
 
 import type { GroupId } from "../shared/model";
-import { GROUP_TITLE, completedOn, groupOf, inView, overdueTier, scheduleOf, shiftKey, sortTasks, weekendKey } from "../shared/model";
+import { GROUP_TITLE, completedOn, dayHeading, groupOf, inView, overdueTier, scheduleOf, shiftKey, sortTasks, weekendKey } from "../shared/model";
 import type { Priority, Task, ViewId } from "../shared/types";
 import { DueText, Mono, PriorityMark, SubtaskTicks, TaskCheck } from "./atoms";
 import { useStore } from "./store";
@@ -59,7 +59,8 @@ function Row(props: {
     <li
       data-kedu={props.quiet ? "preview-row" : "row"}
       data-id={t.id}
-      className={cn("relative list-none border-b border-border", faded ? "opacity-40" : "", props.dragging ? "opacity-50" : "")}
+      onClick={open}
+      className={cn("relative cursor-pointer list-none border-b border-border", faded ? "opacity-40" : "", props.dragging ? "opacity-50" : "")}
       style={{ backgroundColor: selected ? "var(--muted)" : TINT[tier] || undefined }}
     >
       {props.drop ? <span className="absolute inset-x-0 top-0 h-px bg-foreground" /> : null}
@@ -229,6 +230,7 @@ export function TaskList(props: { onClearFilters?: () => void; lens?: ViewId; qu
   const lens = props.lens ?? store.lens;
   const quiet = Boolean(props.quiet);
   const { tasks, sort, today, query, tagFilter, prioFilter, selectMode, graceIds, actions } = store;
+  const dayFilter = quiet ? null : store.dayFilter;
   const [clock, setClock] = React.useState(Date.now());
   const [doneOpen, setDoneOpen] = React.useState(false);
   const dragId = React.useRef<string | null>(null);
@@ -248,7 +250,13 @@ export function TaskList(props: { onClearFilters?: () => void; lens?: ViewId; qu
     [graceIds.length]
   );
 
-  const filtered = Boolean(query.trim() || tagFilter || prioFilter.length);
+  const filtered = Boolean(query.trim() || tagFilter || prioFilter.length || dayFilter);
+
+  function coversDay(t: Task, day: string): boolean {
+    if (completedOn(t, day)) return true;
+    if (t.starts && t.due) return t.starts <= day && day <= t.due;
+    return t.due === day;
+  }
   const canDrag = !quiet && sort === "manual" && !selectMode && !filtered;
 
   function match(t: Task): boolean {
@@ -376,6 +384,33 @@ export function TaskList(props: { onClearFilters?: () => void; lens?: ViewId; qu
           gripDown(t.id, groupIds, e);
         }}
       />
+    );
+  }
+
+  if (dayFilter) {
+    const rows = sortTasks(
+      tasks.filter(function (t) {
+        return coversDay(t, dayFilter) && match(t);
+      }),
+      sort
+    );
+    const ids = rows.map(function (t) {
+      return t.id;
+    });
+    return (
+      <div className="px-2 pb-10" data-kedu="day-list">
+        <section>
+          <div className="flex items-baseline gap-2 px-3 pb-1 pt-4">
+            <span className="text-xs text-muted-foreground">{dayHeading(dayFilter)}</span>
+            <Mono className="text-muted-foreground">{rows.length}</Mono>
+          </div>
+          {rows.length ? (
+            <ul>{rows.map(function (t) { return renderRow(t, ids, false); })}</ul>
+          ) : (
+            <p className="px-3 py-8 text-sm text-muted-foreground">这一天没有任务</p>
+          )}
+        </section>
+      </div>
     );
   }
 

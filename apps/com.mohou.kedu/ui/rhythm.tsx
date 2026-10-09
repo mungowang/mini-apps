@@ -5,7 +5,7 @@ import { Mono } from "./atoms";
 import { useStore } from "./store";
 
 export function Rhythm(props: { closable?: boolean }) {
-  const { stats, setRhythmOpen, setTagFilter, tags } = useStore();
+  const { stats, setRhythmOpen, setTagFilter, setPrioFilter, setDayFilter, prioFilter, dayFilter, tags } = useStore();
   const max = stats.days.reduce(function (m, d) {
     return Math.max(m, d.count);
   }, 1);
@@ -53,21 +53,34 @@ export function Rhythm(props: { closable?: boolean }) {
           <div className="flex items-end gap-1">
             {stats.days.map(function (d, i) {
               const h = Math.max(d.count === 0 ? 2 : 6, Math.round((d.count / max) * 64));
-              const today = i === stats.days.length - 1;
+              const isToday = i === stats.days.length - 1;
+              const selected = dayFilter === d.key;
               return (
-                <div key={d.key} className="flex min-w-0 flex-1 flex-col items-center gap-1">
+                <button
+                  key={d.key}
+                  type="button"
+                  data-kedu="day"
+                  data-day={d.key}
+                  aria-pressed={selected}
+                  aria-label={d.key + " 完成 " + String(d.count)}
+                  onClick={function () {
+                    setDayFilter(selected ? null : d.key);
+                    if (props.closable) setRhythmOpen(false);
+                  }}
+                  className="flex min-w-0 flex-1 flex-col items-center gap-1 rounded-sm hover:bg-muted"
+                >
                   <span className="flex h-16 items-end">
                     <span
                       style={{
                         width: 6,
                         height: h,
                         borderRadius: 2,
-                        backgroundColor: today ? "var(--foreground)" : "color-mix(in oklab, var(--foreground) 45%, transparent)",
+                        backgroundColor: selected || isToday ? "var(--foreground)" : "color-mix(in oklab, var(--foreground) 45%, transparent)",
                       }}
                     />
                   </span>
-                  <Mono className={today ? "text-foreground" : "text-muted-foreground"}>{Number(d.day)}</Mono>
-                </div>
+                  <Mono className={selected || isToday ? "text-foreground" : "text-muted-foreground"}>{Number(d.day)}</Mono>
+                </button>
               );
             })}
           </div>
@@ -76,8 +89,20 @@ export function Rhythm(props: { closable?: boolean }) {
         <div className="flex flex-col gap-2">
           <p className="text-xs text-muted-foreground">未完成的优先级</p>
           {stats.byPriority.map(function (row) {
+            const on = prioFilter.length === 1 && prioFilter[0] === row.priority;
             return (
-              <div key={row.priority} className="flex items-center gap-2">
+              <button
+                key={row.priority}
+                type="button"
+                data-kedu="prio"
+                data-prio={row.priority}
+                aria-pressed={on}
+                onClick={function () {
+                  setPrioFilter(on ? [] : [row.priority]);
+                  if (props.closable) setRhythmOpen(false);
+                }}
+                className={"flex w-full items-center gap-2 rounded-md px-1 py-1 text-left " + (on ? "bg-muted" : "hover:bg-muted")}
+              >
                 <span className="w-14 shrink-0 text-xs">{PRIORITY_LABEL[row.priority] + " " + PRIORITY_TITLE[row.priority]}</span>
                 <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
                   <span
@@ -86,7 +111,7 @@ export function Rhythm(props: { closable?: boolean }) {
                   />
                 </span>
                 <Mono className="w-6 text-right text-muted-foreground">{row.count}</Mono>
-              </div>
+              </button>
             );
           })}
         </div>

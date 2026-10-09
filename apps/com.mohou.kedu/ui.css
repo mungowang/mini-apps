@@ -28,6 +28,22 @@
   user-select: none;
 }
 
+.kedu-quick-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  border: 0;
+  padding: 0;
+  background: color-mix(in oklab, var(--background) 62%, transparent);
+}
+
+.kedu-quick[data-active="1"],
+[data-kedu="quick"][data-active="1"] {
+  border-color: color-mix(in oklab, var(--foreground) 42%, transparent);
+  border-radius: 12px;
+  margin-inline: 16px;
+}
+
 /* Side and rhythm share one measure. The center column is the page. */
 .kedu-stage {
   --kedu-single: 720px;
@@ -142,7 +158,8 @@
   .kedu-stage .kedu-rail,
   .kedu-stage .kedu-preview,
   .kedu-stage .kedu-main,
-  .kedu-scrim {
+  .kedu-scrim,
+  .kedu-quick-scrim {
     transition: none;
     animation: none;
   }
