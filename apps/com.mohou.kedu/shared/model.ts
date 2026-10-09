@@ -30,6 +30,14 @@ export function weekendKey(today: string): string {
   return shiftKey(today, delta);
 }
 
+/** Monday through Sunday, this week or next. */
+export function weekSpan(today: string, which: "this" | "next"): { starts: string; due: string } {
+  const cur = parseKey(today).getDay();
+  const mondayDelta = (cur === 0 ? -6 : 1 - cur) + (which === "next" ? 7 : 0);
+  const monday = shiftKey(today, mondayDelta);
+  return { starts: monday, due: shiftKey(monday, 6) };
+}
+
 export function diffDays(a: string, b: string): number {
   return Math.round((parseKey(a).getTime() - parseKey(b).getTime()) / 86400000);
 }
@@ -247,10 +255,17 @@ export function completedOn(task: Task, day: string): boolean {
   return dateKey(new Date(task.completedAt)) === day;
 }
 
+/** Due today, overdue, or a range that still covers today. */
+export function onToday(task: { starts: string | null; due: string | null }, today: string): boolean {
+  if (!task.due) return false;
+  if (diffDays(task.due, today) <= 0) return true;
+  return Boolean(task.starts) && task.starts !== task.due && task.starts <= today && today <= task.due;
+}
+
 export function inView(task: Task, view: ViewId, today: string): boolean {
   if (task.done) return false;
-  if (view === "today") return Boolean(task.due) && diffDays(task.due as string, today) <= 0;
-  if (view === "next") return Boolean(task.due) && diffDays(task.due as string, today) > 0;
+  if (view === "today") return onToday(task, today);
+  if (view === "next") return Boolean(task.due) && diffDays(task.due, today) > 0 && !onToday(task, today);
   // A date is the only thing that schedules a task. A tag is a label, so it stays in 收集
   // until someone puts the task on a day. Otherwise tagged-but-undated work disappears.
   return !task.due;
@@ -275,7 +290,7 @@ export function groupOf(task: Task, today: string): GroupId {
   if (!task.due) return "none";
   const d = diffDays(task.due, today);
   if (d < 0) return "overdue";
-  if (d === 0) return "today";
+  if (d === 0 || onToday(task, today)) return "today";
   if (d === 1) return "tomorrow";
   if (d <= 6) return "week";
   return "later";
@@ -347,7 +362,7 @@ export function computeStats(tasks: Task[], today: string): Stats {
     return Boolean(t.due) && diffDays(t.due as string, today) < 0;
   });
   const dueToday = tasks.filter(function (t) {
-    return !t.done && Boolean(t.due) && diffDays(t.due as string, today) <= 0;
+    return !t.done && onToday(t, today);
   });
 
   function doneOn(key: string): number {

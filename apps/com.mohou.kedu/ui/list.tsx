@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Checkbox, Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle, Icon, IlluEmpty, IlluSearch, cn } from "@mohou/ui";
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle, Icon, IlluEmpty, IlluSearch, cn } from "@mohou/ui";
 
 import type { GroupId } from "../shared/model";
 import { GROUP_TITLE, completedOn, dayHeading, groupOf, inView, overdueTier, scheduleOf, shiftKey, sortTasks, weekendKey } from "../shared/model";
@@ -14,10 +14,7 @@ const TINT = [
   "color-mix(in oklab, var(--destructive) 22%, transparent)",
 ];
 
-function sweepLeft(completedAt: number | null, now: number): number {
-  if (!completedAt) return 1;
-  return Math.max(0, Math.min(1, (completedAt + 5000 - now) / 5000));
-}
+export const GRACE_MS = 5000;
 
 function nextPriority(p: Priority): Priority {
   return ((p % 4) + 1) as Priority;
@@ -31,7 +28,6 @@ function Row(props: {
   dragging: boolean;
   drop: boolean;
   inGrace: boolean;
-  sweep: number;
   onGripDown: (e: React.PointerEvent<HTMLSpanElement>) => void;
 }) {
   const { openTask, actions, selectedId, selectMode, chosen, toggleSelect, hoverTag, hoverPrio, today } = useStore();
@@ -42,6 +38,7 @@ function Row(props: {
   for (let i = 0; i < t.subtasks.length; i++) if (t.subtasks[i].done) subDone += 1;
   const tier = t.done ? 0 : overdueTier(meta, t.priority);
   const faded = Boolean((hoverTag && t.tags.indexOf(hoverTag) < 0) || (hoverPrio !== null && t.priority !== hoverPrio));
+  const picked = selectMode && chosen.indexOf(t.id) >= 0;
   const selected = !selectMode && selectedId === t.id;
 
   function open() {
@@ -59,10 +56,14 @@ function Row(props: {
     <li
       data-kedu={props.quiet ? "preview-row" : "row"}
       data-id={t.id}
+      data-chosen={picked ? "1" : "0"}
       onClick={open}
       className={cn("relative cursor-pointer list-none border-b border-border", faded ? "opacity-40" : "", props.dragging ? "opacity-50" : "")}
-      style={{ backgroundColor: selected ? "var(--muted)" : TINT[tier] || undefined }}
+      style={{ backgroundColor: picked || selected ? "var(--muted)" : TINT[tier] || undefined }}
     >
+      {selectMode ? (
+        <span className="kedu-chosen-bar absolute inset-y-0 left-0 w-0.5 bg-foreground" data-on={picked ? "1" : "0"} />
+      ) : null}
       {props.drop ? <span className="absolute inset-x-0 top-0 h-px bg-foreground" /> : null}
       <div className="flex items-start gap-2.5 px-3 py-2.5">
         {props.draggable ? (
@@ -79,20 +80,21 @@ function Row(props: {
         ) : null}
 
         {selectMode ? (
-          <span
-            className="mt-0.5"
+          <button
+            type="button"
+            role="checkbox"
+            data-kedu="pick"
+            data-on={picked ? "1" : "0"}
+            aria-checked={picked}
+            aria-label={"选择 " + t.title}
             onClick={function (e) {
               e.stopPropagation();
+              toggleSelect(t.id);
             }}
+            className="kedu-pick mt-0.5"
           >
-            <Checkbox
-              checked={chosen.indexOf(t.id) >= 0}
-              onCheckedChange={function () {
-                toggleSelect(t.id);
-              }}
-              aria-label={"选择 " + t.title}
-            />
-          </span>
+            <Icon.Check size={12} strokeWidth={2.6} />
+          </button>
         ) : (
           <TaskCheck
             done={t.done}
@@ -211,7 +213,11 @@ function Row(props: {
       </div>
       {props.inGrace ? (
         <span className="absolute inset-x-0 bottom-0 h-px" style={{ backgroundColor: "color-mix(in oklab, var(--foreground) 20%, transparent)" }}>
-          <span className="block h-px bg-foreground" style={{ width: Math.round(props.sweep * 100) + "%" }} />
+          <span
+            key={t.completedAt || 0}
+            className="kedu-grace block h-px w-full bg-foreground"
+            style={{ animationDuration: GRACE_MS + "ms" }}
+          />
         </span>
       ) : null}
     </li>
@@ -231,24 +237,10 @@ export function TaskList(props: { onClearFilters?: () => void; lens?: ViewId; qu
   const quiet = Boolean(props.quiet);
   const { tasks, sort, today, query, tagFilter, prioFilter, selectMode, graceIds, actions } = store;
   const dayFilter = quiet ? null : store.dayFilter;
-  const [clock, setClock] = React.useState(Date.now());
   const [doneOpen, setDoneOpen] = React.useState(false);
   const dragId = React.useRef<string | null>(null);
   const [dragging, setDragging] = React.useState<string | null>(null);
   const [overId, setOverId] = React.useState<string | null>(null);
-
-  React.useEffect(
-    function () {
-      if (!graceIds.length) return;
-      const id = window.setInterval(function () {
-        setClock(Date.now());
-      }, 120);
-      return function () {
-        window.clearInterval(id);
-      };
-    },
-    [graceIds.length]
-  );
 
   const filtered = Boolean(query.trim() || tagFilter || prioFilter.length || dayFilter);
 
@@ -378,7 +370,6 @@ export function TaskList(props: { onClearFilters?: () => void; lens?: ViewId; qu
         dragging={dragging === t.id}
         drop={overId === t.id && dragging !== t.id}
         inGrace={graceIds.indexOf(t.id) >= 0}
-        sweep={sweepLeft(t.completedAt, clock)}
         onGripDown={function (e) {
           if (!allowDrag) return;
           gripDown(t.id, groupIds, e);

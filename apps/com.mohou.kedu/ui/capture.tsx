@@ -2,7 +2,7 @@ import * as React from "react";
 import { motion } from "motion/react";
 import { toast } from "@mohou/ui";
 
-import { diffDays, parseQuickAdd, scheduleOf } from "../shared/model";
+import { onToday, parseQuickAdd, scheduleOf } from "../shared/model";
 import { useStore } from "./store";
 
 type Kind = "due" | "tag" | "prio";
@@ -138,7 +138,7 @@ export function Capture(props: { inputRef: React.RefObject<HTMLInputElement | nu
         toast.add({ title: "有一段没读懂", description: read.warnings.join(" ") });
         return;
       }
-      if (read.due && diffDays(read.due, today) > 0 && lens === "today") {
+      if (read.due && !onToday(read, today) && lens === "today") {
         const when = scheduleOf(read, today);
         toast.add({ title: "已放到之后", description: when ? when.label : undefined });
       } else if (!read.due && lens !== "inbox") {
@@ -151,18 +151,57 @@ export function Capture(props: { inputRef: React.RefObject<HTMLInputElement | nu
 
   const showSuggest = Boolean(assist && options.length);
   const showChips = Boolean(!showSuggest && parsed && (schedule || parsed.priority !== 3 || parsed.tags.length || parsed.warnings.length));
+  const boxRef = React.useRef<HTMLDivElement>(null);
+  const lifted = Boolean(props.dock && focused);
+  const [liftY, setLiftY] = React.useState(0);
+
+  function measureLift(extra: number): number {
+    const el = boxRef.current;
+    const parent = el ? (el.offsetParent as HTMLElement | null) : null;
+    if (!el || !parent) return 0;
+    const parentH = parent.clientHeight;
+    const cardH = el.offsetHeight + extra;
+    const restingTop = parentH - cardH;
+    const minTop = 112;
+    let targetTop = Math.round(parentH * 0.4 - cardH / 2);
+    const maxTop = Math.max(minTop, parentH - cardH - 20);
+    if (targetTop < minTop) targetTop = minTop;
+    if (targetTop > maxTop) targetTop = maxTop;
+    return Math.min(0, targetTop - restingTop);
+  }
+
+  React.useEffect(
+    function () {
+      if (!lifted) {
+        setLiftY(0);
+        return;
+      }
+      function measure() {
+        setLiftY(measureLift(0));
+      }
+      measure();
+      const frame = window.requestAnimationFrame(measure);
+      const timer = window.setTimeout(measure, 280);
+      return function () {
+        window.cancelAnimationFrame(frame);
+        window.clearTimeout(timer);
+      };
+    },
+    [lifted, raw]
+  );
 
   const field = (
-    <div className={props.dock ? "kedu-edge rounded-xl border px-3 py-2.5" : "contents"}>
+    <div className={props.dock ? (focused ? "" : "kedu-edge rounded-xl border px-3 py-2.5") : "contents"}>
       <input
         ref={props.inputRef}
         data-kedu="capture"
         value={raw}
         autoComplete="off"
         spellCheck={false}
-        placeholder="添加一件事，回车加入"
+        placeholder={focused && props.dock ? "写下一件要做的事" : "添加一件事，回车加入"}
         aria-label="添加一件事"
         onFocus={function () {
+          if (props.dock) setLiftY(measureLift(96));
           setFocused(true);
         }}
         onBlur={function () {
@@ -206,8 +245,12 @@ export function Capture(props: { inputRef: React.RefObject<HTMLInputElement | nu
           void submit();
         }}
         className={
-          "w-full bg-transparent text-sm text-foreground outline-none transition-[height] duration-200 placeholder:text-muted-foreground " +
-          (focused && props.dock ? "h-24" : focused ? "h-14" : "h-10")
+          "w-full bg-transparent text-foreground outline-none transition-[font-size] duration-500 placeholder:text-muted-foreground " +
+          (focused && props.dock
+            ? "min-h-16 py-1 text-[1.75rem] font-medium leading-tight"
+            : focused
+              ? "h-14 text-sm"
+              : "h-10 text-sm")
         }
       />
 
@@ -260,46 +303,13 @@ export function Capture(props: { inputRef: React.RefObject<HTMLInputElement | nu
       ) : null}
 
       {focused && !raw.trim() ? (
-        <p className="pt-1 text-xs text-muted-foreground">例如：整理纪要 @周五 !2 #工作 · 也可以 @9/13-9/15 或 @14:00</p>
+        <p className={props.dock ? "pt-4 text-sm text-muted-foreground" : "pt-1 text-xs text-muted-foreground"}>
+          {props.dock
+            ? "回车加入清单 · 例如 整理纪要 @周五 !2 #工作 · 也可以 @9/13-9/15 或 @14:00"
+            : "例如：整理纪要 @周五 !2 #工作 · 也可以 @9/13-9/15 或 @14:00"}
+        </p>
       ) : null}
     </div>
-  );
-
-  const boxRef = React.useRef<HTMLDivElement>(null);
-  const lifted = Boolean(props.dock && focused);
-  const [liftY, setLiftY] = React.useState(0);
-
-  React.useEffect(
-    function () {
-      if (!lifted) {
-        setLiftY(0);
-        return;
-      }
-      function measure() {
-        const el = boxRef.current;
-        const parent = el ? (el.offsetParent as HTMLElement | null) : null;
-        if (!el || !parent) return;
-        const input = el.querySelector("input");
-        const inputH = input ? input.getBoundingClientRect().height : 96;
-        const parentH = parent.clientHeight;
-        const cardH = el.offsetHeight + Math.max(0, 96 - inputH);
-        const restingTop = parentH - cardH;
-        const minTop = 120;
-        let targetTop = Math.round(parentH * 0.34 - cardH / 2);
-        const maxTop = Math.max(minTop, parentH - cardH - 12);
-        if (targetTop < minTop) targetTop = minTop;
-        if (targetTop > maxTop) targetTop = maxTop;
-        setLiftY(Math.min(0, targetTop - restingTop));
-      }
-      measure();
-      const frame = window.requestAnimationFrame(measure);
-      const timer = window.setTimeout(measure, 240);
-      return function () {
-        window.cancelAnimationFrame(frame);
-        window.clearTimeout(timer);
-      };
-    },
-    [lifted, raw]
   );
 
   return (
@@ -322,15 +332,19 @@ export function Capture(props: { inputRef: React.RefObject<HTMLInputElement | nu
         data-active={lifted ? "1" : "0"}
         initial={false}
         animate={props.dock ? { y: lifted ? liftY : 0 } : { y: 0 }}
-        transition={reduceMotion ? { duration: 0 } : { duration: 0.42, ease: [0.22, 1, 0.36, 1] }}
+        transition={reduceMotion ? { duration: 0 } : { duration: 0.72, ease: [0.16, 1, 0.3, 1] }}
         className={
           props.dock
-            ? "absolute inset-x-0 bottom-0 z-30 bg-background px-4 pb-4 pt-3 " +
-              (lifted ? "border" : "border-t border-border")
+            ? "kedu-quick-card absolute inset-x-0 bottom-0 z-30 bg-background " +
+              (lifted ? "px-8 pb-7 pt-7" : "border-t border-border px-4 pb-4 pt-3")
             : "kedu-edge mx-4 mt-3 rounded-xl border px-3 py-2.5"
         }
       >
-        {props.dock ? <p className="pb-2 text-xs text-muted-foreground">快记</p> : null}
+        {props.dock ? (
+          <p className={lifted ? "pb-4 text-[11px] tracking-[0.42em] text-muted-foreground" : "pb-2 text-xs text-muted-foreground"}>
+            快记
+          </p>
+        ) : null}
         {field}
       </motion.div>
     </>

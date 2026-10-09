@@ -321,6 +321,15 @@ export default defineApp({
         next = tasks.filter(function (t) {
           return ids.indexOf(t.id) < 0;
         });
+      } else if (action === "schedule") {
+        const patch = args && args.patch && typeof args.patch === "object" ? args.patch : {};
+        next = tasks.map(function (t) {
+          if (ids.indexOf(t.id) < 0) return t;
+          const fields: { due?: string | null; starts?: string | null } = {};
+          if (Object.prototype.hasOwnProperty.call(patch, "due")) fields.due = patch.due;
+          if (Object.prototype.hasOwnProperty.call(patch, "starts")) fields.starts = patch.starts;
+          return applyPatch(t, fields);
+        });
       } else {
         const target = action === "active" ? false : true;
         next = tasks.map(function (t) {

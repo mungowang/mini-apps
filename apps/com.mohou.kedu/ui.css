@@ -9,8 +9,21 @@
   animation: kedu-tick-cheer 720ms ease both;
 }
 
+@keyframes kedu-grace {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
+}
+
+.kedu-grace {
+  transform-origin: left center;
+  animation-name: kedu-grace;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .kedu-tick-cheer { animation: none; }
+  .kedu-tick-cheer,
+  .kedu-grace { animation: none; }
 }
 
 /* --input sits darker than the page, so rings drawn with it disappear. */
@@ -21,6 +34,65 @@
 .kedu-edge:hover,
 .kedu-edge:focus-within {
   border-color: var(--foreground);
+}
+
+.kedu-pick {
+  display: grid;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  place-items: center;
+  border: 1px solid color-mix(in oklab, var(--foreground) 42%, transparent);
+  border-radius: 4px;
+  background-color: transparent;
+  color: var(--background);
+  transition:
+    background-color 200ms cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.kedu-pick:hover {
+  border-color: var(--foreground);
+}
+
+.kedu-pick[data-on="1"] {
+  border-color: var(--foreground);
+  background-color: var(--foreground);
+  animation: kedu-check 280ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.kedu-pick svg {
+  opacity: 0;
+  transform: scale(0.4);
+  transition:
+    opacity 160ms ease,
+    transform 240ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.kedu-pick[data-on="1"] svg {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.kedu-chosen-bar {
+  transform-origin: top center;
+  transform: scaleY(0);
+  transition: transform 260ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.kedu-chosen-bar[data-on="1"] {
+  transform: scaleY(1);
+}
+
+[data-kedu="row"],
+[data-kedu="preview-row"] {
+  transition: background-color 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes kedu-check {
+  0% { transform: scale(0.84); }
+  55% { transform: scale(1.08); }
+  100% { transform: scale(1); }
 }
 
 .kedu-grip {
@@ -34,14 +106,27 @@
   z-index: 20;
   border: 0;
   padding: 0;
-  background: color-mix(in oklab, var(--background) 62%, transparent);
+  background: color-mix(in oklab, var(--background) 42%, transparent);
+  backdrop-filter: blur(16px);
+  animation: kedu-scrim-in 520ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.kedu-quick[data-active="1"],
+.kedu-quick-card {
+  transition: padding 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
 [data-kedu="quick"][data-active="1"] {
-  border-color: color-mix(in oklab, var(--foreground) 42%, transparent);
-  border-radius: 12px;
-  margin-inline: 16px;
+  border: 1px solid color-mix(in oklab, var(--foreground) 22%, transparent);
+  border-radius: 28px;
+  margin-inline: 48px;
+  box-shadow: 0 36px 90px color-mix(in oklab, var(--foreground) 18%, transparent);
+}
+
+.kedu-select-dock {
+  border: 1px solid color-mix(in oklab, var(--foreground) 18%, transparent);
+  border-radius: 28px;
+  background: color-mix(in oklab, var(--foreground) 6%, var(--background));
+  box-shadow: 0 22px 50px color-mix(in oklab, var(--foreground) 10%, transparent);
 }
 
 /* Side and rhythm share one measure. The center column is the page. */
@@ -159,7 +244,17 @@
   .kedu-stage .kedu-preview,
   .kedu-stage .kedu-main,
   .kedu-scrim,
-  .kedu-quick-scrim {
+  .kedu-quick-scrim,
+  .kedu-quick-card,
+  [data-kedu="quick"],
+  .kedu-pick,
+  .kedu-pick[data-on="1"],
+  .kedu-pick svg,
+  .kedu-pick[data-on="1"] svg,
+  .kedu-chosen-bar,
+  .kedu-chosen-bar[data-on="1"],
+  [data-kedu="row"],
+  [data-kedu="preview-row"] {
     transition: none;
     animation: none;
   }

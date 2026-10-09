@@ -5,7 +5,7 @@ import { Mono } from "./atoms";
 import { useStore } from "./store";
 
 export function Rhythm(props: { closable?: boolean }) {
-  const { stats, setRhythmOpen, setTagFilter, setPrioFilter, setDayFilter, prioFilter, dayFilter, tags } = useStore();
+  const { stats, setRhythmOpen, setArchiveOpen, setTagFilter, setPrioFilter, setDayFilter, prioFilter, dayFilter, tags } = useStore();
   const max = stats.days.reduce(function (m, d) {
     return Math.max(m, d.count);
   }, 1);
@@ -18,6 +18,18 @@ export function Rhythm(props: { closable?: boolean }) {
           <h2 className="text-base font-medium text-foreground">节奏</h2>
           <p className="mt-0.5 text-sm text-muted-foreground">任务完成度统计</p>
         </div>
+        <button
+          type="button"
+          data-kedu="archive-open"
+          aria-label="总览"
+          onClick={function () {
+            setArchiveOpen(true);
+          }}
+          className="flex h-8 shrink-0 items-center gap-1.5 rounded-md px-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+        >
+          <Icon.History size={15} strokeWidth={2} />
+          总览
+        </button>
         {props.closable ? (
           <button
             type="button"

@@ -11,6 +11,7 @@ export type Actions = {
   undoRemove: () => Promise<void>;
   reorder: (ids: string[]) => Promise<void>;
   bulk: (ids: string[], action: "done" | "active" | "remove") => Promise<void>;
+  bulkSchedule: (ids: string[], due: string | null) => Promise<void>;
   clearDone: () => Promise<void>;
   addImage: (taskId: string, data: string, w: number, h: number) => Promise<void>;
   removeImage: (taskId: string, id: string) => Promise<void>;
@@ -50,6 +51,8 @@ export type Store = {
   graceIds: string[];
   rhythmOpen: boolean;
   setRhythmOpen: (v: boolean) => void;
+  archiveOpen: boolean;
+  setArchiveOpen: (v: boolean) => void;
   actions: Actions;
 };
 

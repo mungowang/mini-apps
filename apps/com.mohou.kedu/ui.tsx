@@ -1,19 +1,19 @@
 import * as React from "react";
-import { motion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import { Button, ConfirmDialog, Icon, Kbd, Toaster, toast, useApp, cn } from "@mohou/ui";
 
-import { computeStats, dayHeading, inView, todayKey } from "./shared/model";
+import { computeStats, dayHeading, inView, shiftKey, todayKey } from "./shared/model";
 import type { Pack, Priority, SortId, Task, ViewId } from "./shared/types";
 import { Mono, TickBar } from "./ui/atoms";
 import { Capture } from "./ui/capture";
 import { Commands } from "./ui/commands";
 import { FilterButton } from "./ui/filter";
-import { TaskList } from "./ui/list";
+import { Archive } from "./ui/archive";
+import { GRACE_MS, TaskList } from "./ui/list";
 import { ContextRail } from "./ui/rail";
 import { StoreCtx } from "./ui/store";
 import type { Actions, Store } from "./ui/store";
 
-const GRACE_MS = 5000;
 const WIDE_AT = 960;
 const DESK_AT = 1280;
 const SINGLE_MAX = 720;
@@ -97,8 +97,54 @@ export default function Ui() {
   const [selectMode, setSelectModeState] = React.useState(false);
   const [chosen, setChosen] = React.useState<string[]>([]);
   const [graceIds, setGraceIds] = React.useState<string[]>([]);
+  const graceTimers = React.useRef<Record<string, number>>({});
+
+  function clearGraceTimer(id: string) {
+    const handle = graceTimers.current[id];
+    if (!handle) return;
+    window.clearTimeout(handle);
+    delete graceTimers.current[id];
+  }
+
+  function armGrace(ids: string[]) {
+    for (let i = 0; i < ids.length; i++) {
+      const id = ids[i];
+      clearGraceTimer(id);
+      graceTimers.current[id] = window.setTimeout(function () {
+        delete graceTimers.current[id];
+        setGraceIds(function (prev) {
+          return prev.filter(function (x) {
+            return x !== id;
+          });
+        });
+      }, GRACE_MS);
+    }
+    setGraceIds(function (prev) {
+      const next = prev.slice();
+      for (let i = 0; i < ids.length; i++) if (next.indexOf(ids[i]) < 0) next.push(ids[i]);
+      return next;
+    });
+  }
+
+  function dropGrace(ids: string[]) {
+    for (let i = 0; i < ids.length; i++) clearGraceTimer(ids[i]);
+    setGraceIds(function (prev) {
+      return prev.filter(function (x) {
+        return ids.indexOf(x) < 0;
+      });
+    });
+  }
+
+  React.useEffect(function () {
+    const timers = graceTimers.current;
+    return function () {
+      const keys = Object.keys(timers);
+      for (let i = 0; i < keys.length; i++) window.clearTimeout(timers[keys[i]]);
+    };
+  }, []);
   const [undo, setUndo] = React.useState<Task | null>(null);
   const [rhythmOpen, setRhythmOpen] = React.useState(false);
+  const [archiveOpen, setArchiveOpenState] = React.useState(false);
   const [paletteOpen, setPaletteOpen] = React.useState(false);
   const [confirmClear, setConfirmClear] = React.useState(false);
   const [confirmReset, setConfirmReset] = React.useState(false);
@@ -328,23 +374,10 @@ export default function Ui() {
           const res = await run("toggle", { id });
           if (!res) return;
           if (wasDone) {
-            setGraceIds(function (prev) {
-              return prev.filter(function (x) {
-                return x !== id;
-              });
-            });
+            dropGrace([id]);
             return;
           }
-          setGraceIds(function (prev) {
-            return prev.indexOf(id) >= 0 ? prev : prev.concat([id]);
-          });
-          window.setTimeout(function () {
-            setGraceIds(function (prev) {
-              return prev.filter(function (x) {
-                return x !== id;
-              });
-            });
-          }, GRACE_MS);
+          armGrace([id]);
         },
         patch: async function (id: string, patch: Record<string, unknown>) {
           await run("update", { id, patch });
@@ -368,6 +401,11 @@ export default function Ui() {
         reorder: async function (ids: string[]) {
           await run("reorder", { ids });
         },
+        bulkSchedule: async function (ids: string[], due: string | null) {
+          if (!ids.length) return;
+          await run("bulk", { ids, action: "schedule", patch: { due: due, starts: null } });
+          setChosen([]);
+        },
         bulk: async function (ids: string[], action: "done" | "active" | "remove") {
           const res = await run("bulk", { ids, action });
           setChosen([]);
@@ -378,29 +416,10 @@ export default function Ui() {
             });
           }
           if (action === "active") {
-            setGraceIds(function (prev) {
-              return prev.filter(function (x) {
-                return ids.indexOf(x) < 0;
-              });
-            });
+            dropGrace(ids);
             return;
           }
-          if (action === "done") {
-            setGraceIds(function (prev) {
-              return prev.concat(
-                ids.filter(function (x) {
-                  return prev.indexOf(x) < 0;
-                })
-              );
-            });
-            window.setTimeout(function () {
-              setGraceIds(function (prev) {
-                return prev.filter(function (x) {
-                  return ids.indexOf(x) < 0;
-                });
-              });
-            }, GRACE_MS);
-          }
+          if (action === "done") armGrace(ids);
         },
         clearDone: async function () {
           const res = await run("clearDone", {});
@@ -467,6 +486,11 @@ export default function Ui() {
         if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
         if (e.key === "/") {
           e.preventDefault();
+          if (archiveOpen) {
+            const field = document.querySelector("[data-kedu=archive-search]") as HTMLInputElement | null;
+            if (field) field.focus();
+            return;
+          }
           setSearchOpen(true);
           window.requestAnimationFrame(function () {
             if (searchRef.current) searchRef.current.focus();
@@ -475,6 +499,14 @@ export default function Ui() {
           e.preventDefault();
           if (addRef.current) addRef.current.focus();
         } else if (e.key === "Escape") {
+          if (archiveOpen) {
+            if (selectedId) {
+              setSelectedId(null);
+              return;
+            }
+            setArchiveOpenState(false);
+            return;
+          }
           if (searchOpen || query) {
             setSearchOpen(false);
             setQuery("");
@@ -498,7 +530,7 @@ export default function Ui() {
         window.removeEventListener("keydown", onKey);
       };
     },
-    [searchOpen, query, rhythmOpen, selectedId, selectMode, setSelectMode, layout]
+    [searchOpen, query, rhythmOpen, selectedId, selectMode, setSelectMode, layout, archiveOpen]
   );
 
   const store: Store = React.useMemo(
@@ -544,6 +576,11 @@ export default function Ui() {
           setRhythmOpen(v);
           if (v) setSelectedId(null);
         },
+        archiveOpen,
+        setArchiveOpen: function (v: boolean) {
+          setArchiveOpenState(v);
+          if (!v) setSelectedId(null);
+        },
         actions,
       };
     },
@@ -568,6 +605,7 @@ export default function Ui() {
       toggleSelect,
       graceIds,
       rhythmOpen,
+      archiveOpen,
       actions,
     ]
   );
@@ -591,6 +629,13 @@ export default function Ui() {
     setTagFilter(null);
     setPrioFilter([]);
     setDayFilter(null);
+  }
+
+  function scheduleChosen(due: string | null, title: string) {
+    const n = chosen.length;
+    void actions.bulkSchedule(chosen, due).then(function () {
+      toast.add({ title: title, description: String(n) + " 件" });
+    });
   }
 
   if (loading) {
@@ -619,6 +664,8 @@ export default function Ui() {
   }
 
   const desk = layout === "desk";
+  const columnW = desk ? frameWidth - 800 : layout === "wide" ? frameWidth - 400 : Math.min(frameWidth, SINGLE_MAX);
+  const selectCols = columnW >= 720 ? 4 : 2;
   const pageLens: ViewId = desk && lens !== "inbox" ? "today" : lens;
   const overlay = layout === "narrow" && Boolean(selectedId || rhythmOpen);
   const showPreview = layout === "desk" || holdPreview;
@@ -645,7 +692,7 @@ export default function Ui() {
         data-layout={layout}
         data-center={centered ? "1" : "0"}
         data-settle={settled ? "1" : "0"}
-        className="kedu-stage flex h-full min-h-0 overflow-hidden bg-background text-foreground"
+        className="kedu-stage relative flex h-full min-h-0 overflow-hidden bg-background text-foreground"
       >
         <div className="kedu-main relative flex min-h-0 min-w-0 flex-col">
         <header className="shrink-0">
@@ -752,6 +799,22 @@ export default function Ui() {
             </div>
             <button
               type="button"
+              data-kedu="select"
+              aria-pressed={selectMode}
+              aria-label={selectMode ? "退出多选" : "多选"}
+              title={selectMode ? "退出多选" : "多选"}
+              onClick={function () {
+                setSelectMode(!selectMode);
+              }}
+              className={cn(
+                "grid size-8 place-items-center rounded-md hover:bg-muted hover:text-foreground",
+                selectMode ? "bg-muted text-foreground" : "text-muted-foreground"
+              )}
+            >
+              <Icon.ListChecks size={15} strokeWidth={2} />
+            </button>
+            <button
+              type="button"
               aria-label={searchOpen || query ? "收起搜索" : "搜索"}
               aria-pressed={searchOpen || Boolean(query)}
               onClick={function () {
@@ -785,30 +848,41 @@ export default function Ui() {
             </button>
           </div>
 
-          {searchOpen || query ? (
-            <div className="flex items-center gap-2 px-4 py-2">
-              <Icon.Search size={13} className="shrink-0 text-muted-foreground" />
-              <input
-                ref={searchRef}
-                data-kedu="search"
-                value={query}
-                aria-label="搜索"
-                placeholder="标题、备注或标签"
-                onChange={function (e) {
-                  setQuery(e.target.value);
-                }}
-                onKeyDown={function (e) {
-                  if (e.key === "Escape") {
-                    e.preventDefault();
-                    setSearchOpen(false);
-                    setQuery("");
-                    e.currentTarget.blur();
-                  }
-                }}
-                className="h-8 min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-              />
-            </div>
-          ) : null}
+          <AnimatePresence initial={false}>
+            {searchOpen || query ? (
+              <motion.div
+                key="kedu-search"
+                initial={reduceMotion ? false : { height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={reduceMotion ? { height: "auto", opacity: 1, transition: { duration: 0 } } : { height: 0, opacity: 0 }}
+                transition={reduceMotion ? { duration: 0 } : { duration: 0.34, ease: [0.16, 1, 0.3, 1] }}
+                className="overflow-hidden"
+              >
+                <div className="flex items-center gap-2 px-4 py-2">
+                  <Icon.Search size={13} className="shrink-0 text-muted-foreground" />
+                  <input
+                    ref={searchRef}
+                    data-kedu="search"
+                    value={query}
+                    aria-label="搜索"
+                    placeholder="标题、备注或标签"
+                    onChange={function (e) {
+                      setQuery(e.target.value);
+                    }}
+                    onKeyDown={function (e) {
+                      if (e.key === "Escape") {
+                        e.preventDefault();
+                        setSearchOpen(false);
+                        setQuery("");
+                        e.currentTarget.blur();
+                      }
+                    }}
+                    className="h-8 min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                  />
+                </div>
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
 
           {hasFilters ? (
             <div className="flex flex-wrap items-center gap-1.5 px-4 pt-3 pb-3">
@@ -871,29 +945,106 @@ export default function Ui() {
           <div className="h-px bg-border" />
         </header>
 
-        <div ref={scroller} className={"min-h-0 flex-1 overflow-auto" + (desk ? " pb-32" : "")}>
+        <div ref={scroller} className={"min-h-0 flex-1 overflow-auto" + (desk && !selectMode ? " pb-32" : "")}>
           <TaskList lens={desk ? pageLens : undefined} onClearFilters={clearFilters} />
         </div>
 
         {selectMode ? (
-          <div className="flex shrink-0 items-center gap-2 border-t border-border px-3 py-2">
-            <span className="min-w-0 flex-1 text-sm">已选 {chosen.length}</span>
-            {chosenActive ? (
-              <Button size="sm" variant="outline" onClick={function () { void actions.bulk(chosen, "done"); }}>
-                完成
-              </Button>
-            ) : null}
-            {chosenDone ? (
-              <Button size="sm" variant="outline" onClick={function () { void actions.bulk(chosen, "active"); }}>
-                恢复
-              </Button>
-            ) : null}
-            <Button size="sm" variant="destructive" disabled={!chosen.length} onClick={function () { setConfirmBulk(true); }}>
-              删除
-            </Button>
-            <Button size="sm" variant="ghost" onClick={function () { setSelectMode(false); }}>
-              取消
-            </Button>
+          <div data-kedu="select-bar" className="shrink-0 px-8 pb-6 pt-3">
+            <motion.div
+              className="kedu-select-dock px-6 pb-6 pt-6"
+              initial={reduceMotion ? false : { y: 18, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={reduceMotion ? { duration: 0 } : { duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+            >
+              <div className="flex items-end justify-between gap-4">
+                <div className="min-w-0">
+                  <p data-kedu="select-count" className="text-[1.75rem] font-medium leading-none">
+                    {chosen.length ? "已选 " + String(chosen.length) : "还没选"}
+                  </p>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    {chosen.length ? "一起完成、改期，或放回收集" : "点一行就选上"}
+                  </p>
+                </div>
+                <div className="flex shrink-0 items-center gap-4 pb-0.5">
+                  <button
+                    type="button"
+                    disabled={!chosen.length}
+                    onClick={function () { setConfirmBulk(true); }}
+                    className="text-sm text-destructive disabled:opacity-30"
+                  >
+                    删除
+                  </button>
+                  <button
+                    type="button"
+                    onClick={function () { setSelectMode(false); }}
+                    className="text-sm text-muted-foreground hover:text-foreground"
+                  >
+                    取消
+                  </button>
+                </div>
+              </div>
+              <div className={"mt-6 grid gap-3 " + (selectCols === 4 ? "grid-cols-4" : "grid-cols-2")}>
+                <button
+                  type="button"
+                  disabled={!chosenActive}
+                  onClick={function () { void actions.bulk(chosen, "done"); }}
+                  className="flex h-16 items-center justify-center gap-2 rounded-2xl bg-foreground px-3 text-base text-background disabled:opacity-30"
+                >
+                  <Icon.Check size={18} strokeWidth={2} />
+                  标为完成
+                </button>
+                {chosenDone ? (
+                  <button
+                    type="button"
+                    onClick={function () { void actions.bulk(chosen, "active"); }}
+                    className="flex h-16 items-center justify-center gap-2 rounded-2xl border kedu-edge px-3 text-base text-foreground"
+                  >
+                    <Icon.RotateCcw size={18} strokeWidth={2} />
+                    恢复
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={!chosen.length}
+                    onClick={function () { scheduleChosen(today, "已改到今天"); }}
+                    className="flex h-16 items-center justify-center gap-2 rounded-2xl border kedu-edge px-3 text-base text-foreground disabled:opacity-30"
+                  >
+                    <Icon.Sun size={18} strokeWidth={2} />
+                    改到今天
+                  </button>
+                )}
+                <button
+                  type="button"
+                  disabled={!chosen.length}
+                  onClick={function () { scheduleChosen(shiftKey(today, 1), "已改到明天"); }}
+                  className="flex h-16 items-center justify-center gap-2 rounded-2xl border kedu-edge px-3 text-base text-foreground disabled:opacity-30"
+                >
+                  <Icon.Sunrise size={18} strokeWidth={2} />
+                  改到明天
+                </button>
+                <button
+                  type="button"
+                  disabled={!chosen.length}
+                  onClick={function () { scheduleChosen(null, "已放回收集"); }}
+                  className="flex h-16 items-center justify-center gap-2 rounded-2xl border kedu-edge px-3 text-base text-foreground disabled:opacity-30"
+                >
+                  <Icon.Inbox size={18} strokeWidth={2} />
+                  放回收集
+                </button>
+              </div>
+              {chosenDone ? (
+                <button
+                  type="button"
+                  disabled={!chosen.length}
+                  onClick={function () { scheduleChosen(today, "已改到今天"); }}
+                  className="mt-3 flex h-16 w-full items-center justify-center gap-2 rounded-2xl border kedu-edge px-3 text-base text-foreground disabled:opacity-30"
+                >
+                  <Icon.Sun size={18} strokeWidth={2} />
+                  改到今天
+                </button>
+              ) : null}
+            </motion.div>
           </div>
         ) : null}
 
@@ -905,7 +1056,7 @@ export default function Ui() {
             </Button>
           </div>
         ) : null}
-        {desk ? <Capture inputRef={addRef} dock /> : null}
+        {desk && !selectMode ? <Capture inputRef={addRef} dock /> : null}
         </div>
 
         <section className="kedu-preview flex justify-end" data-kedu="preview" aria-hidden={layout === "desk" ? undefined : true}>
@@ -925,6 +1076,9 @@ export default function Ui() {
         <aside className="kedu-rail" data-kedu="rail" data-overlay={overlay ? "1" : "0"}>
           {showRail ? <ContextRail closable={overlay} /> : null}
         </aside>
+        <AnimatePresence>
+          {archiveOpen ? <Archive key="archive" detailSide={frameWidth >= WIDE_AT} /> : null}
+        </AnimatePresence>
       </div>
 
       <Commands

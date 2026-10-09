@@ -1,7 +1,7 @@
 import * as React from "react";
 import { Button, ConfirmDialog, DatePicker, Icon, TagInput, toast, useApp, cn } from "@mohou/ui";
 
-import { dateKey, fmtShort, parseKey, relativeTime, shiftKey } from "../shared/model";
+import { dateKey, fmtShort, parseKey, relativeTime, scheduleOf, shiftKey, weekSpan } from "../shared/model";
 import type { Priority, Subtask } from "../shared/types";
 import { PRIORITY_LABEL, PRIORITY_TITLE } from "../shared/types";
 import { Mono, TaskCheck } from "./atoms";
@@ -9,6 +9,26 @@ import { imageFilesFrom, shrinkImage } from "./image-utils";
 import { useStore } from "./store";
 
 const PRIOS: Priority[] = [1, 2, 3, 4];
+
+const DAY_PARTS: { label: string; start: string; end: string }[] = [
+  { label: "早晨", start: "07:00", end: "09:00" },
+  { label: "上午", start: "09:00", end: "12:00" },
+  { label: "下午", start: "13:00", end: "18:00" },
+  { label: "晚上", start: "18:00", end: "22:00" },
+];
+
+function matchedPart(start: string | null, end: string | null): string | null {
+  if (!start || !end) return null;
+  for (let i = 0; i < DAY_PARTS.length; i++) {
+    if (DAY_PARTS[i].start === start && DAY_PARTS[i].end === end) return DAY_PARTS[i].label;
+  }
+  return null;
+}
+
+function timeText(start: string | null, end: string | null): string {
+  if (start && end) return start + "–" + end;
+  return start || end || "";
+}
 
 function SubtaskLine(props: {
   sub: Subtask;
@@ -65,10 +85,12 @@ function SubtaskLine(props: {
   );
 }
 
-function Chip(props: { on: boolean; children: React.ReactNode; onClick: () => void }) {
+function Chip(props: { on: boolean; children: React.ReactNode; onClick: () => void; part?: string }) {
   return (
     <button
       type="button"
+      data-kedu={props.part ? "day-part" : undefined}
+      data-part={props.part}
       aria-pressed={props.on}
       onClick={props.onClick}
       className={cn(
@@ -92,7 +114,7 @@ export function TaskDetail() {
   const [draftSub, setDraftSub] = React.useState("");
   const [urls, setUrls] = React.useState<Record<string, string>>({});
   const [confirmDel, setConfirmDel] = React.useState(false);
-  const [rangeOn, setRangeOn] = React.useState(false);
+  const [timeOpen, setTimeOpen] = React.useState(false);
   const fileRef = React.useRef<HTMLInputElement | null>(null);
   const actionsRef = React.useRef(actions);
   actionsRef.current = actions;
@@ -107,7 +129,7 @@ export function TaskDetail() {
       setNotes(task ? task.notes : "");
       setDraftSub("");
       setConfirmDel(false);
-      setRangeOn(Boolean(task && task.starts && task.due && task.starts !== task.due));
+      setTimeOpen(false);
     },
     [task ? task.id : ""]
   );
@@ -184,10 +206,69 @@ export function TaskDetail() {
     patch({ title: next });
   }
 
-  function setDue(due: string | null) {
-    patch({ due, starts: null });
-    setRangeOn(false);
+  function setSpan(starts: string | null, due: string | null) {
+    if (starts && due && starts > due) {
+      const swap = starts;
+      starts = due;
+      due = swap;
+    }
+    if (starts && due && starts === due) starts = null;
+    patch({ starts, due });
   }
+
+  function setStart(d: Date | undefined) {
+    if (!d) {
+      patch({ starts: null });
+      return;
+    }
+    const key = dateKey(d);
+    const end = current.due;
+    if (!end || key === end) {
+      setSpan(null, key);
+      return;
+    }
+    setSpan(key, end);
+  }
+
+  function setEnd(d: Date | undefined) {
+    if (!d) {
+      setSpan(null, null);
+      return;
+    }
+    const key = dateKey(d);
+    const start = current.starts;
+    if (!start || start === key) {
+      setSpan(null, key);
+      return;
+    }
+    setSpan(start, key);
+  }
+
+  const thisWeek = weekSpan(today, "this");
+  const nextWeek = weekSpan(today, "next");
+  const presets: { label: string; starts: string | null; due: string | null }[] = [
+    { label: "今天", starts: null, due: today },
+    { label: "明天", starts: null, due: shiftKey(today, 1) },
+    { label: "这三天", starts: today, due: shiftKey(today, 2) },
+    { label: "本周", starts: thisWeek.starts, due: thisWeek.due },
+    { label: "下周", starts: nextWeek.starts, due: nextWeek.due },
+    { label: "不排期", starts: null, due: null },
+  ];
+
+  function presetOn(q: { starts: string | null; due: string | null }): boolean {
+    if (!q.due) return !current.due;
+    if (!q.starts || q.starts === q.due) return current.due === q.due && !hasRange;
+    return current.starts === q.starts && current.due === q.due;
+  }
+
+  const schedule = scheduleOf(current, today);
+  const whenLabel =
+    hasRange && current.starts && current.due
+      ? fmtShort(current.starts) + " → " + fmtShort(current.due)
+      : schedule
+        ? schedule.label
+        : "还没排进哪一天";
+  const startValue = current.starts || current.due;
 
   function addSub() {
     const text = draftSub.trim();
@@ -197,14 +278,8 @@ export function TaskDetail() {
     setDraftSub("");
   }
 
-  const quick = [
-    { label: "今天", due: today },
-    { label: "明天", due: shiftKey(today, 1) },
-    { label: "下周", due: shiftKey(today, 7) },
-  ];
-
   return (
-    <div data-kedu="detail" className="relative h-full overflow-auto px-5 pt-4 pb-8">
+    <div data-kedu="detail" className="relative h-full overflow-auto px-5 pt-4 pb-5">
       <button
         type="button"
         aria-label="关闭"
@@ -226,18 +301,18 @@ export function TaskDetail() {
             onKeyDown={function (e) {
               if (e.key === "Enter") e.currentTarget.blur();
             }}
-            className="mt-1 w-full bg-transparent text-base text-foreground outline-none"
+            className="mt-1 w-full bg-transparent text-xl font-medium text-foreground outline-none"
           />
           <p className="mt-1 text-[11px] text-muted-foreground">
             {"创建于 " + relativeTime(current.createdAt)}
             {current.completedAt ? " · 完成于 " + relativeTime(current.completedAt) : ""}
           </p>
 
-          <label className="mt-4 block text-xs text-muted-foreground" htmlFor="kedu-notes">备注</label>
+          <label className="mt-4 block text-[11px] tracking-wide text-muted-foreground" htmlFor="kedu-notes">备注</label>
           <textarea
             id="kedu-notes"
             value={notes}
-            rows={4}
+            rows={2}
             placeholder="补充一句就够"
             onChange={function (e) {
               setNotes(e.target.value);
@@ -245,115 +320,141 @@ export function TaskDetail() {
             onBlur={function () {
               if (notes !== current.notes) patch({ notes });
             }}
-            className="mt-1 w-full resize-none rounded-md border border-input bg-transparent px-2 py-1.5 text-sm outline-none focus:border-foreground"
+            className="kedu-edge mt-2 w-full resize-none border-l-2 bg-transparent py-0.5 pl-3 text-sm outline-none"
           />
 
-          <div className="mt-4">
-            <p className="text-xs text-muted-foreground">哪一天</p>
-            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-              {quick.map(function (q) {
+          <section className="mt-5 border-t border-border pt-3">
+            <p className="text-[11px] tracking-wide text-muted-foreground">安排</p>
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              {presets.map(function (q) {
                 return (
-                  <Chip key={q.label} on={current.due === q.due && !hasRange} onClick={function () { setDue(q.due); }}>
+                  <Chip key={q.label} on={presetOn(q)} onClick={function () { setSpan(q.starts, q.due); }}>
                     {q.label}
                   </Chip>
                 );
               })}
-              <Chip on={!current.due} onClick={function () { setDue(null); }}>
-                不排期
-              </Chip>
             </div>
-            <div className="mt-2">
-              <DatePicker
-                {...(current.due ? { value: parseKey(current.due) } : {})}
-                onChange={function (d) {
-                  if (!d) setDue(null);
-                  else patch({ due: dateKey(d) });
-                }}
-              />
-            </div>
-            {hasRange && current.starts ? (
-              <p className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
-                {"从 " + fmtShort(current.starts) + " 开始"}
-                <button type="button" className="hover:text-foreground" onClick={function () { patch({ starts: null }); setRangeOn(false); }}>
-                  取消跨天
-                </button>
-              </p>
-            ) : null}
-            {!hasRange && current.due ? (
-              <button
-                type="button"
-                className="mt-2 text-xs text-muted-foreground hover:text-foreground"
-                onClick={function () {
-                  setRangeOn(!rangeOn);
-                }}
-              >
-                {rangeOn ? "收起开始日" : "从另一天开始"}
-              </button>
-            ) : null}
-            {rangeOn && !hasRange && current.due ? (
-              <div className="mt-2">
+            <p className="mt-2 text-sm text-foreground">{whenLabel}</p>
+            <div className="mt-2 grid grid-cols-[1fr_auto_1fr] items-end gap-2">
+              <div>
+                <p className="mb-1 text-[11px] text-muted-foreground">开始</p>
                 <DatePicker
-                  {...(current.starts ? { value: parseKey(current.starts) } : {})}
+                  className="w-full"
+                  placeholder="选择"
+                  {...(startValue ? { value: parseKey(startValue) } : {})}
                   onChange={function (d) {
-                    if (!d) patch({ starts: null });
-                    else patch({ starts: dateKey(d) });
+                    setStart(d);
                   }}
                 />
               </div>
-            ) : null}
-          </div>
-
-          <div className="mt-4">
-            <p className="text-xs text-muted-foreground">时间</p>
-            <div className="mt-1.5 flex items-center gap-2">
-              <input
-                type="time"
-                aria-label="开始时间"
-                value={current.startTime || ""}
-                onChange={function (e) {
-                  patch({ startTime: e.target.value || null });
-                }}
-                className="h-8 rounded-md border border-input bg-transparent px-2 text-sm"
-              />
-              <span className="text-xs text-muted-foreground">到</span>
-              <input
-                type="time"
-                aria-label="结束时间"
-                value={current.endTime || ""}
-                onChange={function (e) {
-                  patch({ endTime: e.target.value || null });
-                }}
-                className="h-8 rounded-md border border-input bg-transparent px-2 text-sm"
-              />
-              {current.startTime || current.endTime ? (
-                <button
-                  type="button"
-                  className="text-xs text-muted-foreground hover:text-foreground"
-                  onClick={function () {
-                    patch({ startTime: null, endTime: null });
+              <span className="pb-2 text-sm text-muted-foreground">→</span>
+              <div>
+                <p className="mb-1 text-[11px] text-muted-foreground">结束</p>
+                <DatePicker
+                  className="w-full"
+                  placeholder="选择"
+                  {...(current.due ? { value: parseKey(current.due) } : {})}
+                  onChange={function (d) {
+                    setEnd(d);
                   }}
-                >
-                  清除
-                </button>
-              ) : null}
+                />
+              </div>
             </div>
-          </div>
-
-          <div className="mt-4">
-            <p className="text-xs text-muted-foreground">优先级</p>
-            <div className="mt-1.5 flex gap-1.5">
-              {PRIOS.map(function (p) {
+            <div className="mt-2.5 flex flex-wrap items-center gap-1.5" role="group" aria-label="时间">
+              {DAY_PARTS.map(function (part) {
+                const on = matchedPart(current.startTime, current.endTime) === part.label;
                 return (
-                  <Chip key={p} on={current.priority === p} onClick={function () { patch({ priority: p }); }}>
-                    {PRIORITY_LABEL[p] + " " + PRIORITY_TITLE[p]}
+                  <Chip
+                    key={part.label}
+                    part={part.label}
+                    on={on}
+                    onClick={function () {
+                      setTimeOpen(false);
+                      if (on) patch({ startTime: null, endTime: null });
+                      else patch({ startTime: part.start, endTime: part.end });
+                    }}
+                  >
+                    {part.label}
                   </Chip>
                 );
               })}
+              <Chip
+                part="自定义"
+                on={timeOpen || Boolean((current.startTime || current.endTime) && !matchedPart(current.startTime, current.endTime))}
+                onClick={function () {
+                  setTimeOpen(!timeOpen);
+                }}
+              >
+                自定义
+              </Chip>
             </div>
-          </div>
+            {timeOpen ? (
+              <div className="mt-2 flex items-center gap-2">
+                <input
+                  type="time"
+                  aria-label="开始时间"
+                  value={current.startTime || ""}
+                  onChange={function (e) {
+                    patch({ startTime: e.target.value || null });
+                  }}
+                  className="kedu-edge h-8 rounded-md border bg-transparent px-2 text-sm"
+                />
+                <span className="text-xs text-muted-foreground">到</span>
+                <input
+                  type="time"
+                  aria-label="结束时间"
+                  value={current.endTime || ""}
+                  onChange={function (e) {
+                    patch({ endTime: e.target.value || null });
+                  }}
+                  className="kedu-edge h-8 rounded-md border bg-transparent px-2 text-sm"
+                />
+                {current.startTime || current.endTime ? (
+                  <button
+                    type="button"
+                    className="text-xs text-muted-foreground hover:text-foreground"
+                    onClick={function () {
+                      patch({ startTime: null, endTime: null });
+                      setTimeOpen(false);
+                    }}
+                  >
+                    清除
+                  </button>
+                ) : null}
+              </div>
+            ) : current.startTime || current.endTime ? (
+              <Mono className="mt-1.5 block text-muted-foreground">{timeText(current.startTime, current.endTime)}</Mono>
+            ) : null}
+          </section>
 
-          <div className="mt-4">
-            <p className="mb-1.5 text-xs text-muted-foreground">标签</p>
+          <section className="mt-5 border-t border-border pt-3">
+            <p className="text-[11px] tracking-wide text-muted-foreground">优先级</p>
+            <div className="mt-2 grid grid-cols-4 gap-1 rounded-lg bg-muted p-1" role="group" aria-label="优先级">
+              {PRIOS.map(function (p) {
+                const on = current.priority === p;
+                return (
+                  <button
+                    key={p}
+                    type="button"
+                    aria-pressed={on}
+                    onClick={function () {
+                      patch({ priority: p });
+                    }}
+                    className={cn(
+                      "rounded-md px-1 py-1.5 text-center text-xs",
+                      on ? "bg-background text-foreground" : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    <span className="block">{PRIORITY_LABEL[p]}</span>
+                    <span className="block text-[10px]">{PRIORITY_TITLE[p]}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
+          <section className="mt-5 border-t border-border pt-3">
+            <p className="mb-2 text-[11px] tracking-wide text-muted-foreground">标签</p>
             <TagInput
               value={current.tags}
               placeholder="输入后回车"
@@ -361,10 +462,10 @@ export function TaskDetail() {
                 patch({ tags: next.slice(0, 8) });
               }}
             />
-          </div>
+          </section>
 
-          <div className="mt-4">
-            <p className="text-xs text-muted-foreground">
+          <section className="mt-5 border-t border-border pt-3">
+            <p className="text-[11px] tracking-wide text-muted-foreground">
               子任务
               {current.subtasks.length ? <Mono className="ml-2">{current.subtasks.filter(function (s) { return s.done; }).length + "/" + current.subtasks.length}</Mono> : null}
             </p>
@@ -412,13 +513,13 @@ export function TaskDetail() {
                   addSub();
                 }
               }}
-              className="mt-1 h-8 w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+              className="mt-2 h-8 w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
             />
-          </div>
+          </section>
 
-          <div className="mt-4">
+          <section className="mt-5 border-t border-border pt-3">
             <div className="flex items-center justify-between">
-              <p className="text-xs text-muted-foreground">图片</p>
+              <p className="text-[11px] tracking-wide text-muted-foreground">图片</p>
               <button
                 type="button"
                 className="text-xs text-muted-foreground hover:text-foreground"
@@ -465,11 +566,11 @@ export function TaskDetail() {
                 })}
               </div>
             ) : (
-              <p className="mt-1 text-xs text-muted-foreground">可以粘贴截图，最多 8 张。</p>
+              <p className="mt-2 text-xs text-muted-foreground">可以粘贴截图，最多 8 张。</p>
             )}
-          </div>
+          </section>
 
-          <div className="mt-6">
+          <div className="mt-6 border-t border-border pt-3">
             <Button variant="destructive" size="sm" onClick={function () { setConfirmDel(true); }}>
               删除这件事
             </Button>

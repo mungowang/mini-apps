@@ -24,14 +24,15 @@ function useReducedMotion(): boolean {
 }
 
 export function ContextRail(props: { closable: boolean }) {
-  const { selectedId } = useStore();
+  const { selectedId, archiveOpen } = useStore();
+  const showDetail = Boolean(selectedId) && !archiveOpen;
   const reduce = useReducedMotion();
   const transition = reduce ? { duration: 0 } : { duration: 0.36, ease: EASE };
 
   return (
     <div className="h-full w-[400px] shrink-0 border-l border-border bg-background">
       <AnimatePresence mode="wait" initial={false}>
-        {selectedId ? (
+        {showDetail ? (
           <motion.div
             key="detail"
             initial={{ opacity: 0, x: 20 }}

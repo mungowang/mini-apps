@@ -41,7 +41,7 @@ export function Commands(props: {
     { id: "search", label: "搜索", hint: "/", run: props.onFocusSearch },
     {
       id: "select",
-      label: "选择多项",
+      label: "多选几件",
       run: function () {
         setSelectMode(true);
         props.onOpenChange(false);
