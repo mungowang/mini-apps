@@ -666,7 +666,9 @@ export default function Ui() {
   const desk = layout === "desk";
   const columnW = desk ? frameWidth - 800 : layout === "wide" ? frameWidth - 400 : Math.min(frameWidth, SINGLE_MAX);
   const selectCols = columnW >= 720 ? 4 : 2;
-  const pageLens: ViewId = desk && lens !== "inbox" ? "today" : lens;
+  /** Desk keeps a side list beside the page. It holds 之后, or 今天 while 之后 is the page. */
+  const sideLens: ViewId = desk && lens === "next" ? "today" : "next";
+  const sideLabel = LENSES.find(function (item) { return item.id === sideLens; })?.label ?? "";
   const overlay = layout === "narrow" && Boolean(selectedId || rhythmOpen);
   const showPreview = layout === "desk" || holdPreview;
   const showRail = layout !== "narrow" || overlay || collapseRail;
@@ -772,7 +774,7 @@ export default function Ui() {
           <div className="mt-3 flex items-end gap-1 px-3">
             <div className="flex min-w-0 flex-1 items-end" role="tablist" aria-label="清单">
               {LENSES.map(function (item) {
-                const on = pageLens === item.id;
+                const on = lens === item.id;
                 return (
                   <button
                     key={item.id}
@@ -782,7 +784,6 @@ export default function Ui() {
                     data-lens={item.id}
                     aria-selected={on}
                     onClick={function () {
-                      if (desk && item.id === "next") return;
                       setLens(item.id);
                     }}
                     className={cn(
@@ -946,7 +947,7 @@ export default function Ui() {
         </header>
 
         <div ref={scroller} className={"min-h-0 flex-1 overflow-auto" + (desk && !selectMode ? " pb-32" : "")}>
-          <TaskList lens={desk ? pageLens : undefined} onClearFilters={clearFilters} />
+          <TaskList lens={desk ? lens : undefined} onClearFilters={clearFilters} />
         </div>
 
         {selectMode ? (
@@ -1063,11 +1064,11 @@ export default function Ui() {
           {showPreview ? (
             <div className="flex h-full w-[400px] shrink-0 flex-col border-r border-border">
               <div className="flex shrink-0 items-center gap-2 px-4 pb-3 pt-4">
-                <h2 className="text-sm font-medium">之后</h2>
-                {counts.next ? <Mono className="text-muted-foreground">{counts.next}</Mono> : null}
+                <h2 className="text-sm font-medium">{sideLabel}</h2>
+                {counts[sideLens] ? <Mono className="text-muted-foreground">{counts[sideLens]}</Mono> : null}
               </div>
               <div className="min-h-0 flex-1 overflow-auto">
-                <TaskList lens="next" quiet />
+                <TaskList lens={sideLens} quiet />
               </div>
             </div>
           ) : null}
