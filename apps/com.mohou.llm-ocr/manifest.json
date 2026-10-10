@@ -1,0 +1,13 @@
+{
+  "id": "com.mohou.llm-ocr",
+  "name": "AI 识图",
+  "description": "基于大模型的识图能力，粘贴截图，框选区域，按模板识别成可复制的文字",
+  "version": "0.1.1",
+  "entry": "ui.tsx",
+  "acronym": "识图",
+  "tags": [
+    "ocr",
+    "screenshot",
+    "daily"
+  ]
+}

@@ -1,5 +1,9 @@
 .DS_Store
 **/storage/
+**/logs/
+**/theme.json
 **/.autogen/
 **/node_modules/
 **/.ui-build/
+**/.market.lock
+artifacts/

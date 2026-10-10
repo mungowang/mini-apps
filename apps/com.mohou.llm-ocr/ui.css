@@ -1,0 +1,95 @@
+.glance {
+  container-type: inline-size;
+  height: 100%;
+  min-height: 0;
+}
+
+.glance-readcol {
+  background: var(--card);
+}
+
+[data-slot="resizable-handle"] > div {
+  width: 4px;
+  height: 36px;
+  border-radius: 99px;
+  background: var(--primary);
+}
+
+.glance-well {
+  background-color: var(--muted);
+  background-image:
+    linear-gradient(45deg, color-mix(in oklch, var(--foreground) 5%, transparent) 25%, transparent 25%),
+    linear-gradient(-45deg, color-mix(in oklch, var(--foreground) 5%, transparent) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, color-mix(in oklch, var(--foreground) 5%, transparent) 75%),
+    linear-gradient(-45deg, transparent 75%, color-mix(in oklch, var(--foreground) 5%, transparent) 75%);
+  background-size: 18px 18px;
+  background-position: 0 0, 0 9px, 9px -9px, -9px 0;
+}
+
+.glance-sel {
+  box-shadow: 0 0 0 9999px color-mix(in oklch, var(--background) 62%, transparent);
+  border: 1.5px solid var(--primary);
+}
+
+.glance-handle {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  padding: 0;
+  border: 1.5px solid var(--primary);
+  border-radius: 2px;
+  background: var(--card);
+  touch-action: none;
+}
+
+.glance-handle[data-edge="n"],
+.glance-handle[data-edge="s"] {
+  width: 18px;
+  height: 6px;
+  border-radius: 99px;
+}
+
+.glance-handle[data-edge="e"],
+.glance-handle[data-edge="w"] {
+  width: 6px;
+  height: 18px;
+  border-radius: 99px;
+}
+
+.glance-read {
+  border: 0;
+  box-shadow: none;
+  outline: none;
+  background: transparent;
+}
+
+.glance-read:focus,
+.glance-read:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+.glance-scan {
+  background-image: linear-gradient(
+    90deg,
+    transparent,
+    var(--primary),
+    transparent
+  );
+  background-size: 42% 100%;
+  background-repeat: no-repeat;
+  animation: glance-scan 1.35s ease-in-out infinite;
+}
+
+.glance-drop {
+  background: color-mix(in oklch, var(--background) 82%, transparent);
+}
+
+@keyframes glance-scan {
+  from { background-position: -40% 0; }
+  to { background-position: 140% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glance-scan { animation: none; }
+}

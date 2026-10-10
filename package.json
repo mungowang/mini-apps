@@ -1,0 +1,12 @@
+{
+  "name": "mini-apps",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": "^22.19.0 || >=24.0.0"
+  },
+  "scripts": {
+    "pack:market": "node scripts/pack-market.mjs",
+    "pack:market:local": "node scripts/pack-market.mjs --local"
+  }
+}
