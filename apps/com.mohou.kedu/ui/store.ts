@@ -26,7 +26,8 @@ export type Store = {
   lens: ViewId;
   setLens: (v: ViewId) => void;
   sort: SortId;
-  setSort: (s: SortId) => void;
+  /** Applies the sort and remembers it for the next open. */
+  chooseSort: (s: SortId) => void;
   query: string;
   setQuery: (q: string) => void;
   searchOpen: boolean;

@@ -19,6 +19,7 @@ const DESK_AT = 1280;
 const SINGLE_MAX = 720;
 const SLIDE_MS = 580;
 const LAYOUT_KEY = "kedu-layout";
+const SORT_KEY = "kedu-sort";
 
 type LayoutMode = "narrow" | "wide" | "desk";
 
@@ -30,6 +31,17 @@ function readPinned(): LayoutMode | null {
     return null;
   }
   return null;
+}
+
+/** The sort the owner last chose. A stale or foreign value falls back to manual. */
+function readSort(): SortId {
+  try {
+    const value = window.localStorage.getItem(SORT_KEY);
+    if (value === "manual" || value === "due" || value === "priority" || value === "created") return value;
+  } catch (e) {
+    /* storage can be closed; this visit still sorts */
+  }
+  return "manual";
 }
 
 function fitLayout(width: number): LayoutMode {
@@ -85,7 +97,7 @@ export default function Ui() {
   const [loading, setLoading] = React.useState(true);
   const [loadError, setLoadError] = React.useState<string | null>(null);
   const [lens, setLens] = React.useState<ViewId>("today");
-  const [sort, setSort] = React.useState<SortId>("manual");
+  const [sort, setSort] = React.useState<SortId>(readSort);
   const [query, setQuery] = React.useState("");
   const [searchOpen, setSearchOpen] = React.useState(false);
   const [tagFilter, setTagFilter] = React.useState<string | null>(null);
@@ -180,6 +192,15 @@ export default function Ui() {
       /* the choice still applies for this visit */
     }
   }
+
+  const chooseSort = React.useCallback(function (next: SortId) {
+    setSort(next);
+    try {
+      window.localStorage.setItem(SORT_KEY, next);
+    } catch (e) {
+      /* the choice still applies for this visit */
+    }
+  }, []);
 
   const apply = React.useCallback(function (pack: Pack) {
     setTasks(pack.tasks);
@@ -543,7 +564,7 @@ export default function Ui() {
         lens,
         setLens,
         sort,
-        setSort,
+        chooseSort,
         query,
         setQuery,
         searchOpen,
@@ -591,6 +612,7 @@ export default function Ui() {
       today,
       lens,
       sort,
+      chooseSort,
       query,
       searchOpen,
       tagFilter,

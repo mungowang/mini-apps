@@ -7,3 +7,4 @@
 **/.ui-build/
 **/.market.lock
 artifacts/
+pnpm-lock.yaml

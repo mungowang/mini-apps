@@ -18,7 +18,7 @@ export function FilterButton() {
   const {
     tags,
     sort,
-    setSort,
+    chooseSort,
     tagFilter,
     setTagFilter,
     prioFilter,
@@ -144,7 +144,7 @@ export function FilterButton() {
                     type="button"
                     aria-pressed={on}
                     onClick={function () {
-                      setSort(s.id);
+                      chooseSort(s.id);
                     }}
                     className={
                       "rounded-md px-2 py-1 text-xs " + (on ? "bg-foreground text-background" : "text-muted-foreground hover:bg-muted")
