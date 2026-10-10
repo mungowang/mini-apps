@@ -131,7 +131,7 @@
 
 /* Side and rhythm share one measure. The center column is the page. */
 .kedu-stage {
-  --kedu-single: 720px;
+  --kedu-single: 960px;
   --kedu-rail: 400px;
   justify-content: center;
 }
