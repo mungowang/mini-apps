@@ -28,12 +28,64 @@ function codeOf(cause: unknown): string {
   return typeof code === "string" ? code : ""
 }
 
-function explain(cause: unknown): string {
+const DETAIL_CAP = 400
+const SHELL_MESSAGES = new Set([
+  "model call retries exhausted",
+  "model call returned an empty completion",
+  "llm returned an empty completion",
+  "agent returned an empty completion",
+  "pi completion failed",
+  "pi agent failed",
+])
+
+function nextCause(cause: unknown): unknown {
+  if (!cause || typeof cause !== "object" || !("cause" in cause)) return undefined
+  return cause.cause
+}
+
+function messageOfCause(cause: unknown): string {
+  if (typeof cause === "string") return cause.trim()
+  if (cause instanceof Error) return cause.message.trim()
+  if (cause && typeof cause === "object" && "message" in cause && typeof cause.message === "string") {
+    return cause.message.trim()
+  }
+  return ""
+}
+
+function knownDetail(cause: unknown): string {
   const code = codeOf(cause)
   if (code === "image-unsupported") return "当前模型不接受图片。请在宿主设置里换成支持视觉的模型。"
   if (code === "model-policy") return "图片超出宿主限制。框选更小的区域后再试。"
   if (code === "empty-completion") return "模型没有返回文字。"
-  if (code === "retry-exhausted") return "模型没有稳定返回，再试一次。"
+  return ""
+}
+
+/** The host wraps the real failure. Walk `cause` until a message a person can use. */
+function failureDetail(cause: unknown): string {
+  const seen = new Set<unknown>()
+  let current = nextCause(cause)
+  let detail = ""
+  while (current !== undefined && current !== null && !seen.has(current)) {
+    if (typeof current === "object") seen.add(current)
+    const known = knownDetail(current)
+    if (known) detail = known
+    else {
+      const message = messageOfCause(current)
+      if (message && !SHELL_MESSAGES.has(message)) detail = message
+    }
+    current = nextCause(current)
+  }
+  if (detail.length <= DETAIL_CAP) return detail
+  return detail.slice(0, DETAIL_CAP).trimEnd() + "…"
+}
+
+function explain(cause: unknown): string {
+  const known = knownDetail(cause)
+  if (known) return known
+  if (codeOf(cause) === "retry-exhausted") {
+    const detail = failureDetail(cause)
+    return detail ? `模型没有稳定返回，再试一次。${detail}` : "模型没有稳定返回，再试一次。"
+  }
   if (cause instanceof Error && cause.message.trim()) return cause.message
   return "识别失败"
 }
