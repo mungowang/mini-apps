@@ -12,7 +12,8 @@
  *         MINI_APP_MIRROR_SYNC=0 pnpm publish:market
  */
 import { execFileSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -77,10 +78,24 @@ export function tarballPath(outDir, name, version) {
 
 function alreadyPublished(name, version) {
   try {
-    const seen = execFileSync('npm', ['view', `${name}@${version}`, 'version'], { encoding: 'utf8' }).trim()
+    const seen = execFileSync('npm', ['view', `${name}@${version}`, 'version'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    }).trim()
     return seen === version
   } catch {
     return false
+  }
+}
+
+/** The hand-packed tarball keeps `package/` for local install. The registry rejects that directory entry, so npm packs the extracted folder itself. */
+function publishTarball(file, access) {
+  const stage = mkdtempSync(path.join(tmpdir(), 'mohou-market-publish-'))
+  try {
+    execFileSync('tar', ['-xzf', file, '-C', stage], { stdio: 'pipe' })
+    execFileSync('npm', ['publish', path.join(stage, 'package'), '--access', access], { cwd: root, stdio: 'inherit' })
+  } finally {
+    rmSync(stage, { recursive: true, force: true })
   }
 }
 
@@ -107,7 +122,7 @@ async function publishMarket() {
     }
     const file = tarballPath(outDir, name, version)
     console.log(`publish ${name}@${version}`)
-    execFileSync('npm', ['publish', file, '--access', access], { cwd: root, stdio: 'inherit' })
+    publishTarball(file, access)
   }
   if (!mirrorSyncEnabled(process.argv, process.env)) return
   const failures = await syncMirrors(names)
