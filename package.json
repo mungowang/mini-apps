@@ -7,6 +7,7 @@
   },
   "scripts": {
     "pack:market": "node scripts/pack-market.mjs",
-    "pack:market:local": "node scripts/pack-market.mjs --local"
+    "pack:market:local": "node scripts/pack-market.mjs --local",
+    "publish:market": "node scripts/publish-market.mjs"
   }
 }

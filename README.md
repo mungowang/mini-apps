@@ -42,6 +42,12 @@ pnpm pack:market:local
 
 Override the market dir with `MINI_APP_MARKET_DIR`. Catalog version is `catalog.version` at the repo root.
 
+Upload the packed packages. The tree must be clean. Apps and themes go up first, then the catalog. Each package is then queued on npmmirror. `MINI_APP_MIRROR_SYNC=0`, `MINI_APP_MIRROR_SYNC=false`, or `--no-mirror-sync` skips that queue. The flag wins over the variable. A version already on npm is left in place and still queued.
+
+```bash
+MINI_APP_PUBLISH=1 pnpm publish:market
+```
+
 ### Catalog row
 
 Derived from `manifest.json`: `id`, `name`, `description`, `version`, optional `tags`. Package name is always `@mohou-apps/<id>`. Omitted `kind` means `app`. Set `appKind: "workbench"` (or `kind: "workbench"` in the manifest) for a workbench.
@@ -78,4 +84,4 @@ rsync -a --exclude storage --exclude .git --exclude node_modules --exclude .auto
 1. Put it at `apps/<appId>/`. The directory name is the manifest `id`. `version` is semver `x.y.z`.
 2. Do not commit `storage/`, `logs/`, `theme.json`, `.autogen/`, `node_modules/`, `.ui-build/`, or `.market.lock`.
 3. Document the app in both READMEs.
-4. Run `pnpm pack:market` and publish the new `@mohou-apps/<appId>` package, then bump `catalog.version` and publish `@mohou-apps/catalog`.
+4. Bump that app's `version`, and `catalog.version` when a row changes. `MINI_APP_PUBLISH=1 pnpm publish:market` packs, uploads, and queues the npmmirror sync.

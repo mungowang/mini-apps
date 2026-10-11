@@ -42,6 +42,12 @@ pnpm pack:market:local
 
 市场目录可用 `MINI_APP_MARKET_DIR` 覆盖。目录包版本在仓库根的 `catalog.version`。
 
+上传打好的包。工作区必须是干净的。先上传 app 和主题，再上传目录。每个包接着在 npmmirror 排队同步。`MINI_APP_MIRROR_SYNC=0`、`MINI_APP_MIRROR_SYNC=false` 或 `--no-mirror-sync` 跳过排队。命令行开关优先于环境变量。npm 上已有的版本不重复上传，但仍会排队。
+
+```bash
+MINI_APP_PUBLISH=1 pnpm publish:market
+```
+
 ### 目录行
 
 从 `manifest.json` 生成：`id`、`name`、`description`、`version`，以及可选的 `tags`。包名固定为 `@mohou-apps/<id>`。省略 `kind` 表示 `app`。工作台写 `appKind: "workbench"`（或 manifest 里 `kind: "workbench"`）。
@@ -78,4 +84,4 @@ rsync -a --exclude storage --exclude .git --exclude node_modules --exclude .auto
 1. 放到 `apps/<appId>/`。目录名就是 manifest 里的 `id`。`version` 用 semver `x.y.z`。
 2. 不要提交 `storage/`、`logs/`、`theme.json`、`.autogen/`、`node_modules/`、`.ui-build/`、`.market.lock`。
 3. 在中英文 README 里补上这一行。
-4. 跑 `pnpm pack:market`，发布新的 `@mohou-apps/<appId>`，再 bump `catalog.version` 并发布 `@mohou-apps/catalog`。
+4. 改这个 app 的 `version`。目录行变了就 bump `catalog.version`。`MINI_APP_PUBLISH=1 pnpm publish:market` 会打包、上传，并在 npmmirror 排队同步。
