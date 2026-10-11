@@ -24,7 +24,7 @@
 
 主题编辑树是 `themes/theme-<id>.css`。id 符合 `^[a-z0-9-]+$`。文件头 `/* name: */` 和可选的 `/* name-zh-CN: */` 写入目录行。版本在 `themes.version`。
 
-校验和是待安装树（`package/app/`）的 sha256，路径排序。排除 `storage/`、`logs/`、`theme.json`、`.git`、`node_modules`、`.autogen`、`.ui-build/`、`.market.lock`。
+校验和是待安装树（`package/app/`）的 sha256，路径排序。排除 `storage/`、`logs/`、`theme.json`、`.git`、`node_modules`、`.autogen`、`.ui-build/`、`.market.lock`，以及 npm 永不发布的 `.gitignore`、`.npmignore`、`.npmrc`、`.DS_Store`。
 
 ### 打 tarball
 

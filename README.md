@@ -24,7 +24,7 @@ The default runtime root is `~/.mini-app/runtime`. On Windows it is `%USERPROFIL
 
 Theme edit tree is `themes/theme-<id>.css`. Id is `^[a-z0-9-]+$`. Headers `/* name: */` and optional `/* name-zh-CN: */` feed the catalog row. Version is `themes.version`.
 
-The sum is sha256 over the tree that will be installed (`package/app/`), paths sorted. It excludes `storage/`, `logs/`, `theme.json`, `.git`, `node_modules`, `.autogen`, `.ui-build/`, and `.market.lock`.
+The sum is sha256 over the tree that will be installed (`package/app/`), paths sorted. It excludes `storage/`, `logs/`, `theme.json`, `.git`, `node_modules`, `.autogen`, `.ui-build/`, `.market.lock`, and the names npm never publishes: `.gitignore`, `.npmignore`, `.npmrc`, `.DS_Store`.
 
 ### Pack tarballs
 

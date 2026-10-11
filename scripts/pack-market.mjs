@@ -39,6 +39,12 @@ const themesDir = path.join(root, 'themes')
 const outDir = path.join(root, 'artifacts', 'market')
 const local = process.argv.includes('--local')
 
+/**
+ * Names the packed tree never carries. The first group is product state and build
+ * output. The second is the set npm itself never publishes: `npm publish` drops
+ * these names, and install recomputes `mohou.sum` over what it received, so a name
+ * npm would drop can never verify.
+ */
 const skipNames = new Set([
   'storage',
   'logs',
@@ -49,6 +55,9 @@ const skipNames = new Set([
   '.ui-build',
   '.market.lock',
   '.DS_Store',
+  '.gitignore',
+  '.npmignore',
+  '.npmrc',
 ])
 
 const catalogVersion = readVersionFile('catalog.version', '1.0.0')
@@ -189,6 +198,7 @@ function packApp(app) {
     license: 'MIT',
     mohou: { id: app.id, sum },
   }, null, 2)}\n`)
+  assertNpmShipsEveryFile(path.join(stage, 'package'), appDest)
   const tarballPath = path.join(outDir, tarballFileName(packageName, app.version))
   execFileSync('tar', ['-czf', tarballPath, '-C', stage, 'package'], { stdio: 'pipe' })
   rmSync(stage, { recursive: true, force: true })
@@ -294,6 +304,22 @@ function treeSum(rootDir) {
     hash.update('\0')
   }
   return hash.digest('hex')
+}
+
+/**
+ * Fail the pack when npm would drop a staged file. Install recomputes `mohou.sum`
+ * over what it received, so one dropped file turns the package into a sum mismatch.
+ */
+function assertNpmShipsEveryFile(packageDir, appDest) {
+  const listed = JSON.parse(execFileSync('npm', ['pack', '--dry-run', '--json', '--ignore-scripts'], {
+    cwd: packageDir,
+    encoding: 'utf8',
+  }))
+  const shipped = new Set(listed[0].files.map(file => file.path))
+  for (const file of walk(appDest, '')) {
+    const rel = `app/${file.rel}`
+    if (!shipped.has(rel)) throw new Error(`npm would not ship ${rel}. Add its name to skipNames`)
+  }
 }
 
 /** Same rule as host themesPackageSum: name + bytes, sorted. */
