@@ -250,6 +250,20 @@ export function parseQuickAdd(raw: string, today: string): Parsed {
   return { title: kept.join(" ").trim(), priority, tags, starts, due, startTime, endTime, warnings };
 }
 
+/** One quick-add line per task. Round-trips through parseQuickAdd. */
+export function formatTaskLine(task: Task): string {
+  const parts: string[] = [task.title];
+  if (task.tags.length) {
+    parts.push(task.tags.map(function (n) { return "#" + n; }).join(" "));
+  }
+  if (task.priority !== 3) parts.push("!" + task.priority);
+  if (task.starts && task.due && task.starts !== task.due) parts.push("@" + task.starts + "~" + task.due);
+  else if (task.due) parts.push("@" + task.due);
+  else if (task.starts) parts.push("@" + task.starts);
+  if (task.startTime) parts.push("@" + task.startTime + (task.endTime ? "-" + task.endTime : ""));
+  return parts.join(" ").trim();
+}
+
 export function completedOn(task: Task, day: string): boolean {
   if (!task.done || task.completedAt === null) return false;
   return dateKey(new Date(task.completedAt)) === day;
