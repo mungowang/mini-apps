@@ -23,7 +23,94 @@
 
 @media (prefers-reduced-motion: reduce) {
   .kedu-tick-cheer,
-  .kedu-grace { animation: none; }
+  .kedu-grace,
+  .kedu-expand,
+  .kedu-expand-surface,
+  .kedu-title-peek { animation: none; transition: none; }
+}
+
+/* An expanded editor's height travels between two pixel values, never auto. */
+.kedu-expand {
+  position: relative;
+  z-index: 1;
+  transition: height 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* The anchor holds the resting height; the focused editor floats over what follows. */
+.kedu-expand-anchor {
+  position: relative;
+}
+
+.kedu-expand-float {
+  position: relative;
+  z-index: 4;
+}
+
+/* The focused editor floats above every block that follows it. */
+.kedu-expand-float-on {
+  z-index: 30;
+}
+
+/* The floating card that rises behind a focused editor. */
+.kedu-expand-surface {
+  position: absolute;
+  inset: -6px -8px;
+  z-index: 0;
+  border-radius: 10px;
+  border: 1px solid color-mix(in oklab, var(--foreground) 8%, transparent);
+  background: color-mix(in oklab, var(--card) 86%, transparent);
+  -webkit-backdrop-filter: blur(12px) saturate(1.1);
+  backdrop-filter: blur(12px) saturate(1.1);
+  box-shadow:
+    0 2px 6px -2px color-mix(in oklab, var(--foreground) 10%, transparent),
+    0 14px 32px -12px color-mix(in oklab, var(--foreground) 24%, transparent);
+  opacity: 0;
+  translate: 0 2px;
+  transition: opacity 150ms ease-out, translate 200ms cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: none;
+}
+
+.kedu-expand-surface-on {
+  opacity: 1;
+  translate: 0 0;
+}
+
+.kedu-expand-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+}
+
+/* A clipped row title peeks its hidden text to the right, on the same line. */
+.kedu-title-peek {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  z-index: 3;
+  display: none;
+  white-space: nowrap;
+  pointer-events: none;
+  padding-right: 18px;
+  background: var(--kedu-row-bg, var(--background));
+  transform: translateY(-50%);
+  -webkit-mask-image: linear-gradient(90deg, black calc(100% - 18px), transparent);
+  mask-image: linear-gradient(90deg, black calc(100% - 18px), transparent);
+  animation: kedu-peek-in 130ms ease-out both;
+}
+
+.kedu-title-wrap:hover .kedu-title-peek {
+  display: block;
+}
+
+@keyframes kedu-peek-in {
+  from {
+    opacity: 0;
+    translate: -4px 0;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
 }
 
 /* --input sits darker than the page, so rings drawn with it disappear. */

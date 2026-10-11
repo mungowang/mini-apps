@@ -5,6 +5,7 @@ import { dateKey, fmtShort, parseKey, relativeTime, scheduleOf, shiftKey, weekSp
 import type { Priority, Subtask } from "../shared/types";
 import { PRIORITY_LABEL, PRIORITY_TITLE } from "../shared/types";
 import { Mono, TaskCheck } from "./atoms";
+import { ExpandEditor } from "./expand";
 import { imageFilesFrom, shrinkImage } from "./image-utils";
 import { useStore } from "./store";
 
@@ -291,17 +292,15 @@ export function TaskDetail() {
         <Icon.X size={16} />
       </button>
       <div className="pr-8">
-          <input
+          <ExpandEditor
             value={title}
-            aria-label="标题"
-            onChange={function (e) {
-              setTitle(e.target.value);
-            }}
-            onBlur={commitTitle}
-            onKeyDown={function (e) {
-              if (e.key === "Enter") e.currentTarget.blur();
-            }}
-            className="mt-1 w-full bg-transparent text-xl font-medium text-foreground outline-none"
+            onChange={setTitle}
+            onCommit={commitTitle}
+            label="标题"
+            collapsedRows={1}
+            enterCommits
+            wrapClassName="mt-1"
+            textClassName="text-xl font-medium"
           />
           <p className="mt-1 text-[11px] text-muted-foreground">
             {"创建于 " + relativeTime(current.createdAt)}
@@ -309,18 +308,20 @@ export function TaskDetail() {
           </p>
 
           <label className="mt-4 block text-[11px] tracking-wide text-muted-foreground" htmlFor="kedu-notes">备注</label>
-          <textarea
+          <ExpandEditor
             id="kedu-notes"
             value={notes}
-            rows={2}
-            placeholder="补充一句就够"
-            onChange={function (e) {
-              setNotes(e.target.value);
-            }}
-            onBlur={function () {
+            onChange={setNotes}
+            onCommit={function () {
               if (notes !== current.notes) patch({ notes });
             }}
-            className="kedu-edge mt-2 w-full resize-none border-l-2 bg-transparent py-0.5 pl-3 text-sm outline-none"
+            label="备注"
+            placeholder="补充一句就够"
+            collapsedRows={2}
+            wrapClassName="mt-2"
+            textClassName="kedu-edge py-0.5 pl-3 text-sm"
+            collapsedClassName="border-l-2"
+            editingClassName="border-l-2"
           />
 
           <section className="mt-5 border-t border-border pt-3">

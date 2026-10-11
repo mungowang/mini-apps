@@ -20,6 +20,45 @@ function nextPriority(p: Priority): Priority {
   return ((p % 4) + 1) as Priority;
 }
 
+/** The row title. A clipped title peeks its hidden text to the right on hover. */
+function RowTitle(props: { task: Task; onOpen: () => void }) {
+  const t = props.task;
+  const ref = React.useRef<HTMLButtonElement | null>(null);
+  const [clipped, setClipped] = React.useState(false);
+
+  React.useLayoutEffect(
+    function () {
+      const el = ref.current;
+      if (!el) return;
+      const check = function () {
+        setClipped(el.scrollWidth > el.clientWidth + 1);
+      };
+      check();
+      const ro = new ResizeObserver(check);
+      ro.observe(el);
+      return function () {
+        ro.disconnect();
+      };
+    },
+    [t.title, clipped]
+  );
+
+  const tone = t.done ? "text-muted-foreground line-through" : "text-foreground";
+
+  return (
+    <span className="relative min-w-0">
+      <button ref={ref} type="button" onClick={props.onOpen} className={cn("block w-full truncate text-left text-sm", tone)}>
+        {t.title}
+      </button>
+      {clipped ? (
+        <span aria-hidden className={cn("kedu-title-peek text-sm", tone)}>
+          {t.title}
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
 function Row(props: {
   task: Task;
   face: ViewId;
@@ -52,6 +91,10 @@ function Row(props: {
     { label: "周末", due: weekendKey(today) },
   ];
 
+  const rowBg = picked || selected ? "var(--muted)" : TINT[tier] || undefined;
+  const rowStyle = { backgroundColor: rowBg } as React.CSSProperties;
+  if (rowBg) (rowStyle as Record<string, string>)["--kedu-row-bg"] = rowBg;
+
   return (
     <li
       data-kedu={props.quiet ? "preview-row" : "row"}
@@ -59,7 +102,7 @@ function Row(props: {
       data-chosen={picked ? "1" : "0"}
       onClick={open}
       className={cn("relative cursor-pointer list-none border-b border-border", faded ? "opacity-40" : "", props.dragging ? "opacity-50" : "")}
-      style={{ backgroundColor: picked || selected ? "var(--muted)" : TINT[tier] || undefined }}
+      style={rowStyle}
     >
       {selectMode ? (
         <span className="kedu-chosen-bar absolute inset-y-0 left-0 w-0.5 bg-foreground" data-on={picked ? "1" : "0"} />
@@ -116,17 +159,8 @@ function Row(props: {
         />
 
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={open}
-              className={cn(
-                "min-w-0 truncate text-left text-sm",
-                t.done ? "text-muted-foreground line-through" : "text-foreground"
-              )}
-            >
-              {t.title}
-            </button>
+          <div className="kedu-title-wrap flex items-center gap-2">
+          <RowTitle task={t} onOpen={open} />
             {t.tags.length ? (
               <span className="max-w-24 shrink-0 truncate text-[11px] text-muted-foreground">
                 {t.tags.slice(0, 2).map(function (name) { return "#" + name; }).join(" ")}
