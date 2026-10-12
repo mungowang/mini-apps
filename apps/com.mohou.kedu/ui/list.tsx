@@ -499,6 +499,7 @@ export function TaskList(props: { onClearFilters?: () => void; lens?: ViewId; qu
   const { tasks, sort, today, query, tagFilter, prioFilter, selectMode, graceIds, actions } = store;
   const dayFilter = quiet ? null : store.dayFilter;
   const [doneOpen, setDoneOpen] = React.useState(false);
+  const reduceMotion = useReducedMotion();
   const dragId = React.useRef<string | null>(null);
   const [dragging, setDragging] = React.useState<string | null>(null);
   const [overId, setOverId] = React.useState<string | null>(null);
@@ -748,17 +749,51 @@ export function TaskList(props: { onClearFilters?: () => void; lens?: ViewId; qu
             }}
             className="flex w-full items-center gap-2 px-3 py-3 text-xs text-muted-foreground hover:text-foreground"
           >
-            <Icon.ChevronRight size={12} className={doneOpen ? "rotate-90" : ""} />
+            <motion.span
+              className="inline-flex"
+              animate={{ rotate: doneOpen ? 90 : 0 }}
+              transition={reduceMotion ? { duration: 0 } : { duration: 0.22, ease: SUB_EASE }}
+            >
+              <Icon.ChevronRight size={12} />
+            </motion.span>
             今天完成
             <Mono>{doneToday.length}</Mono>
           </button>
-          {doneOpen ? (
-            <ul>
-              {doneToday.map(function (t) {
-                return renderRow(t, [], false);
-              })}
-            </ul>
-          ) : null}
+          <AnimatePresence initial={false}>
+            {doneOpen ? (
+              <motion.div
+                key="done-today"
+                initial={reduceMotion ? false : { height: 0, opacity: 0 }}
+                animate={{
+                  height: "auto",
+                  opacity: 1,
+                  transition: reduceMotion
+                    ? { duration: 0 }
+                    : {
+                        height: { duration: 0.32, ease: SUB_EASE },
+                        opacity: { duration: 0.18, ease: "easeOut" },
+                      },
+                }}
+                exit={{
+                  height: 0,
+                  opacity: 0,
+                  transition: reduceMotion
+                    ? { duration: 0 }
+                    : {
+                        height: { duration: 0.34, ease: SUB_EASE },
+                        opacity: { duration: 0.14, ease: "easeIn" },
+                      },
+                }}
+                className="overflow-hidden"
+              >
+                <ul>
+                  {doneToday.map(function (t) {
+                    return renderRow(t, [], false);
+                  })}
+                </ul>
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
         </section>
       ) : null}
     </div>
