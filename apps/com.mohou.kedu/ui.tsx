@@ -934,8 +934,6 @@ export default function Ui() {
             </button>
           </div>
 
-          {desk ? null : <Capture inputRef={addRef} />}
-
           <div className="mt-3 flex items-end gap-1 px-3">
             <div className="flex min-w-0 flex-1 items-end" role="tablist" aria-label="清单">
               {LENSES.map(function (item) {
@@ -1114,7 +1112,7 @@ export default function Ui() {
           <div className="h-px bg-border" />
         </header>
 
-        <div ref={scroller} className={"min-h-0 flex-1 overflow-auto" + (desk && !selectMode ? " pb-32" : "")}>
+        <div ref={scroller} className={"min-h-0 flex-1 overflow-auto" + (!selectMode ? " pb-32" : "")}>
           {lens === "once" ? (
             <OnceList onClearFilters={clearFilters} />
           ) : (
@@ -1251,7 +1249,7 @@ export default function Ui() {
             </Button>
           </div>
         ) : null}
-        {desk && !selectMode ? <Capture inputRef={addRef} dock /> : null}
+        {!selectMode ? <Capture inputRef={addRef} dock /> : null}
         </div>
 
         <section className="kedu-preview flex justify-end" data-kedu="preview" aria-hidden={layout === "desk" ? undefined : true}>
