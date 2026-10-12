@@ -1,10 +1,15 @@
 import { createContext, useContext } from "react";
 
 import type { Stats } from "../shared/model";
-import type { Priority, SortId, Task, ViewId } from "../shared/types";
+import type { OnceRange, Priority, SortId, Task, ViewId } from "../shared/types";
+
+export type AddExtra = {
+  notes?: string;
+  subtasks?: { title: string; done: boolean; completedAt?: number | null }[];
+};
 
 export type Actions = {
-  add: (raw: string) => Promise<string | null>;
+  add: (raw: string, extra?: AddExtra) => Promise<string | null>;
   toggle: (id: string) => Promise<void>;
   patch: (id: string, patch: Record<string, unknown>) => Promise<void>;
   remove: (id: string) => Promise<void>;
@@ -28,6 +33,12 @@ export type Store = {
   sort: SortId;
   /** Applies the sort and remembers it for the next open. */
   chooseSort: (s: SortId) => void;
+  /** After adding an unscheduled task, jump to 收集, select it, open detail. */
+  followInbox: boolean;
+  setFollowInbox: (v: boolean) => void;
+  /** Time window for the 曾经 lens. */
+  onceRange: OnceRange;
+  setOnceRange: (r: OnceRange) => void;
   query: string;
   setQuery: (q: string) => void;
   searchOpen: boolean;

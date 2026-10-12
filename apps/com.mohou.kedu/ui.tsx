@@ -2,14 +2,15 @@ import * as React from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Button, ConfirmDialog, Icon, Kbd, Toaster, toast, useApp, cn } from "@mohou/ui";
 
-import { computeStats, dayHeading, inView, shiftKey, todayKey } from "./shared/model";
-import type { Pack, Priority, SortId, Task, ViewId } from "./shared/types";
+import { computeStats, dayHeading, homeView, inOnceRange, inView, onToday, shiftKey, todayKey } from "./shared/model";
+import type { OnceRange, Pack, Priority, SortId, Task, ViewId } from "./shared/types";
 import { Mono, TickBar } from "./ui/atoms";
 import { Capture } from "./ui/capture";
 import { Commands } from "./ui/commands";
 import { FilterButton } from "./ui/filter";
 import { Archive } from "./ui/archive";
 import { GRACE_MS, TaskList } from "./ui/list";
+import { OnceList, OnceRangeBar } from "./ui/once";
 import { ContextRail } from "./ui/rail";
 import { StoreCtx } from "./ui/store";
 import type { Actions, Store } from "./ui/store";
@@ -20,6 +21,9 @@ const SINGLE_MAX = 720;
 const SLIDE_MS = 580;
 const LAYOUT_KEY = "kedu-layout";
 const SORT_KEY = "kedu-sort";
+/** 1 = jump to 收集 + open detail after adding an unscheduled task. Default on. */
+const FOLLOW_INBOX_KEY = "kedu-follow-inbox";
+const ONCE_RANGE_KEY = "kedu-once-range";
 
 type LayoutMode = "narrow" | "wide" | "desk";
 
@@ -42,6 +46,37 @@ function readSort(): SortId {
     /* storage can be closed; this visit still sorts */
   }
   return "manual";
+}
+
+/** Missing key means on — the product default is to finish collecting in one motion. */
+function readFollowInbox(): boolean {
+  try {
+    const value = window.localStorage.getItem(FOLLOW_INBOX_KEY);
+    if (value === "0" || value === "false") return false;
+    if (value === "1" || value === "true") return true;
+  } catch (e) {
+    /* storage can be closed; this visit still follows */
+  }
+  return true;
+}
+
+/** Default 近 7 天. Stale JSON falls back cleanly. */
+function readOnceRange(): OnceRange {
+  try {
+    const raw = window.localStorage.getItem(ONCE_RANGE_KEY);
+    if (!raw) return { mode: "days", n: 7 };
+    const parsed = JSON.parse(raw) as { mode?: string; n?: number };
+    if (parsed && parsed.mode === "all") return { mode: "all" };
+    if (parsed && parsed.mode === "days" && typeof parsed.n === "number") {
+      let n = Math.round(parsed.n);
+      if (n < 1) n = 1;
+      if (n > 365) n = 365;
+      return { mode: "days", n: n };
+    }
+  } catch (e) {
+    /* storage can be closed or corrupt */
+  }
+  return { mode: "days", n: 7 };
 }
 
 function fitLayout(width: number): LayoutMode {
@@ -81,6 +116,7 @@ const LENSES: { id: ViewId; label: string; key: string }[] = [
   { id: "today", label: "今天", key: "1" },
   { id: "next", label: "之后", key: "2" },
   { id: "inbox", label: "收集", key: "3" },
+  { id: "once", label: "曾经", key: "4" },
 ];
 
 function isPack(value: unknown): value is Pack {
@@ -98,6 +134,8 @@ export default function Ui() {
   const [loadError, setLoadError] = React.useState<string | null>(null);
   const [lens, setLens] = React.useState<ViewId>("today");
   const [sort, setSort] = React.useState<SortId>(readSort);
+  const [followInbox, setFollowInboxState] = React.useState<boolean>(readFollowInbox);
+  const [onceRange, setOnceRangeState] = React.useState<OnceRange>(readOnceRange);
   const [query, setQuery] = React.useState("");
   const [searchOpen, setSearchOpen] = React.useState(false);
   const [tagFilter, setTagFilter] = React.useState<string | null>(null);
@@ -163,7 +201,7 @@ export default function Ui() {
   const [confirmBulk, setConfirmBulk] = React.useState(false);
   const [today, setToday] = React.useState(todayKey());
 
-  const addRef = React.useRef<HTMLInputElement | null>(null);
+  const addRef = React.useRef<HTMLTextAreaElement | null>(null);
   const searchRef = React.useRef<HTMLInputElement | null>(null);
   const scroller = React.useRef<HTMLDivElement | null>(null);
   const frameRef = React.useRef<HTMLDivElement | null>(null);
@@ -182,6 +220,14 @@ export default function Ui() {
   selectedRef.current = selectedId;
   rhythmRef.current = rhythmOpen;
   const layout = resolveLayout(pinned, frameWidth);
+  const layoutRef = React.useRef(layout);
+  const lensRef = React.useRef(lens);
+  const todayRef = React.useRef(today);
+  const onceRangeRef = React.useRef(onceRange);
+  layoutRef.current = layout;
+  lensRef.current = lens;
+  todayRef.current = today;
+  onceRangeRef.current = onceRange;
   const centered = layout === "narrow" && frameWidth > SINGLE_MAX;
 
   function chooseLayout(next: LayoutMode) {
@@ -197,6 +243,24 @@ export default function Ui() {
     setSort(next);
     try {
       window.localStorage.setItem(SORT_KEY, next);
+    } catch (e) {
+      /* the choice still applies for this visit */
+    }
+  }, []);
+
+  const setFollowInbox = React.useCallback(function (next: boolean) {
+    setFollowInboxState(next);
+    try {
+      window.localStorage.setItem(FOLLOW_INBOX_KEY, next ? "1" : "0");
+    } catch (e) {
+      /* the choice still applies for this visit */
+    }
+  }, []);
+
+  const setOnceRange = React.useCallback(function (next: OnceRange) {
+    setOnceRangeState(next);
+    try {
+      window.localStorage.setItem(ONCE_RANGE_KEY, JSON.stringify(next));
     } catch (e) {
       /* the choice still applies for this visit */
     }
@@ -376,13 +440,33 @@ export default function Ui() {
     });
   }, []);
 
+  /**
+   * A dated task left 收集. Keep the detail open, and move the main list only when the
+   * destination would otherwise be invisible.
+   *
+   * desk + 收集 + 之后: the side column is already 之后 — stay on 收集 so the queue continues.
+   * desk + 收集 + 今天: 今天 is not on screen — switch the main lens.
+   * narrow / wide: one list column — always switch to the destination tab.
+   */
+  const revealLeftInbox = React.useCallback(function (id: string, dest: "today" | "next") {
+    setSelectMode(false);
+    setSelectedId(id);
+    setRhythmOpen(false);
+    if (lensRef.current !== "inbox") return;
+    if (layoutRef.current === "desk" && dest === "next") return;
+    setLens(dest);
+  }, []);
+
   const actions: Actions = React.useMemo(
     function () {
       return {
-        add: async function (raw: string) {
+        add: async function (raw: string, extra) {
           const before: Record<string, boolean> = {};
           for (let i = 0; i < tasks.length; i++) before[tasks[i].id] = true;
-          const res = await run("add", { title: raw });
+          const payload: Record<string, unknown> = { title: raw };
+          if (extra && typeof extra.notes === "string" && extra.notes.trim()) payload.notes = extra.notes.trim();
+          if (extra && Array.isArray(extra.subtasks) && extra.subtasks.length) payload.subtasks = extra.subtasks;
+          const res = await run("add", payload);
           if (!isPack(res)) return null;
           const fresh = res.tasks.find(function (t) {
             return !before[t.id];
@@ -390,18 +474,37 @@ export default function Ui() {
           return fresh ? fresh.id : null;
         },
         toggle: async function (id: string) {
-          let wasDone = false;
-          for (let i = 0; i < tasks.length; i++) if (tasks[i].id === id) wasDone = tasks[i].done;
+          let before: Task | null = null;
+          for (let i = 0; i < tasks.length; i++) if (tasks[i].id === id) before = tasks[i];
+          const wasDone = Boolean(before && before.done);
           const res = await run("toggle", { id });
           if (!res) return;
           if (wasDone) {
             dropGrace([id]);
+            if (before && lensRef.current === "once") {
+              const dest = homeView(before, todayRef.current);
+              setSelectMode(false);
+              setLens(dest);
+              setSelectedId(id);
+              setRhythmOpen(false);
+            }
             return;
           }
           armGrace([id]);
         },
         patch: async function (id: string, patch: Record<string, unknown>) {
-          await run("update", { id, patch });
+          let before: Task | null = null;
+          for (let i = 0; i < tasks.length; i++) if (tasks[i].id === id) before = tasks[i];
+          const res = await run("update", { id, patch });
+          if (!res || !before) return;
+          // Date is what leaves 收集. Tags/priority alone stay put.
+          if (before.due || !("due" in patch) || !patch.due || typeof patch.due !== "string") return;
+          const next = {
+            starts: ("starts" in patch ? (patch.starts as string | null) : before.starts) ?? null,
+            due: patch.due,
+          };
+          const dest: "today" | "next" = onToday(next, todayRef.current) ? "today" : "next";
+          revealLeftInbox(id, dest);
         },
         remove: async function (id: string) {
           let snapshot: Task | null = null;
@@ -424,10 +527,24 @@ export default function Ui() {
         },
         bulkSchedule: async function (ids: string[], due: string | null) {
           if (!ids.length) return;
+          const fromInbox = lensRef.current === "inbox";
           await run("bulk", { ids, action: "schedule", patch: { due: due, starts: null } });
           setChosen([]);
+          if (!fromInbox || !due) return;
+          const dest: "today" | "next" = onToday({ starts: null, due: due }, todayRef.current) ? "today" : "next";
+          revealLeftInbox(ids[0], dest);
         },
         bulk: async function (ids: string[], action: "done" | "active" | "remove") {
+          const fromOnce = lensRef.current === "once";
+          let sample: Task | null = null;
+          if (fromOnce && action === "active" && ids.length) {
+            for (let i = 0; i < tasks.length; i++) {
+              if (tasks[i].id === ids[0]) {
+                sample = tasks[i];
+                break;
+              }
+            }
+          }
           const res = await run("bulk", { ids, action });
           setChosen([]);
           if (!res) return;
@@ -438,6 +555,13 @@ export default function Ui() {
           }
           if (action === "active") {
             dropGrace(ids);
+            if (fromOnce && sample) {
+              const dest = homeView(sample, todayRef.current);
+              setSelectMode(false);
+              setLens(dest);
+              setSelectedId(ids[0]);
+              setRhythmOpen(false);
+            }
             return;
           }
           if (action === "done") armGrace(ids);
@@ -468,7 +592,7 @@ export default function Ui() {
         },
       };
     },
-    [run, tasks, undo]
+    [run, tasks, undo, revealLeftInbox]
   );
 
   const stats = React.useMemo(
@@ -480,16 +604,17 @@ export default function Ui() {
 
   const counts = React.useMemo(
     function () {
-      const map: Record<string, number> = { today: 0, next: 0, inbox: 0 };
+      const map: Record<string, number> = { today: 0, next: 0, inbox: 0, once: 0 };
       for (let i = 0; i < tasks.length; i++) {
         const t = tasks[i];
         if (inView(t, "today", today)) map.today += 1;
         else if (inView(t, "next", today)) map.next += 1;
         else if (inView(t, "inbox", today)) map.inbox += 1;
+        if (inOnceRange(t, today, onceRange)) map.once += 1;
       }
       return map;
     },
-    [tasks, today]
+    [tasks, today, onceRange]
   );
 
   React.useEffect(
@@ -545,13 +670,22 @@ export default function Ui() {
         } else if (e.key === "1") setLens("today");
         else if (e.key === "2") setLens("next");
         else if (e.key === "3") setLens("inbox");
+        else if (e.key === "4") {
+          setLens("once");
+          setDayFilter(null);
+        } else if ((e.key === "d" || e.key === "D") && selectedId) {
+          e.preventDefault();
+          let hit: Task | null = null;
+          for (let i = 0; i < tasks.length; i++) if (tasks[i].id === selectedId) hit = tasks[i];
+          if (hit && !hit.done) void actions.patch(selectedId, { doing: !hit.doing });
+        }
       }
       window.addEventListener("keydown", onKey);
       return function () {
         window.removeEventListener("keydown", onKey);
       };
     },
-    [searchOpen, query, rhythmOpen, selectedId, selectMode, setSelectMode, layout, archiveOpen]
+    [searchOpen, query, rhythmOpen, selectedId, selectMode, setSelectMode, layout, archiveOpen, tasks, actions]
   );
 
   const store: Store = React.useMemo(
@@ -565,6 +699,10 @@ export default function Ui() {
         setLens,
         sort,
         chooseSort,
+        followInbox,
+        setFollowInbox,
+        onceRange,
+        setOnceRange,
         query,
         setQuery,
         searchOpen,
@@ -613,6 +751,10 @@ export default function Ui() {
       lens,
       sort,
       chooseSort,
+      followInbox,
+      setFollowInbox,
+      onceRange,
+      setOnceRange,
       query,
       searchOpen,
       tagFilter,
@@ -689,7 +831,8 @@ export default function Ui() {
   const columnW = desk ? frameWidth - 800 : layout === "wide" ? frameWidth - 400 : Math.min(frameWidth, SINGLE_MAX);
   const selectCols = columnW >= 720 ? 4 : 2;
   /** Desk keeps a side list beside the page. It holds 之后, or 今天 while 之后 is the page. */
-  const sideLens: ViewId = desk && lens === "next" ? "today" : "next";
+  // 曾经 is a look-back: desk side keeps 今天 so the live work surface stays visible.
+  const sideLens: ViewId = lens === "once" || (desk && lens === "next") ? "today" : "next";
   const sideLabel = LENSES.find(function (item) { return item.id === sideLens; })?.label ?? "";
   const overlay = layout === "narrow" && Boolean(selectedId || rhythmOpen);
   const showPreview = layout === "desk" || holdPreview;
@@ -807,6 +950,7 @@ export default function Ui() {
                     aria-selected={on}
                     onClick={function () {
                       setLens(item.id);
+                      if (item.id === "once") setDayFilter(null);
                     }}
                     className={cn(
                       "relative flex items-baseline gap-1.5 px-2 pb-2 pt-1 text-sm",
@@ -870,6 +1014,8 @@ export default function Ui() {
               <Kbd>⌘K</Kbd>
             </button>
           </div>
+
+          {lens === "once" ? <OnceRangeBar /> : null}
 
           <AnimatePresence initial={false}>
             {searchOpen || query ? (
@@ -969,7 +1115,11 @@ export default function Ui() {
         </header>
 
         <div ref={scroller} className={"min-h-0 flex-1 overflow-auto" + (desk && !selectMode ? " pb-32" : "")}>
-          <TaskList lens={desk ? lens : undefined} onClearFilters={clearFilters} />
+          {lens === "once" ? (
+            <OnceList onClearFilters={clearFilters} />
+          ) : (
+            <TaskList lens={desk ? lens : undefined} onClearFilters={clearFilters} />
+          )}
         </div>
 
         {selectMode ? (
@@ -986,7 +1136,13 @@ export default function Ui() {
                     {chosen.length ? "已选 " + String(chosen.length) : "还没选"}
                   </p>
                   <p className="mt-2 text-sm text-muted-foreground">
-                    {chosen.length ? "一起完成、改期，或放回收集" : "点一行就选上"}
+                    {lens === "once"
+                      ? chosen.length
+                        ? "恢复回清单，或删除"
+                        : "点一行就选上"
+                      : chosen.length
+                        ? "一起完成、改期，或放回收集"
+                        : "点一行就选上"}
                   </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-4 pb-0.5">
@@ -1007,66 +1163,82 @@ export default function Ui() {
                   </button>
                 </div>
               </div>
-              <div className={"mt-6 grid gap-3 " + (selectCols === 4 ? "grid-cols-4" : "grid-cols-2")}>
-                <button
-                  type="button"
-                  disabled={!chosenActive}
-                  onClick={function () { void actions.bulk(chosen, "done"); }}
-                  className="flex h-16 items-center justify-center gap-2 rounded-2xl bg-foreground px-3 text-base text-background disabled:opacity-30"
-                >
-                  <Icon.Check size={18} strokeWidth={2} />
-                  标为完成
-                </button>
-                {chosenDone ? (
+              {lens === "once" ? (
+                <div className="mt-6 grid grid-cols-1 gap-3">
                   <button
                     type="button"
+                    disabled={!chosen.length}
                     onClick={function () { void actions.bulk(chosen, "active"); }}
-                    className="flex h-16 items-center justify-center gap-2 rounded-2xl border kedu-edge px-3 text-base text-foreground"
+                    className="flex h-16 items-center justify-center gap-2 rounded-2xl bg-foreground px-3 text-base text-background disabled:opacity-30"
                   >
                     <Icon.RotateCcw size={18} strokeWidth={2} />
                     恢复
                   </button>
-                ) : (
-                  <button
-                    type="button"
-                    disabled={!chosen.length}
-                    onClick={function () { scheduleChosen(today, "已改到今天"); }}
-                    className="flex h-16 items-center justify-center gap-2 rounded-2xl border kedu-edge px-3 text-base text-foreground disabled:opacity-30"
-                  >
-                    <Icon.Sun size={18} strokeWidth={2} />
-                    改到今天
-                  </button>
-                )}
-                <button
-                  type="button"
-                  disabled={!chosen.length}
-                  onClick={function () { scheduleChosen(shiftKey(today, 1), "已改到明天"); }}
-                  className="flex h-16 items-center justify-center gap-2 rounded-2xl border kedu-edge px-3 text-base text-foreground disabled:opacity-30"
-                >
-                  <Icon.Sunrise size={18} strokeWidth={2} />
-                  改到明天
-                </button>
-                <button
-                  type="button"
-                  disabled={!chosen.length}
-                  onClick={function () { scheduleChosen(null, "已放回收集"); }}
-                  className="flex h-16 items-center justify-center gap-2 rounded-2xl border kedu-edge px-3 text-base text-foreground disabled:opacity-30"
-                >
-                  <Icon.Inbox size={18} strokeWidth={2} />
-                  放回收集
-                </button>
-              </div>
-              {chosenDone ? (
-                <button
-                  type="button"
-                  disabled={!chosen.length}
-                  onClick={function () { scheduleChosen(today, "已改到今天"); }}
-                  className="mt-3 flex h-16 w-full items-center justify-center gap-2 rounded-2xl border kedu-edge px-3 text-base text-foreground disabled:opacity-30"
-                >
-                  <Icon.Sun size={18} strokeWidth={2} />
-                  改到今天
-                </button>
-              ) : null}
+                </div>
+              ) : (
+                <>
+                  <div className={"mt-6 grid gap-3 " + (selectCols === 4 ? "grid-cols-4" : "grid-cols-2")}>
+                    <button
+                      type="button"
+                      disabled={!chosenActive}
+                      onClick={function () { void actions.bulk(chosen, "done"); }}
+                      className="flex h-16 items-center justify-center gap-2 rounded-2xl bg-foreground px-3 text-base text-background disabled:opacity-30"
+                    >
+                      <Icon.Check size={18} strokeWidth={2} />
+                      标为完成
+                    </button>
+                    {chosenDone ? (
+                      <button
+                        type="button"
+                        onClick={function () { void actions.bulk(chosen, "active"); }}
+                        className="flex h-16 items-center justify-center gap-2 rounded-2xl border kedu-edge px-3 text-base text-foreground"
+                      >
+                        <Icon.RotateCcw size={18} strokeWidth={2} />
+                        恢复
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={!chosen.length}
+                        onClick={function () { scheduleChosen(today, "已改到今天"); }}
+                        className="flex h-16 items-center justify-center gap-2 rounded-2xl border kedu-edge px-3 text-base text-foreground disabled:opacity-30"
+                      >
+                        <Icon.Sun size={18} strokeWidth={2} />
+                        改到今天
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      disabled={!chosen.length}
+                      onClick={function () { scheduleChosen(shiftKey(today, 1), "已改到明天"); }}
+                      className="flex h-16 items-center justify-center gap-2 rounded-2xl border kedu-edge px-3 text-base text-foreground disabled:opacity-30"
+                    >
+                      <Icon.Sunrise size={18} strokeWidth={2} />
+                      改到明天
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!chosen.length}
+                      onClick={function () { scheduleChosen(null, "已放回收集"); }}
+                      className="flex h-16 items-center justify-center gap-2 rounded-2xl border kedu-edge px-3 text-base text-foreground disabled:opacity-30"
+                    >
+                      <Icon.Inbox size={18} strokeWidth={2} />
+                      放回收集
+                    </button>
+                  </div>
+                  {chosenDone ? (
+                    <button
+                      type="button"
+                      disabled={!chosen.length}
+                      onClick={function () { scheduleChosen(today, "已改到今天"); }}
+                      className="mt-3 flex h-16 w-full items-center justify-center gap-2 rounded-2xl border kedu-edge px-3 text-base text-foreground disabled:opacity-30"
+                    >
+                      <Icon.Sun size={18} strokeWidth={2} />
+                      改到今天
+                    </button>
+                  ) : null}
+                </>
+              )}
             </motion.div>
           </div>
         ) : null}

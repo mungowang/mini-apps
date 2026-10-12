@@ -1,13 +1,219 @@
 import * as React from "react";
-import { Button, ConfirmDialog, DatePicker, Icon, TagInput, toast, useApp, cn } from "@mohou/ui";
+import {
+  Button,
+  ConfirmDialog,
+  DatePicker,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  Icon,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+  toast,
+  useApp,
+  cn,
+} from "@mohou/ui";
 
-import { dateKey, fmtShort, parseKey, relativeTime, scheduleOf, shiftKey, weekSpan } from "../shared/model";
-import type { Priority, Subtask } from "../shared/types";
+import {
+  COPY_FORMAT_HINT,
+  COPY_FORMAT_LABEL,
+  COPY_FORMATS,
+  dateKey,
+  formatTaskExport,
+  fmtShort,
+  parseKey,
+  relativeTime,
+  scheduleOf,
+  shiftKey,
+  weekSpan,
+} from "../shared/model";
+import type { CopyFormat } from "../shared/model";
+import type { Priority, Subtask, Task } from "../shared/types";
 import { PRIORITY_LABEL, PRIORITY_TITLE } from "../shared/types";
 import { Mono, TaskCheck } from "./atoms";
+import { copyText } from "./clipboard";
 import { ExpandEditor } from "./expand";
 import { imageFilesFrom, shrinkImage } from "./image-utils";
 import { useStore } from "./store";
+
+const COPY_FORMAT_KEY = "kedu-copy-format";
+
+function readCopyFormat(): CopyFormat {
+  try {
+    const value = window.localStorage.getItem(COPY_FORMAT_KEY);
+    if (value === "dsl" || value === "markdown" || value === "plain") return value;
+  } catch (e) {
+    /* storage can be closed */
+  }
+  return "dsl";
+}
+
+function writeCopyFormat(next: CopyFormat) {
+  try {
+    window.localStorage.setItem(COPY_FORMAT_KEY, next);
+  } catch (e) {
+    /* choice still applies this visit */
+  }
+}
+
+function firstLine(text: string): string {
+  const lines = text.split("\n");
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (line) return line;
+  }
+  return "";
+}
+
+/** Bottom-bar copy: one click uses the last format; ▾ switches format (and copies). Preview is opt-in. */
+function CopyTaskButton(props: { task: Task }) {
+  const [format, setFormat] = React.useState<CopyFormat>(readCopyFormat);
+  const [menuOpen, setMenuOpen] = React.useState(false);
+  const [previewOpen, setPreviewOpen] = React.useState(false);
+
+  const taskRef = React.useRef(props.task);
+  const formatRef = React.useRef(format);
+  taskRef.current = props.task;
+  formatRef.current = format;
+
+  const copyWith = React.useCallback(async function (next: CopyFormat) {
+    setFormat(next);
+    writeCopyFormat(next);
+    formatRef.current = next;
+    const text = formatTaskExport(taskRef.current, next);
+    const ok = await copyText(text);
+    if (ok) toast.add({ title: "已复制 · " + COPY_FORMAT_LABEL[next] });
+    else toast.add({ title: "没有复制成功", description: "浏览器挡住了剪贴板" });
+    setMenuOpen(false);
+    setPreviewOpen(false);
+  }, []);
+
+  React.useEffect(
+    function () {
+      function onKey(e: KeyboardEvent) {
+        const el = e.target as HTMLElement | null;
+        const typing = Boolean(el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable));
+        if (typing) return;
+        if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === "c") {
+          e.preventDefault();
+          void copyWith(formatRef.current);
+        }
+      }
+      window.addEventListener("keydown", onKey);
+      return function () {
+        window.removeEventListener("keydown", onKey);
+      };
+    },
+    [copyWith]
+  );
+
+  const previewText = formatTaskExport(props.task, format);
+
+  return (
+    <>
+      <div className="flex items-center" data-kedu="copy-task">
+        <button
+          type="button"
+          onClick={function () {
+            void copyWith(format);
+          }}
+          className="h-8 rounded-l-md px-2.5 text-sm text-foreground hover:bg-muted"
+        >
+          {"复制任务 · " + COPY_FORMAT_LABEL[format]}
+        </button>
+        <Popover open={menuOpen} onOpenChange={setMenuOpen}>
+          <PopoverTrigger
+            render={
+              <button
+                type="button"
+                aria-label="选择复制格式"
+                title="选择复制格式"
+                className="grid h-8 w-7 place-items-center rounded-r-md text-muted-foreground hover:bg-muted hover:text-foreground"
+              />
+            }
+          >
+            <Icon.ChevronDown size={14} strokeWidth={2} />
+          </PopoverTrigger>
+          <PopoverContent align="end" side="top" sideOffset={8} className="w-56 p-1.5">
+            <div role="menu" aria-label="复制格式">
+              {COPY_FORMATS.map(function (id) {
+                const on = format === id;
+                const peek = firstLine(formatTaskExport(props.task, id));
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    role="menuitemradio"
+                    aria-checked={on}
+                    onClick={function () {
+                      void copyWith(id);
+                    }}
+                    className={cn(
+                      "flex w-full flex-col gap-0.5 rounded-md px-2.5 py-2 text-left hover:bg-muted",
+                      on ? "bg-muted/70" : ""
+                    )}
+                  >
+                    <span className="flex items-center gap-2 text-sm text-foreground">
+                      <span className={cn("w-3 text-xs", on ? "opacity-100" : "opacity-0")}>✓</span>
+                      {COPY_FORMAT_LABEL[id]}
+                    </span>
+                    <span className="pl-5 text-[11px] text-muted-foreground">{COPY_FORMAT_HINT[id]}</span>
+                    {peek ? (
+                      <span className="truncate pl-5 font-mono text-[10px] text-muted-foreground/80">{peek}</span>
+                    ) : null}
+                  </button>
+                );
+              })}
+              <div className="my-1 h-px bg-border" />
+              <button
+                type="button"
+                role="menuitem"
+                onClick={function () {
+                  setMenuOpen(false);
+                  setPreviewOpen(true);
+                }}
+                className="w-full rounded-md px-2.5 py-2 pl-7 text-left text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+              >
+                先看一眼再复制…
+              </button>
+            </div>
+          </PopoverContent>
+        </Popover>
+      </div>
+
+      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+        <DialogContent width={440} className="gap-3">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              预览
+              <span className="rounded-md bg-muted px-1.5 py-0.5 text-xs font-normal text-muted-foreground">
+                {COPY_FORMAT_LABEL[format]}
+              </span>
+            </DialogTitle>
+          </DialogHeader>
+          <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-lg border border-border bg-muted/30 p-3 font-mono text-xs leading-relaxed text-foreground">
+            {previewText}
+          </pre>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" size="sm" onClick={function () { setPreviewOpen(false); }}>
+              关闭
+            </Button>
+            <Button
+              size="sm"
+              onClick={function () {
+                void copyWith(format);
+              }}
+            >
+              复制
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
 
 const PRIOS: Priority[] = [1, 2, 3, 4];
 
@@ -74,6 +280,11 @@ function SubtaskLine(props: {
           props.sub.done ? "text-muted-foreground line-through" : "text-foreground"
         )}
       />
+      {props.sub.done ? (
+        <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground/75">
+          {props.sub.completedAt ? relativeTime(props.sub.completedAt) : "完成"}
+        </span>
+      ) : null}
       <button
         type="button"
         aria-label="删除子任务"
@@ -104,9 +315,220 @@ function Chip(props: { on: boolean; children: React.ReactNode; onClick: () => vo
   );
 }
 
+const TAG_LIMIT = 8;
+const TAG_LEN = 16;
+const SUGGEST_LIMIT = 8;
+
+/** Available tags for this task: exclude already-chosen, rank by active frequency, then filter by draft. */
+function tagChoices(all: string[], chosen: string[], draft: string, freq: { name: string; count: number }[]): string[] {
+  const taken: Record<string, true> = {};
+  for (let i = 0; i < chosen.length; i++) taken[chosen[i]] = true;
+  const rank: Record<string, number> = {};
+  for (let i = 0; i < freq.length; i++) rank[freq[i].name] = freq[i].count;
+  const q = draft.trim().toLowerCase();
+  const pool: string[] = [];
+  for (let i = 0; i < all.length; i++) {
+    const name = all[i];
+    if (taken[name]) continue;
+    if (q && name.toLowerCase().indexOf(q) < 0) continue;
+    pool.push(name);
+  }
+  pool.sort(function (a, b) {
+    if (q) {
+      const ea = a.toLowerCase() === q ? 0 : 1;
+      const eb = b.toLowerCase() === q ? 0 : 1;
+      if (ea !== eb) return ea - eb;
+    }
+    const da = rank[a] === undefined ? 0 : rank[a];
+    const db = rank[b] === undefined ? 0 : rank[b];
+    if (db !== da) return db - da;
+    return a.localeCompare(b, "zh");
+  });
+  return pool.slice(0, SUGGEST_LIMIT);
+}
+
+function TagField(props: {
+  value: string[];
+  allTags: string[];
+  freq: { name: string; count: number }[];
+  onChange: (next: string[]) => void;
+}) {
+  const [draft, setDraft] = React.useState("");
+  const [index, setIndex] = React.useState(0);
+  const [focused, setFocused] = React.useState(false);
+  const inputRef = React.useRef<HTMLInputElement | null>(null);
+  const full = props.value.length >= TAG_LIMIT;
+  const typed = draft.trim();
+  const choices = full ? [] : tagChoices(props.allTags, props.value, typed, props.freq);
+  const lower = typed.toLowerCase();
+  function hasName(list: string[]): boolean {
+    for (let i = 0; i < list.length; i++) {
+      if (list[i].toLowerCase() === lower) return true;
+    }
+    return false;
+  }
+  const canCreate =
+    Boolean(typed) && typed.length <= TAG_LEN && !full && !hasName(props.value) && !hasName(props.allTags);
+  // Empty draft: chips only. Typing: filtered chips + optional "create".
+  type Row = { kind: "pick" | "create"; name: string };
+  const rows: Row[] = [];
+  if (!full) {
+    for (let i = 0; i < choices.length; i++) rows.push({ kind: "pick", name: choices[i] });
+    if (canCreate) rows.push({ kind: "create", name: typed });
+  }
+
+  React.useEffect(
+    function () {
+      setIndex(0);
+    },
+    [typed, props.value.join("\0"), props.allTags.join("\0")]
+  );
+
+  function add(name: string) {
+    const next = name.trim();
+    if (!next || next.length > TAG_LEN || props.value.indexOf(next) >= 0 || props.value.length >= TAG_LIMIT) return;
+    props.onChange(props.value.concat([next]));
+    setDraft("");
+    setIndex(0);
+    window.requestAnimationFrame(function () {
+      if (inputRef.current) inputRef.current.focus();
+    });
+  }
+
+  function remove(name: string) {
+    props.onChange(
+      props.value.filter(function (t) {
+        return t !== name;
+      })
+    );
+  }
+
+  function commitDraft() {
+    if (!typed) return;
+    if (rows.length) {
+      const row = rows[Math.min(index, rows.length - 1)];
+      add(row.name);
+      return;
+    }
+    add(typed);
+  }
+
+  return (
+    <div data-kedu="tag-field" className="flex flex-col gap-2">
+      {props.value.length ? (
+        <div className="flex flex-wrap gap-1.5" aria-label="已选标签">
+          {props.value.map(function (name) {
+            return (
+              <span
+                key={name}
+                className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/60 px-2 py-0.5 text-xs text-foreground"
+              >
+                {"#" + name}
+                <button
+                  type="button"
+                  aria-label={"移除 " + name}
+                  onClick={function () {
+                    remove(name);
+                  }}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  <Icon.X size={11} />
+                </button>
+              </span>
+            );
+          })}
+        </div>
+      ) : null}
+
+      {!full ? (
+        <input
+          ref={inputRef}
+          value={draft}
+          autoComplete="off"
+          spellCheck={false}
+          aria-label="添加标签"
+          aria-autocomplete="list"
+          placeholder={props.value.length ? "再加一个，回车" : "输入标签，回车添加"}
+          onFocus={function () {
+            setFocused(true);
+          }}
+          onBlur={function () {
+            setFocused(false);
+          }}
+          onChange={function (e) {
+            setDraft(e.target.value);
+          }}
+          onKeyDown={function (e) {
+            if (e.nativeEvent.isComposing) return;
+            if (e.key === "Escape") {
+              if (draft) {
+                e.preventDefault();
+                setDraft("");
+              }
+              return;
+            }
+            if (rows.length && (e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "ArrowLeft" || e.key === "ArrowRight")) {
+              e.preventDefault();
+              const dir = e.key === "ArrowDown" || e.key === "ArrowRight" ? 1 : -1;
+              setIndex(function (prev) {
+                return (prev + dir + rows.length) % rows.length;
+              });
+              return;
+            }
+            if (e.key === "Backspace" && !draft && props.value.length) {
+              remove(props.value[props.value.length - 1]);
+              return;
+            }
+            if (e.key !== "Enter") return;
+            e.preventDefault();
+            commitDraft();
+          }}
+          className="h-8 w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+        />
+      ) : (
+        <p className="text-[11px] text-muted-foreground">最多 {TAG_LIMIT} 个标签</p>
+      )}
+
+      {rows.length ? (
+        <div className="flex flex-wrap gap-1.5" role="listbox" aria-label={typed ? "匹配的标签" : "选用已有标签"}>
+          {rows.map(function (row, i) {
+            const on = focused && i === index;
+            const label = row.kind === "create" ? "加上 #" + row.name : "#" + row.name;
+            return (
+              <button
+                key={row.kind + ":" + row.name}
+                type="button"
+                role="option"
+                aria-selected={on}
+                onMouseDown={function (e) {
+                  e.preventDefault();
+                  add(row.name);
+                }}
+                onMouseEnter={function () {
+                  setIndex(i);
+                }}
+                className={cn(
+                  "rounded-full border px-2 py-0.5 text-xs transition-colors",
+                  on
+                    ? "border-foreground bg-foreground text-background"
+                    : row.kind === "create"
+                      ? "border-dashed border-border text-muted-foreground hover:border-foreground hover:text-foreground"
+                      : "border-border text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function TaskDetail() {
   const { call } = useApp();
-  const { tasks, selectedId, openTask, actions, today } = useStore();
+  const { tasks, tags, stats, selectedId, openTask, actions, today } = useStore();
   const task = tasks.find(function (t) {
     return t.id === selectedId;
   });
@@ -116,6 +538,7 @@ export function TaskDetail() {
   const [urls, setUrls] = React.useState<Record<string, string>>({});
   const [confirmDel, setConfirmDel] = React.useState(false);
   const [timeOpen, setTimeOpen] = React.useState(false);
+  const [lightboxId, setLightboxId] = React.useState<string | null>(null);
   const fileRef = React.useRef<HTMLInputElement | null>(null);
   const actionsRef = React.useRef(actions);
   actionsRef.current = actions;
@@ -131,6 +554,7 @@ export function TaskDetail() {
       setDraftSub("");
       setConfirmDel(false);
       setTimeOpen(false);
+      setLightboxId(null);
     },
     [task ? task.id : ""]
   );
@@ -274,7 +698,7 @@ export function TaskDetail() {
   function addSub() {
     const text = draftSub.trim();
     if (!text) return;
-    const subs: Subtask[] = current.subtasks.concat([{ id: "", title: text, done: false }]);
+    const subs: Subtask[] = current.subtasks.concat([{ id: "", title: text, done: false, completedAt: null }]);
     patch({ subtasks: subs });
     setDraftSub("");
   }
@@ -305,7 +729,30 @@ export function TaskDetail() {
           <p className="mt-1 text-[11px] text-muted-foreground">
             {"创建于 " + relativeTime(current.createdAt)}
             {current.completedAt ? " · 完成于 " + relativeTime(current.completedAt) : ""}
+            {current.doing && !current.done ? " · 进行中" : ""}
           </p>
+
+          {!current.done ? (
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              <button
+                type="button"
+                data-kedu="doing-chip"
+                aria-pressed={Boolean(current.doing)}
+                data-on={current.doing ? "1" : "0"}
+                onClick={function () {
+                  patch({ doing: !current.doing });
+                }}
+                className={cn(
+                  "kedu-doing-chip rounded-full border px-3 py-1 text-xs transition-colors",
+                  current.doing
+                    ? ""
+                    : "border-border text-muted-foreground hover:border-foreground hover:text-foreground"
+                )}
+              >
+                {current.doing ? "进行中" : "标为进行中"}
+              </button>
+            </div>
+          ) : null}
 
           <label className="mt-4 block text-[11px] tracking-wide text-muted-foreground" htmlFor="kedu-notes">备注</label>
           <ExpandEditor
@@ -456,11 +903,12 @@ export function TaskDetail() {
 
           <section className="mt-5 border-t border-border pt-3">
             <p className="mb-2 text-[11px] tracking-wide text-muted-foreground">标签</p>
-            <TagInput
+            <TagField
               value={current.tags}
-              placeholder="输入后回车"
+              allTags={tags}
+              freq={stats.tags}
               onChange={function (next) {
-                patch({ tags: next.slice(0, 8) });
+                patch({ tags: next.slice(0, TAG_LIMIT) });
               }}
             />
           </section>
@@ -479,14 +927,28 @@ export function TaskDetail() {
                     onToggle={function () {
                       patch({
                         subtasks: current.subtasks.map(function (item) {
-                          return item.id === s.id ? { id: item.id, title: item.title, done: !item.done } : item;
+                          if (item.id !== s.id) return item;
+                          const done = !item.done;
+                          return {
+                            id: item.id,
+                            title: item.title,
+                            done: done,
+                            completedAt: done ? Date.now() : null,
+                          };
                         }),
                       });
                     }}
                     onRename={function (title) {
                       patch({
                         subtasks: current.subtasks.map(function (item) {
-                          return item.id === s.id ? { id: item.id, title: title, done: item.done } : item;
+                          return item.id === s.id
+                            ? {
+                                id: item.id,
+                                title: title,
+                                done: item.done,
+                                completedAt: item.completedAt == null ? null : item.completedAt,
+                              }
+                            : item;
                         }),
                       });
                     }}
@@ -550,15 +1012,45 @@ export function TaskDetail() {
                 {current.images.map(function (im) {
                   const src = urls[im.id];
                   return (
-                    <div key={im.id} className="relative overflow-hidden rounded-md border border-border">
-                      {src ? <img src={src} alt="" className="aspect-square w-full object-cover" /> : <div className="aspect-square bg-muted" />}
+                    <div
+                      key={im.id}
+                      className="group relative overflow-hidden rounded-md border border-border bg-muted/40"
+                    >
+                      <button
+                        type="button"
+                        aria-label="预览图片"
+                        disabled={!src}
+                        onClick={function () {
+                          if (src) setLightboxId(im.id);
+                        }}
+                        className="block w-full"
+                      >
+                        <span className="relative flex aspect-square w-full items-center justify-center p-1.5">
+                          {src ? (
+                            <img src={src} alt="" className="max-h-full max-w-full object-contain" />
+                          ) : (
+                            <span className="size-full rounded-sm bg-muted" />
+                          )}
+                          {src ? (
+                            <span
+                              aria-hidden
+                              className="pointer-events-none absolute inset-0 flex items-center justify-center bg-foreground/0 opacity-0 transition-opacity group-hover:bg-foreground/25 group-hover:opacity-100"
+                            >
+                              <span className="grid size-8 place-items-center rounded-full bg-background/95 text-foreground shadow-sm">
+                                <Icon.Expand size={15} strokeWidth={2} />
+                              </span>
+                            </span>
+                          ) : null}
+                        </span>
+                      </button>
                       <button
                         type="button"
                         aria-label="移除图片"
-                        onClick={function () {
+                        onClick={function (e) {
+                          e.stopPropagation();
                           void actions.removeImage(current.id, im.id);
                         }}
-                        className="absolute right-1 top-1 grid size-5 place-items-center rounded-full bg-background text-foreground"
+                        className="absolute right-1 top-1 z-10 grid size-5 place-items-center rounded-full bg-background text-foreground shadow-sm"
                       >
                         <Icon.X size={11} />
                       </button>
@@ -571,10 +1063,12 @@ export function TaskDetail() {
             )}
           </section>
 
-          <div className="mt-6 border-t border-border pt-3">
+          <div className="mt-6 flex items-center gap-2 border-t border-border pt-3">
             <Button variant="destructive" size="sm" onClick={function () { setConfirmDel(true); }}>
               删除这件事
             </Button>
+            <span className="flex-1" />
+            <CopyTaskButton task={current} />
           </div>
       </div>
       <ConfirmDialog
@@ -588,6 +1082,72 @@ export function TaskDetail() {
           void actions.remove(current.id);
         }}
       />
+      <Dialog
+        open={Boolean(lightboxId)}
+        onOpenChange={function (open) {
+          if (!open) setLightboxId(null);
+        }}
+      >
+        <DialogContent width={720} className="gap-3 p-3 sm:max-w-3xl">
+          <DialogHeader className="px-1 pt-1">
+            <DialogTitle className="text-sm font-medium">图片预览</DialogTitle>
+          </DialogHeader>
+          <div className="flex max-h-[min(80vh,720px)] items-center justify-center overflow-auto rounded-md bg-muted/30 p-2">
+            {lightboxId && urls[lightboxId] ? (
+              <img
+                src={urls[lightboxId]}
+                alt=""
+                className="max-h-[min(78vh,680px)] max-w-full object-contain"
+              />
+            ) : (
+              <div className="h-40 w-full rounded-md bg-muted" />
+            )}
+          </div>
+          {current.images.length > 1 ? (
+            <div className="flex items-center justify-between gap-2 px-1 pb-1">
+              <button
+                type="button"
+                className="text-xs text-muted-foreground hover:text-foreground"
+                onClick={function () {
+                  if (!lightboxId) return;
+                  const ids = current.images.map(function (im) {
+                    return im.id;
+                  });
+                  const i = ids.indexOf(lightboxId);
+                  const prev = i <= 0 ? ids.length - 1 : i - 1;
+                  setLightboxId(ids[prev]);
+                }}
+              >
+                上一张
+              </button>
+              <Mono className="text-muted-foreground">
+                {String(
+                  current.images.findIndex(function (im) {
+                    return im.id === lightboxId;
+                  }) + 1
+                ) +
+                  " / " +
+                  String(current.images.length)}
+              </Mono>
+              <button
+                type="button"
+                className="text-xs text-muted-foreground hover:text-foreground"
+                onClick={function () {
+                  if (!lightboxId) return;
+                  const ids = current.images.map(function (im) {
+                    return im.id;
+                  });
+                  const i = ids.indexOf(lightboxId);
+                  const next = i < 0 || i >= ids.length - 1 ? 0 : i + 1;
+                  setLightboxId(ids[next]);
+                }}
+              >
+                下一张
+              </button>
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

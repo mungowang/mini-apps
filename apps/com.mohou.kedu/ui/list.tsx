@@ -1,8 +1,9 @@
 import * as React from "react";
+import { AnimatePresence, LayoutGroup, motion } from "motion/react";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle, Icon, IlluEmpty, IlluSearch, cn } from "@mohou/ui";
 
 import type { GroupId } from "../shared/model";
-import { GROUP_TITLE, completedOn, dayHeading, groupOf, inView, overdueTier, scheduleOf, shiftKey, sortTasks, weekendKey } from "../shared/model";
+import { GROUP_TITLE, completedOn, dayHeading, groupOf, inView, overdueTier, relativeTime, scheduleOf, shiftKey, sortTasks, weekendKey } from "../shared/model";
 import type { Priority, Task, ViewId } from "../shared/types";
 import { DueText, Mono, PriorityMark, SubtaskTicks, TaskCheck } from "./atoms";
 import { useStore } from "./store";
@@ -16,8 +17,26 @@ const TINT = [
 
 export const GRACE_MS = 5000;
 
+const SUB_EASE = [0.22, 1, 0.36, 1] as const;
+
 function nextPriority(p: Priority): Priority {
   return ((p % 4) + 1) as Priority;
+}
+
+function useReducedMotion(): boolean {
+  const [reduce, setReduce] = React.useState(false);
+  React.useEffect(function () {
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    function apply() {
+      setReduce(mq.matches);
+    }
+    apply();
+    mq.addEventListener("change", apply);
+    return function () {
+      mq.removeEventListener("change", apply);
+    };
+  }, []);
+  return reduce;
 }
 
 /** The row title. A clipped title peeks its hidden text to the right on hover. */
@@ -73,6 +92,7 @@ function Row(props: {
   const t = props.task;
   const meta = scheduleOf(t, today);
   const [openSubs, setOpenSubs] = React.useState(false);
+  const reduceMotion = useReducedMotion();
   let subDone = 0;
   for (let i = 0; i < t.subtasks.length; i++) if (t.subtasks[i].done) subDone += 1;
   const tier = t.done ? 0 : overdueTier(meta, t.priority);
@@ -96,7 +116,10 @@ function Row(props: {
   if (rowBg) (rowStyle as Record<string, string>)["--kedu-row-bg"] = rowBg;
 
   return (
-    <li
+    <motion.li
+      layout={!props.quiet && !reduceMotion}
+      layoutId={props.quiet ? undefined : "kedu-task-" + t.id}
+      transition={reduceMotion ? { duration: 0 } : { layout: { duration: 0.38, ease: SUB_EASE } }}
       data-kedu={props.quiet ? "preview-row" : "row"}
       data-id={t.id}
       data-chosen={picked ? "1" : "0"}
@@ -108,7 +131,7 @@ function Row(props: {
         <span className="kedu-chosen-bar absolute inset-y-0 left-0 w-0.5 bg-foreground" data-on={picked ? "1" : "0"} />
       ) : null}
       {props.drop ? <span className="absolute inset-x-0 top-0 h-px bg-foreground" /> : null}
-      <div className="flex items-start gap-2.5 px-3 py-2.5">
+      <div className="flex items-center gap-2.5 px-3 py-2.5">
         {props.draggable ? (
           <span
             aria-label="拖动排序"
@@ -116,7 +139,7 @@ function Row(props: {
             onClick={function (e) {
               e.stopPropagation();
             }}
-            className="kedu-grip mt-0.5 cursor-grab text-muted-foreground active:cursor-grabbing"
+            className="kedu-grip grid size-4 shrink-0 place-items-center cursor-grab text-muted-foreground active:cursor-grabbing"
           >
             <Icon.GripVertical size={14} strokeWidth={2} />
           </span>
@@ -134,7 +157,7 @@ function Row(props: {
               e.stopPropagation();
               toggleSelect(t.id);
             }}
-            className="kedu-pick mt-0.5"
+            className="kedu-pick"
           >
             <Icon.Check size={12} strokeWidth={2.6} />
           </button>
@@ -162,10 +185,15 @@ function Row(props: {
           <div className="kedu-title-wrap flex items-center gap-2">
           <RowTitle task={t} onOpen={open} />
             {t.tags.length ? (
-              <span className="max-w-24 shrink-0 truncate text-[11px] text-muted-foreground">
-                {t.tags.slice(0, 2).map(function (name) { return "#" + name; }).join(" ")}
+              <span
+                className="max-w-[min(42%,14rem)] min-w-0 shrink truncate text-[11px] text-muted-foreground"
+                title={t.tags.map(function (name) { return "#" + name; }).join(" ")}
+              >
+                {t.tags.slice(0, 3).map(function (name) { return "#" + name; }).join(" ")}
+                {t.tags.length > 3 ? " +" + String(t.tags.length - 3) : ""}
               </span>
             ) : null}
+            <span className="flex-1" />
             {t.subtasks.length ? (
               <button
                 type="button"
@@ -180,12 +208,41 @@ function Row(props: {
                   openSubs ? "border-foreground bg-foreground text-background" : "border-border text-foreground"
                 )}
               >
-                <Icon.ChevronRight size={10} strokeWidth={2.4} className={openSubs ? "rotate-90" : ""} />
+                <motion.span
+                  className="inline-flex"
+                  animate={{ rotate: openSubs ? 90 : 0 }}
+                  transition={reduceMotion ? { duration: 0 } : { duration: 0.22, ease: SUB_EASE }}
+                >
+                  <Icon.ChevronRight size={10} strokeWidth={2.4} />
+                </motion.span>
                 <SubtaskTicks done={subDone} total={t.subtasks.length} />
                 <span className="tabular-nums">{subDone + "/" + t.subtasks.length}</span>
               </button>
             ) : null}
-            <span className="flex-1" />
+            {!props.quiet && !t.done && !selectMode && !props.inGrace ? (
+              <button
+                type="button"
+                data-kedu="doing-toggle"
+                aria-pressed={Boolean(t.doing)}
+                aria-label={t.doing ? "退出进行中" : "标为进行中"}
+                title={t.doing ? "退出进行中" : "标为进行中"}
+                onClick={function (e) {
+                  e.stopPropagation();
+                  void actions.patch(t.id, { doing: !t.doing });
+                }}
+                className={cn(
+                  "kedu-doing-toggle grid size-7 shrink-0 place-items-center rounded-md",
+                  t.doing ? "" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                )}
+                data-on={t.doing ? "1" : "0"}
+              >
+                {t.doing ? (
+                  <Icon.Pause size={12} className="block" fill="currentColor" strokeWidth={0} />
+                ) : (
+                  <Icon.Play size={12} className="block" fill="currentColor" strokeWidth={0} />
+                )}
+              </button>
+            ) : null}
             {props.inGrace ? (
               <button
                 type="button"
@@ -197,8 +254,14 @@ function Row(props: {
               >
                 撤销
               </button>
+            ) : t.done ? (
+              t.completedAt ? (
+                <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground/70">
+                  {relativeTime(t.completedAt)}
+                </span>
+              ) : null
             ) : (
-              <DueText meta={t.done ? null : meta} />
+              <DueText meta={meta} />
             )}
           </div>
 
@@ -222,27 +285,87 @@ function Row(props: {
             </div>
           ) : null}
 
-          {openSubs ? (
-            <ul className="mt-1.5 flex flex-col gap-1 pl-0.5">
-              {t.subtasks.map(function (s) {
-                return (
-                  <li key={s.id} className="flex items-center gap-2">
-                    <TaskCheck
-                      done={s.done}
-                      onToggle={function () {
-                        void actions.patch(t.id, {
-                          subtasks: t.subtasks.map(function (item) {
-                            return item.id === s.id ? { id: item.id, title: item.title, done: !item.done } : item;
-                          }),
-                        });
-                      }}
-                    />
-                    <span className={cn("text-xs", s.done ? "text-muted-foreground line-through" : "text-foreground")}>{s.title}</span>
-                  </li>
-                );
-              })}
-            </ul>
-          ) : null}
+          <AnimatePresence initial={false}>
+            {openSubs ? (
+              <motion.div
+                key="subs"
+                initial={reduceMotion ? false : { height: 0, opacity: 0 }}
+                animate={{
+                  height: "auto",
+                  opacity: 1,
+                  transition: reduceMotion
+                    ? { duration: 0 }
+                    : {
+                        height: { duration: 0.32, ease: SUB_EASE },
+                        opacity: { duration: 0.18, ease: "easeOut" },
+                      },
+                }}
+                exit={{
+                  height: 0,
+                  opacity: 0,
+                  // Height owns the whole close; fade early so the last pixels are not a hard cut.
+                  transition: reduceMotion
+                    ? { duration: 0 }
+                    : {
+                        height: { duration: 0.34, ease: SUB_EASE },
+                        opacity: { duration: 0.14, ease: "easeIn" },
+                      },
+                }}
+                className="overflow-hidden"
+              >
+                {/* pt lives inside the measured box so margin does not snap off at unmount */}
+                <ul className="flex flex-col gap-1 pt-1.5 pl-0.5">
+                  {t.subtasks.map(function (s, i) {
+                    return (
+                      <motion.li
+                        key={s.id}
+                        initial={reduceMotion ? false : { opacity: 0, y: -3 }}
+                        animate={{
+                          opacity: 1,
+                          y: 0,
+                          transition: reduceMotion
+                            ? { duration: 0 }
+                            : { duration: 0.2, delay: Math.min(i, 6) * 0.028, ease: SUB_EASE },
+                        }}
+                        className="flex items-center gap-2"
+                      >
+                        <TaskCheck
+                          done={s.done}
+                          onToggle={function () {
+                            void actions.patch(t.id, {
+                              subtasks: t.subtasks.map(function (item) {
+                                if (item.id !== s.id) return item;
+                                const done = !item.done;
+                                return {
+                                  id: item.id,
+                                  title: item.title,
+                                  done: done,
+                                  completedAt: done ? Date.now() : null,
+                                };
+                              }),
+                            });
+                          }}
+                        />
+                        <span
+                          className={cn(
+                            "min-w-0 flex-1 truncate text-xs",
+                            s.done ? "text-muted-foreground line-through" : "text-foreground"
+                          )}
+                        >
+                          {s.title}
+                        </span>
+                        {s.done ? (
+                          <span className="shrink-0 pl-2 text-[11px] tabular-nums text-muted-foreground/75">
+                            {s.completedAt ? relativeTime(s.completedAt) : "完成"}
+                          </span>
+                        ) : null}
+                      </motion.li>
+                    );
+                  })}
+                </ul>
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
         </div>
       </div>
       {props.inGrace ? (
@@ -254,7 +377,7 @@ function Row(props: {
           />
         </span>
       ) : null}
-    </li>
+    </motion.li>
   );
 }
 
@@ -263,6 +386,110 @@ function emptyCopy(lens: ViewId, filtered: boolean): { title: string; hint: stri
   if (lens === "today") return { title: "今天没有要做的", hint: "写一条就能加进来。用 @明天 会排到之后。" };
   if (lens === "next") return { title: "后面还是空的", hint: "用 @周五 或 @下周一 把事情排进来。" };
   return { title: "收集是空的", hint: "没写日期的事会落在这里。点今天、明天或周末就排走。" };
+}
+
+function doingSinceLabel(doingAt: number | null): string {
+  if (doingAt == null) return "进行中";
+  const mins = Math.max(1, Math.round((Date.now() - doingAt) / 60000));
+  if (mins < 60) return "已进行 " + String(mins) + " 分钟";
+  return "已进行 " + String(Math.round(mins / 60)) + " 小时";
+}
+
+/** Global 正在做 tray — exclusive of the main list; survives lens switches. */
+function DoingStage(props: { match: (t: Task) => boolean }) {
+  const { tasks, actions, selectedId, openTask, selectMode, today } = useStore();
+  const list = tasks
+    .filter(function (t) {
+      return t.doing && !t.done && props.match(t);
+    })
+    .sort(function (a, b) {
+      return (b.doingAt || 0) - (a.doingAt || 0);
+    });
+  if (!list.length || selectMode) return null;
+
+  const reduceMotion = useReducedMotion();
+
+  return (
+    <motion.section
+      layout
+      className="kedu-doing-stage"
+      data-kedu="doing-stage"
+      aria-label="正在做"
+      initial={reduceMotion ? false : { opacity: 0, y: -6 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={reduceMotion ? undefined : { opacity: 0, y: -4, height: 0, marginTop: 0, marginBottom: 0 }}
+      transition={reduceMotion ? { duration: 0 } : { duration: 0.34, ease: SUB_EASE }}
+    >
+      <ul>
+        <AnimatePresence initial={false} mode="popLayout">
+          {list.map(function (t) {
+            const on = selectedId === t.id;
+            const meta = scheduleOf(t, today);
+            return (
+              <motion.li
+                key={t.id}
+                layout
+                layoutId={"kedu-task-" + t.id}
+                initial={reduceMotion ? false : { opacity: 0, scale: 0.98 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={reduceMotion ? undefined : { opacity: 0, scale: 0.98 }}
+                transition={reduceMotion ? { duration: 0 } : { layout: { duration: 0.38, ease: SUB_EASE }, opacity: { duration: 0.22 } }}
+                data-kedu="doing-row"
+                data-on={on ? "1" : "0"}
+                className="kedu-doing-row relative cursor-pointer list-none"
+                onClick={function () {
+                  openTask(t.id);
+                }}
+              >
+                <div className="flex items-center gap-2.5 px-3 py-2.5">
+                  <TaskCheck
+                    done={false}
+                    onToggle={function () {
+                      void actions.toggle(t.id);
+                    }}
+                  />
+                  <PriorityMark priority={t.priority} />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="min-w-0 truncate text-sm font-medium text-foreground">{t.title}</span>
+                      {t.tags.length ? (
+                        <span className="max-w-[min(42%,14rem)] shrink truncate text-[11px] text-muted-foreground">
+                          {t.tags
+                            .slice(0, 3)
+                            .map(function (name) {
+                              return "#" + name;
+                            })
+                            .join(" ")}
+                        </span>
+                      ) : null}
+                      <span className="flex-1" />
+                      <button
+                        type="button"
+                        aria-label="暂停进行中"
+                        title="暂停进行中"
+                        onClick={function (e) {
+                          e.stopPropagation();
+                          void actions.patch(t.id, { doing: false });
+                        }}
+                        className="kedu-doing-toggle grid size-7 shrink-0 place-items-center rounded-md"
+                        data-on="1"
+                      >
+                        <Icon.Pause size={12} className="block" fill="currentColor" strokeWidth={0} />
+                      </button>
+                      <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
+                        {doingSinceLabel(t.doingAt)}
+                        {meta ? " · " + meta.label : ""}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </motion.li>
+            );
+          })}
+        </AnimatePresence>
+      </ul>
+    </motion.section>
+  );
 }
 
 export function TaskList(props: { onClearFilters?: () => void; lens?: ViewId; quiet?: boolean }) {
@@ -295,6 +522,8 @@ export function TaskList(props: { onClearFilters?: () => void; lens?: ViewId; qu
 
   const active = sortTasks(
     tasks.filter(function (t) {
+      // Doing tasks live on the 正在做 stage (main list only), not duplicated below.
+      if (!quiet && t.doing && !t.done && graceIds.indexOf(t.id) < 0) return false;
       return (inView(t, lens, today) || graceIds.indexOf(t.id) >= 0) && match(t);
     }),
     sort
@@ -330,7 +559,13 @@ export function TaskList(props: { onClearFilters?: () => void; lens?: ViewId; qu
 
   const copy = emptyCopy(lens, filtered);
   const showClear = lens === "today" && !filtered && nonEmpty.length === 0 && doneToday.length > 0 && olderDone.length === 0;
-  const showEmpty = nonEmpty.length === 0 && doneToday.length === 0 && olderDone.length === 0;
+  const doingCount = quiet
+    ? 0
+    : tasks.filter(function (t) {
+        return t.doing && !t.done && match(t);
+      }).length;
+  const showEmpty = nonEmpty.length === 0 && doneToday.length === 0 && olderDone.length === 0 && doingCount === 0;
+  const onlyDoing = nonEmpty.length === 0 && doneToday.length === 0 && olderDone.length === 0 && doingCount > 0;
 
   function move(groupIds: string[], targetId: string) {
     const from = dragId.current;
@@ -440,7 +675,11 @@ export function TaskList(props: { onClearFilters?: () => void; lens?: ViewId; qu
   }
 
   return (
+    <LayoutGroup id="kedu-tasks">
     <div className="px-2 pb-10">
+      <AnimatePresence initial={false}>
+        {!quiet && lens !== "once" ? <DoingStage key="doing-stage" match={match} /> : null}
+      </AnimatePresence>
       {nonEmpty.map(function (id) {
         const rows = buckets[id];
         const showHead = lens === "next" || nonEmpty.length > 1 || id === "overdue";
@@ -481,6 +720,10 @@ export function TaskList(props: { onClearFilters?: () => void; lens?: ViewId; qu
         )
       ) : null}
 
+      {onlyDoing ? (
+        <p className="px-3 py-6 text-sm text-muted-foreground">其余都在上面的进行中列表里。</p>
+      ) : null}
+
       {olderDone.length ? (
         <section className="mt-2">
           <div className="flex items-baseline gap-2 px-3 pb-1 pt-4">
@@ -519,5 +762,6 @@ export function TaskList(props: { onClearFilters?: () => void; lens?: ViewId; qu
         </section>
       ) : null}
     </div>
+    </LayoutGroup>
   );
 }

@@ -19,6 +19,9 @@ export function FilterButton() {
     tags,
     sort,
     chooseSort,
+    followInbox,
+    setFollowInbox,
+    lens,
     tagFilter,
     setTagFilter,
     prioFilter,
@@ -48,7 +51,8 @@ export function FilterButton() {
         render={
           <button
             type="button"
-            aria-label="筛选和排序"
+            aria-label="筛选、排序与习惯"
+            title="筛选、排序与习惯"
             className="relative grid size-8 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
           />
         }
@@ -133,28 +137,66 @@ export function FilterButton() {
             <p className="text-xs text-muted-foreground">还没有标签。写的时候加上 #工作 就会出现在这里。</p>
           )}
 
-          <div>
-            <p className="mb-1.5 text-xs text-muted-foreground">排列</p>
-            <div className="flex gap-1" role="group" aria-label="排序">
-              {SORTS.map(function (s) {
-                const on = sort === s.id;
-                return (
-                  <button
-                    key={s.id}
-                    type="button"
-                    aria-pressed={on}
-                    onClick={function () {
-                      chooseSort(s.id);
-                    }}
-                    className={
-                      "rounded-md px-2 py-1 text-xs " + (on ? "bg-foreground text-background" : "text-muted-foreground hover:bg-muted")
-                    }
-                  >
-                    {s.label}
-                  </button>
-                );
-              })}
+          {lens === "once" ? (
+            <p className="text-xs text-muted-foreground">曾经按完成时间排列，不支持改序。</p>
+          ) : (
+            <div>
+              <p className="mb-1.5 text-xs text-muted-foreground">排列</p>
+              <div className="flex gap-1" role="group" aria-label="排序">
+                {SORTS.map(function (s) {
+                  const on = sort === s.id;
+                  return (
+                    <button
+                      key={s.id}
+                      type="button"
+                      aria-pressed={on}
+                      onClick={function () {
+                        chooseSort(s.id);
+                      }}
+                      className={
+                        "rounded-md px-2 py-1 text-xs " + (on ? "bg-foreground text-background" : "text-muted-foreground hover:bg-muted")
+                      }
+                    >
+                      {s.label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
+          )}
+
+          <div className="border-t border-border pt-3">
+            <p className="mb-1.5 text-xs text-muted-foreground">习惯</p>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={followInbox}
+              onClick={function () {
+                setFollowInbox(!followInbox);
+              }}
+              className="flex w-full items-center gap-3 rounded-lg px-1 py-1.5 text-left hover:bg-muted/60"
+            >
+              <span className="min-w-0 flex-1">
+                <span className="block text-xs text-foreground">创建后打开收集</span>
+                <span className="mt-0.5 block text-[11px] leading-snug text-muted-foreground">
+                  未排期的事写完，跳到收集并打开详情，方便接着标标签、排日期
+                </span>
+              </span>
+              <span
+                aria-hidden="true"
+                className={
+                  "relative h-5 w-9 shrink-0 rounded-full transition-colors " +
+                  (followInbox ? "bg-foreground" : "bg-muted")
+                }
+              >
+                <span
+                  className={
+                    "absolute top-0.5 size-4 rounded-full bg-background shadow transition-transform " +
+                    (followInbox ? "translate-x-4" : "translate-x-0.5")
+                  }
+                />
+              </span>
+            </button>
           </div>
 
           {active ? (

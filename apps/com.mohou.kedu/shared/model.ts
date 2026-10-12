@@ -1,4 +1,4 @@
-import type { Priority, SortId, Task, ViewId } from "./types";
+import type { OnceRange, Priority, SortId, Task, ViewId } from "./types";
 
 function pad2(n: number): string {
   return n < 10 ? "0" + String(n) : String(n);
@@ -67,6 +67,42 @@ export function fullDate(due: string): string {
 export function dayHeading(key: string): string {
   const d = parseKey(key);
   return String(d.getMonth() + 1) + "月" + String(d.getDate()) + "日 · 周" + WEEK_CHARS[d.getDay()];
+}
+
+/** Group title on 曾经: 今天 / 昨天 / date. Cross-year keeps the year. */
+export function onceDayHeading(key: string, today: string): string {
+  if (key === today) return "今天";
+  if (key === shiftKey(today, -1)) return "昨天";
+  const head = dayHeading(key);
+  if (key.slice(0, 4) !== today.slice(0, 4)) return key.slice(0, 4) + "年 · " + head;
+  return head;
+}
+
+/** YYYY-MM-DD of completedAt, or null when missing. */
+export function completedKey(task: { done: boolean; completedAt: number | null }): string | null {
+  if (!task.done || task.completedAt === null) return null;
+  return dateKey(new Date(task.completedAt));
+}
+
+/** Inclusive lower bound for a days window ending on today. n=1 → today only. */
+export function onceCutoff(today: string, range: OnceRange): string | null {
+  if (range.mode === "all") return null;
+  const n = range.n < 1 ? 1 : range.n;
+  return shiftKey(today, 1 - n);
+}
+
+export function inOnceRange(task: Task, today: string, range: OnceRange): boolean {
+  const key = completedKey(task);
+  if (!key) return false;
+  const cut = onceCutoff(today, range);
+  if (!cut) return true;
+  return key >= cut && key <= today;
+}
+
+export function onceRangeLabel(range: OnceRange): string {
+  if (range.mode === "all") return "全部";
+  if (range.n === 1) return "今天";
+  return "这 " + String(range.n) + " 天";
 }
 
 export type Parsed = {
@@ -264,6 +300,169 @@ export function formatTaskLine(task: Task): string {
   return parts.join(" ").trim();
 }
 
+/** Clipboard formats for the detail 「复制任务」 action. */
+export type CopyFormat = "dsl" | "markdown" | "plain";
+
+export const COPY_FORMATS: CopyFormat[] = ["dsl", "markdown", "plain"];
+
+/** User-facing name. Internal id stays dsl. */
+export const COPY_FORMAT_LABEL: Record<CopyFormat, string> = {
+  dsl: "刻度文本",
+  markdown: "Markdown",
+  plain: "纯文本",
+};
+
+export const COPY_FORMAT_HINT: Record<CopyFormat, string> = {
+  dsl: "贴回刻度导入",
+  markdown: "文档 / PR / 笔记",
+  plain: "IM / 邮件",
+};
+
+/** 刻度文本：first line is DSL; notes and subtasks follow as an optional block (import still eats line 1). */
+export function formatTaskKedu(task: Task): string {
+  let out = formatTaskLine(task);
+  const extras: string[] = [];
+  if (task.notes && task.notes.trim()) extras.push(task.notes.trim());
+  if (task.subtasks.length) {
+    extras.push(
+      task.subtasks
+        .map(function (s) {
+          return (s.done ? "- [x] " : "- [ ] ") + s.title;
+        })
+        .join("\n")
+    );
+  }
+  if (extras.length) out += "\n\n" + extras.join("\n\n");
+  return out;
+}
+
+export function formatTaskMarkdown(task: Task): string {
+  const title = task.done ? "~~" + task.title + "~~" : task.title;
+  const lines: string[] = ["## " + title, ""];
+  if (task.notes && task.notes.trim()) {
+    lines.push(task.notes.trim());
+    lines.push("");
+  }
+  if (task.subtasks.length) {
+    for (let i = 0; i < task.subtasks.length; i++) {
+      const s = task.subtasks[i];
+      lines.push((s.done ? "- [x] " : "- [ ] ") + s.title);
+    }
+    lines.push("");
+  }
+  const foot: string[] = [];
+  if (task.priority !== 3) foot.push("P" + String(task.priority));
+  if (task.tags.length) foot.push(task.tags.map(function (n) { return "#" + n; }).join(" "));
+  if (task.starts && task.due && task.starts !== task.due) foot.push(fmtShort(task.starts) + " → " + fmtShort(task.due));
+  else if (task.due) foot.push(fmtShort(task.due));
+  if (task.startTime) foot.push(task.startTime + (task.endTime ? "–" + task.endTime : ""));
+  if (foot.length) lines.push("*" + foot.join(" · ") + "*");
+  return lines.join("\n").replace(/\n+$/, "") + "\n";
+}
+
+export function formatTaskPlain(task: Task): string {
+  const lines: string[] = [];
+  lines.push(task.done ? task.title + "（已完成）" : task.title);
+  const meta: string[] = [];
+  if (task.priority !== 3) meta.push("P" + String(task.priority));
+  if (task.tags.length) meta.push(task.tags.map(function (n) { return "#" + n; }).join(" "));
+  if (task.starts && task.due && task.starts !== task.due) meta.push(fmtShort(task.starts) + " → " + fmtShort(task.due));
+  else if (task.due) meta.push(fmtShort(task.due));
+  else meta.push("未排期");
+  if (task.startTime) meta.push(task.startTime + (task.endTime ? "–" + task.endTime : ""));
+  lines.push(meta.join(" · "));
+  if (task.notes && task.notes.trim()) {
+    lines.push("");
+    lines.push(task.notes.trim());
+  }
+  if (task.subtasks.length) {
+    lines.push("");
+    for (let i = 0; i < task.subtasks.length; i++) {
+      const s = task.subtasks[i];
+      lines.push(s.done ? "· " + s.title + "（完成）" : "· " + s.title);
+    }
+  }
+  return lines.join("\n");
+}
+
+export function formatTaskExport(task: Task, format: CopyFormat): string {
+  if (format === "markdown") return formatTaskMarkdown(task);
+  if (format === "plain") return formatTaskPlain(task);
+  return formatTaskKedu(task);
+}
+
+export type KeduSubPaste = { title: string; done: boolean };
+
+/** Result of pasting 刻度文本 (DSL line + optional notes/subtasks). */
+export type KeduPaste = Parsed & {
+  dslLine: string;
+  notes: string;
+  subtasks: KeduSubPaste[];
+};
+
+/** A markdown-style subtask line from formatTaskKedu: `- [ ] title` / `- [x] title`. */
+export function parseSubtaskLine(line: string): KeduSubPaste | null {
+  const m = /^-\s*\[([ xX])\]\s*(.+)$/.exec(line.trim());
+  if (!m) return null;
+  const title = m[2].trim();
+  if (!title) return null;
+  return { title: title.slice(0, 200), done: /[xX]/.test(m[1]) };
+}
+
+/**
+ * Parse clipboard / multi-line 刻度文本.
+ * Line 1 = quick-add DSL; following free text = notes; `- [ ]` lines = subtasks.
+ * Single-line input still works (notes/subtasks empty).
+ */
+export function parseKeduPaste(raw: string, today: string): KeduPaste {
+  const text = String(raw || "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  const lines = text.split("\n");
+  let i = 0;
+  while (i < lines.length && !lines[i].trim()) i += 1;
+  const dslLine = i < lines.length ? lines[i].trim() : "";
+  i += 1;
+  const parsed = parseQuickAdd(dslLine, today);
+
+  while (i < lines.length && !lines[i].trim()) i += 1;
+
+  const noteParts: string[] = [];
+  const subtasks: KeduSubPaste[] = [];
+  let mode: "notes" | "subs" = "notes";
+  while (i < lines.length) {
+    const line = lines[i];
+    i += 1;
+    const sub = parseSubtaskLine(line);
+    if (sub) {
+      mode = "subs";
+      if (subtasks.length < 32) subtasks.push(sub);
+      continue;
+    }
+    if (mode === "subs") {
+      if (!line.trim()) continue;
+      break;
+    }
+    noteParts.push(line);
+  }
+
+  let notes = noteParts.join("\n");
+  notes = notes.replace(/^\n+/, "").replace(/\n+$/, "").trim();
+  if (notes.length > 4000) notes = notes.slice(0, 4000);
+
+  return {
+    title: parsed.title,
+    priority: parsed.priority,
+    tags: parsed.tags,
+    starts: parsed.starts,
+    due: parsed.due,
+    startTime: parsed.startTime,
+    endTime: parsed.endTime,
+    warnings: parsed.warnings,
+    dslLine: dslLine,
+    notes: notes,
+    subtasks: subtasks,
+  };
+}
+
 export function completedOn(task: Task, day: string): boolean {
   if (!task.done || task.completedAt === null) return false;
   return dateKey(new Date(task.completedAt)) === day;
@@ -276,13 +475,23 @@ export function onToday(task: { starts: string | null; due: string | null }, tod
   return Boolean(task.starts) && task.starts !== task.due && task.starts <= today && today <= task.due;
 }
 
-export function inView(task: Task, view: ViewId, today: string): boolean {
+export function inView(task: Task, view: ViewId, today: string, onceRange?: OnceRange): boolean {
+  if (view === "once") {
+    return inOnceRange(task, today, onceRange || { mode: "days", n: 7 });
+  }
   if (task.done) return false;
   if (view === "today") return onToday(task, today);
   if (view === "next") return Boolean(task.due) && diffDays(task.due, today) > 0 && !onToday(task, today);
   // A date is the only thing that schedules a task. A tag is a label, so it stays in 收集
   // until someone puts the task on a day. Otherwise tagged-but-undated work disappears.
   return !task.due;
+}
+
+/** Where an active task lives after leaving 曾经 (or 收集). */
+export function homeView(task: { starts: string | null; due: string | null }, today: string): Exclude<ViewId, "once"> {
+  if (!task.due) return "inbox";
+  if (onToday(task, today)) return "today";
+  return "next";
 }
 
 export type GroupId = "overdue" | "today" | "tomorrow" | "week" | "later" | "none" | "done";

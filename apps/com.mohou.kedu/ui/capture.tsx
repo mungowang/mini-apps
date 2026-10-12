@@ -2,7 +2,7 @@ import * as React from "react";
 import { motion } from "motion/react";
 import { toast } from "@mohou/ui";
 
-import { onToday, parseQuickAdd, scheduleOf } from "../shared/model";
+import { onToday, parseKeduPaste, scheduleOf } from "../shared/model";
 import { useStore } from "./store";
 
 type Kind = "due" | "tag" | "prio";
@@ -24,11 +24,18 @@ const PRIO_PRESETS: { label: string; token: string }[] = [
   { label: "P4 低", token: "!4" },
 ];
 
+function isBreak(ch: string): boolean {
+  return ch === " " || ch === "\n" || ch === "\t";
+}
+
 function assistAt(raw: string, caret: number, suppressed: string | null): Assist | null {
+  // Assist only on the DSL line (before the first newline).
+  const nl = raw.indexOf("\n");
+  if (nl >= 0 && caret > nl) return null;
   let start = caret;
-  while (start > 0 && raw.charAt(start - 1) !== " ") start -= 1;
+  while (start > 0 && !isBreak(raw.charAt(start - 1))) start -= 1;
   let end = caret;
-  while (end < raw.length && raw.charAt(end) !== " ") end += 1;
+  while (end < raw.length && !isBreak(raw.charAt(end))) end += 1;
   if (start === end) return null;
   const text = raw.slice(start, end);
   const head = text.charAt(0);
@@ -66,8 +73,8 @@ function optionsFor(assist: Assist, tags: string[]): { label: string; token: str
   return out.slice(0, 8);
 }
 
-export function Capture(props: { inputRef: React.RefObject<HTMLInputElement | null>; dock?: boolean }) {
-  const { actions, tags, today, lens } = useStore();
+export function Capture(props: { inputRef: React.RefObject<HTMLTextAreaElement | null>; dock?: boolean }) {
+  const { actions, tags, today, lens, followInbox, setLens, openTask, setSelectMode } = useStore();
   const [raw, setRaw] = React.useState("");
   const [caret, setCaret] = React.useState(0);
   const [focused, setFocused] = React.useState(false);
@@ -90,7 +97,9 @@ export function Capture(props: { inputRef: React.RefObject<HTMLInputElement | nu
 
   const assist = assistAt(raw, caret, suppress);
   const options = assist ? optionsFor(assist, tags) : [];
-  const parsed = raw.trim() ? parseQuickAdd(raw, today) : null;
+  // Multi-line 刻度文本: line 1 is DSL; rest is notes / subtasks.
+  const paste = raw.trim() ? parseKeduPaste(raw, today) : null;
+  const parsed = paste;
   const schedule = parsed ? scheduleOf(parsed, today) : null;
 
   React.useEffect(
@@ -100,8 +109,18 @@ export function Capture(props: { inputRef: React.RefObject<HTMLInputElement | nu
     [assist ? assist.kind + ":" + assist.query : ""]
   );
 
-  function rememberCaret(el: HTMLInputElement) {
+  function rememberCaret(el: HTMLTextAreaElement) {
     setCaret(el.selectionStart === null ? el.value.length : el.selectionStart);
+  }
+
+  /** Grow/shrink with content. Collapse to 0 first so blur (xl→sm) does not keep a tall box. */
+  function fitHeight(el: HTMLTextAreaElement | null) {
+    if (!el) return;
+    el.style.overflowY = "hidden";
+    el.style.height = "0px";
+    // Force layout so scrollHeight matches the current font metrics.
+    void el.offsetHeight;
+    el.style.height = String(el.scrollHeight) + "px";
   }
 
   function applyToken(token: string) {
@@ -116,6 +135,7 @@ export function Capture(props: { inputRef: React.RefObject<HTMLInputElement | nu
       if (!el) return;
       el.focus();
       el.setSelectionRange(pos, pos);
+      fitHeight(el);
     });
   }
 
@@ -123,19 +143,33 @@ export function Capture(props: { inputRef: React.RefObject<HTMLInputElement | nu
     if (pending) return;
     const text = raw.trim();
     if (!text) return;
-    const read = parseQuickAdd(text, today);
+    const read = parseKeduPaste(text, today);
     if (!read.title.trim()) {
       toast.add({ title: "还差要做的事", description: "日期和标签之外，写上这一件是什么" });
       return;
     }
     setPending(true);
     try {
-      const id = await actions.add(text);
+      // Send the full multi-line body; API parseKeduPaste splits DSL / notes / subtasks.
+      const id = await actions.add(text, {
+        notes: read.notes,
+        subtasks: read.subtasks,
+      });
       if (!id) return;
       setRaw("");
       setCaret(0);
+      window.requestAnimationFrame(function () {
+        fitHeight(props.inputRef.current);
+      });
       if (read.warnings.length) {
         toast.add({ title: "有一段没读懂", description: read.warnings.join(" ") });
+        return;
+      }
+      // Unscheduled → 收集. Optional follow: switch tab, select row, open detail so tags/schedule finish in one motion.
+      if (!read.due && followInbox) {
+        setSelectMode(false);
+        setLens("inbox");
+        openTask(id);
         return;
       }
       if (read.due && !onToday(read, today) && lens === "today") {
@@ -150,10 +184,21 @@ export function Capture(props: { inputRef: React.RefObject<HTMLInputElement | nu
   }
 
   const showSuggest = Boolean(assist && options.length);
-  const showChips = Boolean(!showSuggest && parsed && (schedule || parsed.priority !== 3 || parsed.tags.length || parsed.warnings.length));
+  const showChips = Boolean(
+    !showSuggest &&
+      parsed &&
+      (schedule ||
+        parsed.priority !== 3 ||
+        parsed.tags.length ||
+        parsed.notes ||
+        parsed.subtasks.length ||
+        parsed.warnings.length)
+  );
   const boxRef = React.useRef<HTMLDivElement>(null);
   const lifted = Boolean(props.dock && focused);
   const [liftY, setLiftY] = React.useState(0);
+  // Focused: one size for placeholder + content (between old sm and 2xl). Empty only keeps a one-line min height.
+  const empty = !raw.trim();
 
   function measureLift(extra: number): number {
     const el = boxRef.current;
@@ -170,47 +215,83 @@ export function Capture(props: { inputRef: React.RefObject<HTMLInputElement | nu
     return Math.min(0, targetTop - restingTop);
   }
 
-  React.useEffect(
+  React.useLayoutEffect(
     function () {
+      fitHeight(props.inputRef.current);
       if (!lifted) {
         setLiftY(0);
-        return;
+        return undefined;
       }
       function measure() {
+        fitHeight(props.inputRef.current);
         setLiftY(measureLift(0));
       }
       measure();
       const frame = window.requestAnimationFrame(measure);
-      const timer = window.setTimeout(measure, 280);
+      // Empty big-type still eases font size; one late measure is enough.
+      const late = window.setTimeout(measure, 220);
       return function () {
         window.cancelAnimationFrame(frame);
-        window.clearTimeout(timer);
+        window.clearTimeout(late);
       };
     },
-    [lifted, raw]
+    [raw, focused, lifted, props.dock, props.inputRef]
   );
 
   const field = (
-    <div className={props.dock ? (focused ? "" : "kedu-edge rounded-xl border px-3 py-2.5") : "contents"}>
-      <input
+    <div className={props.dock ? (focused ? "" : "kedu-edge rounded-xl border px-3 py-2") : "contents"}>
+      <textarea
         ref={props.inputRef}
         data-kedu="capture"
         value={raw}
+        rows={1}
         autoComplete="off"
         spellCheck={false}
         placeholder={focused && props.dock ? "写下一件要做的事" : "添加一件事，回车加入"}
         aria-label="添加一件事"
         onFocus={function () {
-          if (props.dock) setLiftY(measureLift(96));
           setFocused(true);
+          window.requestAnimationFrame(function () {
+            fitHeight(props.inputRef.current);
+            if (props.dock) setLiftY(measureLift(0));
+          });
         }}
         onBlur={function () {
           setFocused(false);
+          setLiftY(0);
+          // Font-size transition is 200ms; refit after class flips and again when type settles.
+          window.requestAnimationFrame(function () {
+            fitHeight(props.inputRef.current);
+          });
+          window.setTimeout(function () {
+            fitHeight(props.inputRef.current);
+          }, 220);
         }}
         onChange={function (e) {
           setRaw(e.target.value);
           setSuppress(null);
           rememberCaret(e.target);
+          fitHeight(e.target);
+        }}
+        onPaste={function (e) {
+          const clip = e.clipboardData ? e.clipboardData.getData("text/plain") : "";
+          if (!clip || (clip.indexOf("\n") < 0 && clip.indexOf("\r") < 0)) return;
+          // Keep multi-line 刻度文本 intact so notes/subtasks are not mashed into the title.
+          e.preventDefault();
+          const el = e.currentTarget;
+          const start = el.selectionStart === null ? raw.length : el.selectionStart;
+          const end = el.selectionEnd === null ? raw.length : el.selectionEnd;
+          const normalized = clip.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+          const next = raw.slice(0, start) + normalized + raw.slice(end);
+          const pos = start + normalized.length;
+          setRaw(next);
+          setSuppress(null);
+          setCaret(pos);
+          window.requestAnimationFrame(function () {
+            el.focus();
+            el.setSelectionRange(pos, pos);
+            fitHeight(el);
+          });
         }}
         onSelect={function (e) {
           rememberCaret(e.currentTarget);
@@ -237,6 +318,8 @@ export function Capture(props: { inputRef: React.RefObject<HTMLInputElement | nu
             return;
           }
           if (e.key !== "Enter") return;
+          // Shift+Enter inserts a newline; plain Enter submits.
+          if (e.shiftKey) return;
           e.preventDefault();
           if (showSuggest) {
             applyToken(options[Math.min(index, options.length - 1)].token);
@@ -245,12 +328,10 @@ export function Capture(props: { inputRef: React.RefObject<HTMLInputElement | nu
           void submit();
         }}
         className={
-          "w-full bg-transparent text-foreground outline-none transition-[font-size] duration-500 placeholder:text-muted-foreground " +
-          (focused && props.dock
-            ? "min-h-16 py-1 text-[1.75rem] font-medium leading-tight"
-            : focused
-              ? "h-14 text-sm"
-              : "h-10 text-sm")
+          "box-border block w-full max-w-full resize-none overflow-hidden whitespace-pre-wrap break-words bg-transparent text-foreground outline-none transition-[font-size] duration-200 placeholder:text-muted-foreground [field-sizing:content] " +
+          (focused
+            ? "py-1 text-xl font-medium leading-snug" + (empty ? " min-h-11" : "")
+            : "py-0.5 text-sm leading-snug" + (empty ? " min-h-8" : ""))
         }
       />
 
@@ -296,6 +377,14 @@ export function Capture(props: { inputRef: React.RefObject<HTMLInputElement | nu
               </span>
             );
           })}
+          {parsed.notes ? (
+            <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">备注</span>
+          ) : null}
+          {parsed.subtasks.length ? (
+            <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+              {"子任务 " + String(parsed.subtasks.length)}
+            </span>
+          ) : null}
           {parsed.warnings.length ? (
             <span className="text-xs text-destructive">{parsed.warnings.join(" ")}</span>
           ) : null}
@@ -305,8 +394,8 @@ export function Capture(props: { inputRef: React.RefObject<HTMLInputElement | nu
       {focused && !raw.trim() ? (
         <p className={props.dock ? "pt-4 text-sm text-muted-foreground" : "pt-1 text-xs text-muted-foreground"}>
           {props.dock
-            ? "回车加入清单 · 例如 整理纪要 @周五 !2 #工作 · 也可以 @9/13-9/15 或 @14:00"
-            : "例如：整理纪要 @周五 !2 #工作 · 也可以 @9/13-9/15 或 @14:00"}
+            ? "回车加入 · Shift+Enter 换行 · 例如 整理纪要 @周五 !2 #工作"
+            : "回车加入 · Shift+Enter 换行 · 例如：整理纪要 @周五 !2 #工作"}
         </p>
       ) : null}
     </div>
@@ -336,12 +425,12 @@ export function Capture(props: { inputRef: React.RefObject<HTMLInputElement | nu
         className={
           props.dock
             ? "kedu-quick-card absolute inset-x-0 bottom-0 z-30 bg-background " +
-              (lifted ? "px-8 pb-7 pt-7" : "border-t border-border px-4 pb-4 pt-3")
+              (lifted ? "px-8 pb-7 pt-7" : "border-t border-border px-4 pb-3 pt-2.5")
             : "kedu-edge mx-4 mt-3 rounded-xl border px-3 py-2.5"
         }
       >
         {props.dock ? (
-          <p className={lifted ? "pb-4 text-[11px] tracking-[0.42em] text-muted-foreground" : "pb-2 text-xs text-muted-foreground"}>
+          <p className={lifted ? "pb-4 text-[11px] tracking-[0.42em] text-muted-foreground" : "pb-1.5 text-xs text-muted-foreground"}>
             快记
           </p>
         ) : null}

@@ -4,6 +4,8 @@ export type Subtask = {
   id: string;
   title: string;
   done: boolean;
+  /** Set when marked done; cleared when reopened. Older data may be null even if done. */
+  completedAt: number | null;
 };
 
 export type TaskImage = {
@@ -28,10 +30,17 @@ export type Task = {
   order: number;
   createdAt: number;
   completedAt: number | null;
+  /** Orthogonal to done/schedule. Multiple tasks may be doing at once. */
+  doing: boolean;
+  /** When doing became true; newest first on the 正在做 stage. */
+  doingAt: number | null;
 };
 
-/** 今天 = 逾期+今日；之后 = 已排到未来；收集 = 还没有日期。 */
-export type ViewId = "today" | "next" | "inbox";
+/** 今天 = 逾期+今日；之后 = 已排到未来；收集 = 还没有日期；曾经 = 近期完成。 */
+export type ViewId = "today" | "next" | "inbox" | "once";
+
+/** Time window for the 曾经 lens. `all` is uncapped (UI may soft-cap the DOM). */
+export type OnceRange = { mode: "days"; n: number } | { mode: "all" };
 
 export type SortId = "manual" | "due" | "priority" | "created";
 

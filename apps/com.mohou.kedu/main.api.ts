@@ -1,6 +1,6 @@
 import { defineApp } from "@mohou/contract";
 
-import { collectTags, parseQuickAdd, shiftKey, todayKey } from "./shared/model";
+import { collectTags, parseKeduPaste, shiftKey, todayKey } from "./shared/model";
 import type { Priority, Task, TaskPatch } from "./shared/types";
 
 const K_TASKS = "tasks";
@@ -38,12 +38,19 @@ function seed(today: string): Task[] {
       startTime: null,
       endTime: null,
       subtasks: subs.map(function (s) {
-        return { id: uid("s"), title: s.title, done: s.done };
+        return {
+          id: uid("s"),
+          title: s.title,
+          done: s.done,
+          completedAt: s.done ? now - order * 1000 : null,
+        };
       }),
       images: [],
       order,
       createdAt: now - order * 5400000,
       completedAt: doneAt === undefined ? null : doneAt,
+      doing: false,
+      doingAt: null,
     };
   }
 
@@ -93,7 +100,14 @@ function normalize(raw: any): Task {
     endTime: typeof raw.endTime === "string" ? raw.endTime : null,
     subtasks: Array.isArray(raw.subtasks)
       ? raw.subtasks.map(function (s: any) {
-          return { id: String(s && s.id ? s.id : uid("s")), title: String(s && s.title ? s.title : ""), done: Boolean(s && s.done) };
+          const done = Boolean(s && s.done);
+          const completedAt = typeof (s && s.completedAt) === "number" ? s.completedAt : null;
+          return {
+            id: String(s && s.id ? s.id : uid("s")),
+            title: String(s && s.title ? s.title : ""),
+            done: done,
+            completedAt: done ? completedAt : null,
+          };
         })
       : [],
     images: Array.isArray(raw.images)
@@ -104,13 +118,40 @@ function normalize(raw: any): Task {
     order: typeof raw.order === "number" ? raw.order : 0,
     createdAt: typeof raw.createdAt === "number" ? raw.createdAt : Date.now(),
     completedAt: typeof raw.completedAt === "number" ? raw.completedAt : null,
+    doing: Boolean(raw.doing) && !Boolean(raw.done),
+    doingAt:
+      Boolean(raw.doing) && !Boolean(raw.done) && typeof raw.doingAt === "number" ? raw.doingAt : null,
   };
 }
 
 async function load(ctx): Promise<Task[]> {
   const kv = ctx.storage.kv();
   const raw = await kv.get(K_TASKS);
-  if (Array.isArray(raw)) return raw.map(normalize);
+  if (Array.isArray(raw)) {
+    const tasks = raw.map(normalize);
+    // Older done subtasks had no completedAt; backfill once so the list can show a time.
+    let dirty = false;
+    for (let i = 0; i < tasks.length; i++) {
+      const t = tasks[i];
+      let changed = false;
+      const subs = t.subtasks.map(function (s) {
+        if (s.done && s.completedAt == null) {
+          changed = true;
+          dirty = true;
+          return {
+            id: s.id,
+            title: s.title,
+            done: true,
+            completedAt: t.completedAt != null ? t.completedAt : t.createdAt,
+          };
+        }
+        return s;
+      });
+      if (changed) tasks[i] = Object.assign({}, t, { subtasks: subs });
+    }
+    if (dirty) await kv.set(K_TASKS, tasks);
+    return tasks;
+  }
   const seeded = await kv.get(K_SEEDED);
   if (seeded) return [];
   const fresh = seed(todayKey());
@@ -147,6 +188,8 @@ function applyPatch(task: Task, patch: TaskPatch | undefined): Task {
     order: task.order,
     createdAt: task.createdAt,
     completedAt: task.completedAt,
+    doing: task.doing,
+    doingAt: task.doingAt,
   };
   if (!patch) return next;
   if (typeof patch.title === "string") {
@@ -157,6 +200,28 @@ function applyPatch(task: Task, patch: TaskPatch | undefined): Task {
   if (typeof patch.done === "boolean") {
     next.done = patch.done;
     next.completedAt = patch.done ? (task.completedAt === null ? Date.now() : task.completedAt) : null;
+    if (patch.done) {
+      next.doing = false;
+      next.doingAt = null;
+    }
+  }
+  if (typeof patch.doing === "boolean") {
+    if (next.done) {
+      next.doing = false;
+      next.doingAt = null;
+    } else {
+      next.doing = patch.doing;
+      if (patch.doing) {
+        next.doingAt =
+          typeof patch.doingAt === "number"
+            ? patch.doingAt
+            : task.doing && task.doingAt != null
+              ? task.doingAt
+              : Date.now();
+      } else {
+        next.doingAt = null;
+      }
+    }
   }
   if (patch.priority === 1 || patch.priority === 2 || patch.priority === 3 || patch.priority === 4) {
     next.priority = patch.priority;
@@ -171,11 +236,28 @@ function applyPatch(task: Task, patch: TaskPatch | undefined): Task {
   if (patch.endTime === null) next.endTime = null;
   if (typeof patch.endTime === "string") next.endTime = patch.endTime;
   if (Array.isArray(patch.subtasks)) {
+    const prevById: Record<string, { done: boolean; completedAt: number | null }> = {};
+    for (let i = 0; i < task.subtasks.length; i++) {
+      prevById[task.subtasks[i].id] = {
+        done: task.subtasks[i].done,
+        completedAt: task.subtasks[i].completedAt == null ? null : task.subtasks[i].completedAt,
+      };
+    }
     next.subtasks = patch.subtasks.slice(0, 50).map(function (s: any) {
+      const id = String(s && s.id ? s.id : uid("s"));
+      const done = Boolean(s && s.done);
+      const prev = prevById[id];
+      let completedAt: number | null = null;
+      if (done) {
+        if (typeof s.completedAt === "number") completedAt = s.completedAt;
+        else if (prev && prev.completedAt !== null && prev.completedAt !== undefined) completedAt = prev.completedAt;
+        else completedAt = Date.now();
+      }
       return {
-        id: String(s && s.id ? s.id : uid("s")),
+        id: id,
         title: String(s && s.title ? s.title : "").slice(0, 200),
-        done: Boolean(s && s.done),
+        done: done,
+        completedAt: completedAt,
       };
     });
   }
@@ -195,17 +277,49 @@ export default defineApp({
       const today = todayKey();
       const raw = String((args && args.title) || "").trim();
       if (!raw) throw new Error("先写点什么再回车");
-      const parsed = parseQuickAdd(raw, today);
+      // title may be multi-line 刻度文本: line 1 DSL, rest notes / - [ ] subtasks.
+      const parsed = parseKeduPaste(raw, today);
       const title = parsed.title.trim();
       if (!title) throw new Error("除了日期和标签，还要写上要做什么");
       const tasks = await load(ctx);
       let minOrder = 0;
       for (let i = 0; i < tasks.length; i++) if (tasks[i].order < minOrder) minOrder = tasks[i].order;
       const hasDue = args && Object.prototype.hasOwnProperty.call(args, "due");
+      // Prefer explicit args; fall back to body parsed from multi-line paste.
+      const notesFromArgs =
+        args && typeof args.notes === "string" ? String(args.notes).trim().slice(0, 4000) : "";
+      const notes = notesFromArgs || parsed.notes;
+      const subtasksFromArgs =
+        args && Array.isArray(args.subtasks)
+          ? args.subtasks
+              .map(function (s: { title?: string; done?: boolean }) {
+                const t = String((s && s.title) || "").trim().slice(0, 200);
+                if (!t) return null;
+                const done = Boolean(s && s.done);
+                return {
+                  id: uid("s"),
+                  title: t,
+                  done: done,
+                  completedAt: done ? Date.now() : null,
+                };
+              })
+              .filter(Boolean)
+              .slice(0, 32)
+          : null;
+      const subtasks = (subtasksFromArgs && subtasksFromArgs.length
+        ? subtasksFromArgs
+        : parsed.subtasks.map(function (s) {
+            return {
+              id: uid("s"),
+              title: s.title,
+              done: s.done,
+              completedAt: s.done ? Date.now() : null,
+            };
+          })) as Task["subtasks"];
       const created: Task = {
         id: uid("t"),
         title: title.slice(0, 200),
-        notes: "",
+        notes: notes,
         done: false,
         priority: args && args.priority ? (args.priority as Priority) : parsed.priority,
         tags: args && Array.isArray(args.tags) ? args.tags.map(String).slice(0, 8) : parsed.tags,
@@ -213,11 +327,13 @@ export default defineApp({
         due: hasDue ? args.due : parsed.due,
         startTime: parsed.startTime,
         endTime: parsed.endTime,
-        subtasks: [],
+        subtasks: subtasks,
         images: [],
         order: minOrder - 1,
         createdAt: Date.now(),
         completedAt: null,
+        doing: false,
+        doingAt: null,
       };
       tasks.push(created);
       await save(ctx, tasks);
@@ -246,7 +362,12 @@ export default defineApp({
         if (t.id !== id) return t;
         hit = true;
         const done = !t.done;
-        return Object.assign({}, t, { done, completedAt: done ? Date.now() : null });
+        return Object.assign({}, t, {
+          done,
+          completedAt: done ? Date.now() : null,
+          doing: done ? false : t.doing,
+          doingAt: done ? null : t.doingAt,
+        });
       });
       if (!hit) throw new Error("任务不存在");
       await save(ctx, next);
@@ -337,6 +458,8 @@ export default defineApp({
           return Object.assign({}, t, {
             done: target,
             completedAt: target ? (t.completedAt === null ? Date.now() : t.completedAt) : null,
+            doing: target ? false : t.doing,
+            doingAt: target ? null : t.doingAt,
           });
         });
       }

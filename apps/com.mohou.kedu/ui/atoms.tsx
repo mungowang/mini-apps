@@ -41,22 +41,32 @@ export function TickBar(props: { ratio: number; ticks?: number; celebrate?: bool
 
 export function PriorityMark(props: { priority: Priority; onCycle?: () => void }) {
   const title = PRIORITY_LABEL[props.priority] + " " + PRIORITY_TITLE[props.priority];
-  const bars = [1, 2, 3, 4].map(function (i) {
-    const on = i >= props.priority;
+  // Fixed 16×16 slot (same as TaskCheck) so the glyph centers with the radio on the row.
+  const bars = (
+    <span className="inline-flex h-[11px] w-[14px] items-end justify-center gap-0.5" aria-hidden="true">
+      {[1, 2, 3, 4].map(function (i) {
+        const on = i >= props.priority;
+        return (
+          <span
+            key={i}
+            style={{
+              width: 2,
+              height: 3 + i * 2,
+              borderRadius: 1,
+              backgroundColor: on ? "var(--foreground)" : HAIR,
+            }}
+          />
+        );
+      })}
+    </span>
+  );
+  if (!props.onCycle) {
     return (
-      <span
-        key={i}
-        style={{
-          width: 2,
-          height: 3 + i * 2,
-          borderRadius: 1,
-          backgroundColor: on ? "var(--foreground)" : HAIR,
-        }}
-      />
+      <span title={title} className="grid size-4 shrink-0 place-items-center">
+        {bars}
+      </span>
     );
-  });
-  const body = <span className="inline-flex items-end gap-0.5">{bars}</span>;
-  if (!props.onCycle) return <span title={title}>{body}</span>;
+  }
   return (
     <button
       type="button"
@@ -66,9 +76,9 @@ export function PriorityMark(props: { priority: Priority; onCycle?: () => void }
         e.stopPropagation();
         if (props.onCycle) props.onCycle();
       }}
-      className="inline-flex shrink-0 items-end rounded-sm px-0.5 py-1 hover:bg-muted"
+      className="grid size-4 shrink-0 place-items-center rounded-sm hover:bg-muted"
     >
-      {body}
+      {bars}
     </button>
   );
 }
@@ -84,7 +94,7 @@ export function TaskCheck(props: { done: boolean; onToggle: () => void }) {
         props.onToggle();
       }}
       className={cn(
-        "mt-0.5 grid size-4 shrink-0 place-items-center rounded-full border",
+        "grid size-4 shrink-0 place-items-center rounded-full border",
         props.done ? "border-foreground bg-foreground text-background" : "kedu-edge"
       )}
     >

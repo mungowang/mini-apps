@@ -1,9 +1,46 @@
 import * as React from "react";
 import { Button, Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Kbd, Textarea, toast } from "@mohou/ui";
 
-import { formatTaskLine, parseQuickAdd, fmtShort } from "../shared/model";
-import type { Parsed, ViewId } from "../shared/model";
+import { formatTaskLine, parseKeduPaste, parseQuickAdd, parseSubtaskLine, fmtShort } from "../shared/model";
+import type { KeduPaste, Parsed, ViewId } from "../shared/model";
+import { copyText } from "./clipboard";
 import { useStore } from "./store";
+
+/** One-line DSL rows, or multi-line 刻度文本 blocks (blank-line separated). */
+function importUnits(raw: string, today: string): KeduPaste[] {
+  const text = String(raw || "").replace(/\r\n/g, "\n").replace(/\r/g, "\n").trim();
+  if (!text) return [];
+  const hasSubs = /^-\s*\[[ xX]\]/m.test(text);
+  const hasBlank = /\n\s*\n/.test(text);
+  if (hasSubs || hasBlank) {
+    return text
+      .split(/\n(?:[ \t]*\n)+/)
+      .map(function (b) {
+        return b.trim();
+      })
+      .filter(Boolean)
+      .map(function (b) {
+        return parseKeduPaste(b, today);
+      })
+      .filter(function (p) {
+        return Boolean(p.title.trim());
+      });
+  }
+  return text
+    .split("\n")
+    .map(function (l) {
+      return l.trim();
+    })
+    .filter(function (l) {
+      return Boolean(l) && !parseSubtaskLine(l);
+    })
+    .map(function (l) {
+      return parseKeduPaste(l, today);
+    })
+    .filter(function (p) {
+      return Boolean(p.title.trim());
+    });
+}
 
 type Item = { id: string; label: string; hint?: string; run: () => void };
 
@@ -16,23 +53,6 @@ function lineMeta(p: Parsed): string {
   else if (p.due) bits.push(fmtShort(p.due));
   if (p.startTime) bits.push(p.startTime + (p.endTime ? "-" + p.endTime : ""));
   return bits.join(" ");
-}
-
-async function copyText(text: string): Promise<boolean> {
-  try {
-    await navigator.clipboard.writeText(text);
-    return true;
-  } catch (e) {
-    const helper = document.createElement("textarea");
-    helper.value = text;
-    helper.style.position = "fixed";
-    helper.style.opacity = "0";
-    document.body.appendChild(helper);
-    helper.select();
-    const ok = document.execCommand("copy");
-    document.body.removeChild(helper);
-    return ok;
-  }
 }
 
 /** Paste lines of the quick-add DSL, preview the parsed items, import in one go. */
@@ -51,33 +71,36 @@ function ImportDialog(props: { open: boolean; onOpenChange: (v: boolean) => void
     [props.open]
   );
 
-  const lines = React.useMemo(
+  const units = React.useMemo(
+    function () {
+      return importUnits(raw, today);
+    },
+    [raw, today]
+  );
+  const lineCount = React.useMemo(
     function () {
       return raw
         .split("\n")
         .map(function (l) {
           return l.trim();
         })
-        .filter(Boolean);
+        .filter(Boolean).length;
     },
     [raw]
   );
-  const good = React.useMemo(
-    function () {
-      return lines.filter(function (l) {
-        return parseQuickAdd(l, today).title;
-      });
-    },
-    [lines, today]
-  );
-  const skipped = lines.length - good.length;
+  const skipped = Math.max(0, lineCount - units.length);
 
   async function doImport() {
-    if (!good.length || busy) return;
+    if (!units.length || busy) return;
     setBusy(true);
     let n = 0;
-    for (let i = 0; i < good.length; i++) {
-      const id = await actions.add(good[i]);
+    for (let i = 0; i < units.length; i++) {
+      const u = units[i];
+      const extra =
+        u.notes || u.subtasks.length
+          ? { notes: u.notes, subtasks: u.subtasks }
+          : undefined;
+      const id = await actions.add(u.dslLine, extra);
       if (id) n += 1;
     }
     setBusy(false);
@@ -90,7 +113,7 @@ function ImportDialog(props: { open: boolean; onOpenChange: (v: boolean) => void
       <DialogContent width={440}>
         <DialogHeader>
           <DialogTitle>导入清单</DialogTitle>
-          <DialogDescription>一行一件事：标题 #标签 !优先 @日期 @时间。</DialogDescription>
+          <DialogDescription>一行一件，或整段刻度文本（含备注 / 子任务）。</DialogDescription>
         </DialogHeader>
         <Textarea
           autoFocus
@@ -103,10 +126,9 @@ function ImportDialog(props: { open: boolean; onOpenChange: (v: boolean) => void
           }}
           className="mt-3 w-full text-sm"
         />
-        {good.length ? (
+        {units.length ? (
           <div className="mt-3 max-h-44 overflow-auto rounded-md border border-border" aria-label="可导入预览">
-            {good.map(function (line, i) {
-              const p = parseQuickAdd(line, today);
+            {units.map(function (p, i) {
               return (
                 <div key={i} className="flex items-center gap-2 border-b border-border px-2.5 py-1.5 text-sm last:border-b-0">
                   <span className="min-w-0 flex-1 truncate text-foreground">{p.title}</span>
@@ -118,14 +140,14 @@ function ImportDialog(props: { open: boolean; onOpenChange: (v: boolean) => void
         ) : null}
         <div className="mt-3 flex items-center justify-between gap-3">
           <p className="text-xs text-muted-foreground">
-            {good.length
+            {units.length
               ? skipped
-                ? "有 " + String(good.length) + " 件可导入，另有 " + String(skipped) + " 行会跳过"
-                : "有 " + String(good.length) + " 件可导入"
+                ? "有 " + String(units.length) + " 件可导入，另有 " + String(skipped) + " 行会跳过"
+                : "有 " + String(units.length) + " 件可导入"
               : "粘贴后一行一件事"}
           </p>
-          <Button size="sm" disabled={!good.length || busy} onClick={function () { void doImport(); }}>
-            {busy ? "导入中…" : good.length ? "导入 " + String(good.length) + " 件" : "导入"}
+          <Button size="sm" disabled={!units.length || busy} onClick={function () { void doImport(); }}>
+            {busy ? "导入中…" : units.length ? "导入 " + String(units.length) + " 件" : "导入"}
           </Button>
         </div>
       </DialogContent>
@@ -141,7 +163,7 @@ export function Commands(props: {
   onClearDone: () => void;
   onReset: () => void;
 }) {
-  const { setLens, setSelectMode, setRhythmOpen, openTask, tasks } = useStore();
+  const { setLens, setSelectMode, setRhythmOpen, openTask, tasks, followInbox, setFollowInbox } = useStore();
   const [query, setQuery] = React.useState("");
   const [index, setIndex] = React.useState(0);
   const [importOpen, setImportOpen] = React.useState(false);
@@ -186,6 +208,7 @@ export function Commands(props: {
     { id: "today", label: "看今天", hint: "1", run: function () { go("today"); } },
     { id: "next", label: "看之后", hint: "2", run: function () { go("next"); } },
     { id: "inbox", label: "看收集", hint: "3", run: function () { go("inbox"); } },
+    { id: "once", label: "看曾经", hint: "4", run: function () { go("once"); } },
     { id: "add", label: "写下一条", hint: "N", run: props.onFocusAdd },
     { id: "search", label: "搜索", hint: "/", run: props.onFocusSearch },
     {
@@ -212,6 +235,20 @@ export function Commands(props: {
       run: function () {
         props.onOpenChange(false);
         setImportOpen(true);
+      },
+    },
+    {
+      id: "follow-inbox",
+      label: followInbox ? "关闭：创建后打开收集" : "开启：创建后打开收集",
+      run: function () {
+        setFollowInbox(!followInbox);
+        toast.add({
+          title: followInbox ? "已关闭自动打开" : "已开启自动打开",
+          description: followInbox
+            ? "未排期的事写完后会留在当前清单"
+            : "未排期的事写完后会跳到收集并打开详情",
+        });
+        props.onOpenChange(false);
       },
     },
     { id: "clear", label: "清空已完成", run: props.onClearDone },
