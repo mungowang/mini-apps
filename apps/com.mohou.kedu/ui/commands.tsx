@@ -269,7 +269,7 @@ export function Commands(props: {
   return (
     <>
       <Dialog open={props.open} onOpenChange={props.onOpenChange}>
-        <DialogContent width={420} data-kedu="commands">
+        <DialogContent width={560} className="sm:max-w-xl" data-kedu="commands">
           <DialogHeader>
             <DialogTitle>命令</DialogTitle>
             <DialogDescription>跳转、搜索，以及不常用的整理。</DialogDescription>
@@ -297,9 +297,9 @@ export function Commands(props: {
                 runCurrent();
               }
             }}
-            className="mt-3 h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm outline-none focus:border-foreground"
+            className="mt-3 h-10 w-full rounded-md border border-input bg-transparent px-3 text-sm outline-none focus:border-foreground"
           />
-          <div className="mt-2 flex max-h-72 flex-col overflow-auto" role="listbox">
+          <div className="mt-3 flex max-h-[min(70vh,28rem)] flex-col overflow-auto" role="listbox">
             {shown.map(function (item, i) {
               const on = i === current;
               return (
