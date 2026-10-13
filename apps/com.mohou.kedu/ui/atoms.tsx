@@ -110,8 +110,10 @@ export function DueText(props: { meta: Schedule | null }) {
   return <span className={cn("shrink-0 font-mono text-[11px] tabular-nums", tone)}>{props.meta.label}</span>;
 }
 
-export function SubtaskTicks(props: { done: number; total: number }) {
+export function SubtaskTicks(props: { done: number; total: number; invert?: boolean }) {
   const n = Math.min(props.total, 8);
+  const on = props.invert ? "var(--background)" : "var(--foreground)";
+  const off = props.invert ? "color-mix(in oklab, var(--background) 38%, transparent)" : HAIR;
   const cells: React.ReactNode[] = [];
   for (let i = 0; i < n; i++) {
     cells.push(
@@ -121,7 +123,7 @@ export function SubtaskTicks(props: { done: number; total: number }) {
           width: 7,
           height: 2,
           borderRadius: 1,
-          backgroundColor: i < props.done ? "var(--foreground)" : HAIR,
+          backgroundColor: i < props.done ? on : off,
         }}
       />
     );

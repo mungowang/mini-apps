@@ -347,65 +347,44 @@
   }
 }
 
-/* ── 进行中 stage ── */
+/* ── 进行中：与「逾期 / 今天」同一套 section 节奏 ── */
 .kedu-doing-stage {
-  --kedu-doing: color-mix(in oklab, var(--foreground) 12%, #3d6fe8 88%);
-  --kedu-doing-soft: color-mix(in oklab, var(--kedu-doing) 14%, transparent);
-  --kedu-doing-line: color-mix(in oklab, var(--kedu-doing) 55%, transparent);
-  /* Horizontal 0 so px-3 radios line up with the list below. */
-  margin: 10px 0 8px;
+  margin: 0;
   padding: 0;
-  border-radius: 16px;
-  border: 1px solid color-mix(in oklab, var(--kedu-doing) 22%, var(--border));
-  background:
-    linear-gradient(180deg, var(--kedu-doing-soft), transparent 70%),
-    var(--background);
-  overflow: hidden;
+  border: 0;
+  background: transparent;
 }
 
-/* Rows flush to the panel edge — no padding gap at top/bottom. */
 .kedu-doing-row {
-  border-bottom: 1px solid color-mix(in oklab, var(--kedu-doing) 10%, var(--border));
-}
-
-.kedu-doing-row:last-child {
-  border-bottom: 0;
+  border-bottom: 1px solid var(--border);
 }
 
 .kedu-doing-row:hover {
-  background: color-mix(in oklab, var(--kedu-doing-soft) 40%, transparent);
+  background: color-mix(in oklab, var(--muted) 55%, transparent);
 }
 
-/* Selected: same family as the panel tint, not generic muted gray. */
 .kedu-doing-row[data-on="1"] {
-  background: color-mix(in oklab, var(--kedu-doing-soft) 62%, transparent);
+  background: var(--muted);
 }
 
 .kedu-doing-row[data-on="1"]:hover {
-  background: color-mix(in oklab, var(--kedu-doing-soft) 72%, transparent);
+  background: var(--muted);
 }
 
-/* Same 16×16 + 1px border as TaskCheck; ring + centered dot; hover → check */
 .kedu-doing-toggle {
   line-height: 0;
 }
 
 .kedu-doing-toggle[data-on="1"] {
-  color: var(--kedu-doing);
+  color: var(--foreground);
   background: transparent;
 }
 
 .kedu-doing-toggle[data-on="1"]:hover {
-  background: var(--kedu-doing-soft);
+  background: color-mix(in oklab, var(--foreground) 8%, transparent);
 }
 
 .kedu-doing-toggle svg {
   display: block;
   flex-shrink: 0;
-}
-
-.kedu-doing-chip[data-on="1"] {
-  border-color: transparent;
-  background: var(--kedu-doing);
-  color: #fff;
 }
