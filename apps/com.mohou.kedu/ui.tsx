@@ -1,6 +1,18 @@
 import * as React from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { Button, ConfirmDialog, Icon, Kbd, Toaster, toast, useApp, cn } from "@mohou/ui";
+import {
+  Button,
+  ConfirmDialog,
+  Icon,
+  Kbd,
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+  Toaster,
+  toast,
+  useApp,
+  cn,
+} from "@mohou/ui";
 
 import { computeStats, dayHeading, homeView, inOnceRange, inView, onToday, shiftKey, todayKey } from "./shared/model";
 import type { OnceRange, Pack, Priority, SortId, Task, ViewId } from "./shared/types";
@@ -18,9 +30,135 @@ import type { Actions, Store } from "./ui/store";
 const WIDE_AT = 960;
 const DESK_AT = 1280;
 const SINGLE_MAX = 720;
-const SLIDE_MS = 580;
 const LAYOUT_KEY = "kedu-layout";
 const SORT_KEY = "kedu-sort";
+/** ResizablePanelGroup layouts (panel id → %). desk = preview+main+rail, wide = main+rail. */
+const SPLIT_KEY = "kedu-split-layout";
+
+type SplitKind = "desk" | "wide";
+type SplitLayout = Record<string, number>;
+
+function defaultSplitLayout(kind: SplitKind): SplitLayout {
+  if (kind === "desk") return { preview: 26, main: 48, rail: 26 };
+  return { main: 64, rail: 36 };
+}
+
+function clampSplitLayout(kind: SplitKind, raw: SplitLayout): SplitLayout {
+  const base = defaultSplitLayout(kind);
+  const next: SplitLayout = {};
+  const ids = Object.keys(base);
+  let sum = 0;
+  for (let i = 0; i < ids.length; i++) {
+    const id = ids[i];
+    const n = typeof raw[id] === "number" && isFinite(raw[id]) ? raw[id] : base[id];
+    const v = Math.min(70, Math.max(12, n));
+    next[id] = v;
+    sum += v;
+  }
+  if (sum <= 0) return base;
+  // Renormalize so ids sum to 100 — Resizable expects a full layout.
+  for (let i = 0; i < ids.length; i++) next[ids[i]] = (next[ids[i]] / sum) * 100;
+  return next;
+}
+
+function readSplitLayout(kind: SplitKind): SplitLayout {
+  try {
+    const raw = window.localStorage.getItem(SPLIT_KEY);
+    if (!raw) return defaultSplitLayout(kind);
+    const parsed = JSON.parse(raw) as { desk?: SplitLayout; wide?: SplitLayout };
+    const got = parsed && parsed[kind];
+    if (got && typeof got === "object") return clampSplitLayout(kind, got);
+  } catch (e) {
+    /* fall through */
+  }
+  return defaultSplitLayout(kind);
+}
+
+function writeSplitLayout(kind: SplitKind, layout: SplitLayout) {
+  try {
+    let all: { desk?: SplitLayout; wide?: SplitLayout } = {};
+    try {
+      const raw = window.localStorage.getItem(SPLIT_KEY);
+      if (raw) all = JSON.parse(raw) as { desk?: SplitLayout; wide?: SplitLayout };
+    } catch (e) {
+      all = {};
+    }
+    all[kind] = clampSplitLayout(kind, layout);
+    window.localStorage.setItem(SPLIT_KEY, JSON.stringify(all));
+  } catch (e) {
+    /* still applied for this visit */
+  }
+}
+
+/** Wide/desk: official Resizable splitters. Narrow: main only (+ optional overlay rail). */
+function StageShell(props: {
+  useSplit: boolean;
+  showPreview: boolean;
+  dockRail: boolean;
+  splitKind: SplitKind;
+  splitLayout: SplitLayout;
+  onSplitChanged: (layout: SplitLayout, meta: { isUserInteraction?: boolean; requestedLayout?: SplitLayout }) => void;
+  preview: React.ReactNode;
+  rail: React.ReactNode;
+  overlayRail: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  const groupRef = React.useRef<{ setLayout: (layout: SplitLayout) => void } | null>(null);
+
+  // Apply the saved layout when desk ↔ wide flips — do NOT remount the group (that
+  // tore down the whole main tree and felt like a 2–3s hang).
+  React.useLayoutEffect(
+    function () {
+      if (!props.useSplit) return;
+      const g = groupRef.current;
+      if (g && typeof g.setLayout === "function") {
+        try {
+          g.setLayout(props.splitLayout);
+        } catch (e) {
+          /* first paint may race panel mount */
+        }
+      }
+    },
+    [props.useSplit, props.splitKind, props.showPreview, props.dockRail]
+  );
+
+  if (!props.useSplit) {
+    return (
+      <>
+        {props.children}
+        {props.overlayRail}
+      </>
+    );
+  }
+
+  // Numbers = px in react-resizable-panels v4; use "N" strings for percentages.
+  // No Fragments — Group expects Panel/Separator as direct children.
+  return (
+    <ResizablePanelGroup
+      orientation="horizontal"
+      className="h-full min-h-0 w-full"
+      defaultLayout={props.splitLayout}
+      groupRef={groupRef as any}
+      onLayoutChanged={props.onSplitChanged as any}
+    >
+      {props.showPreview ? (
+        <ResizablePanel id="preview" minSize="16" maxSize="42" className="min-h-0">
+          {props.preview}
+        </ResizablePanel>
+      ) : null}
+      {props.showPreview ? <ResizableHandle withHandle /> : null}
+      <ResizablePanel id="main" minSize="28" className="min-h-0">
+        {props.children}
+      </ResizablePanel>
+      {props.dockRail ? <ResizableHandle withHandle /> : null}
+      {props.dockRail ? (
+        <ResizablePanel id="rail" minSize="16" maxSize="42" className="min-h-0">
+          {props.rail}
+        </ResizablePanel>
+      ) : null}
+    </ResizablePanelGroup>
+  );
+}
 /** 1 = jump to 收集 + open detail after adding an unscheduled task. Default on. */
 const FOLLOW_INBOX_KEY = "kedu-follow-inbox";
 const ONCE_RANGE_KEY = "kedu-once-range";
@@ -209,10 +347,12 @@ export default function Ui() {
   const [settled, setSettled] = React.useState(false);
   const [reduceMotion, setReduceMotion] = React.useState(false);
   const [pinned, setPinned] = React.useState<LayoutMode | null>(readPinned);
-  const [holdPreview, setHoldPreview] = React.useState(function () {
-    return resolveLayout(readPinned(), readWidth()) === "desk";
+  const [deskSplit, setDeskSplit] = React.useState<SplitLayout>(function () {
+    return readSplitLayout("desk");
   });
-  const [collapseRail, setCollapseRail] = React.useState(false);
+  const [wideSplit, setWideSplit] = React.useState<SplitLayout>(function () {
+    return readSplitLayout("wide");
+  });
   const settledRef = React.useRef(false);
   const selectedRef = React.useRef<string | null>(null);
   const rhythmRef = React.useRef(false);
@@ -380,49 +520,6 @@ export default function Ui() {
       };
     },
     [loading, loadError]
-  );
-
-  React.useEffect(
-    function () {
-      if (layout === "desk") {
-        setHoldPreview(true);
-        return;
-      }
-      if (!settledRef.current) {
-        setHoldPreview(false);
-        return;
-      }
-      const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      const timer = window.setTimeout(function () {
-        setHoldPreview(false);
-      }, reduce ? 0 : SLIDE_MS);
-      return function () {
-        window.clearTimeout(timer);
-      };
-    },
-    [layout]
-  );
-
-  React.useEffect(
-    function () {
-      if (layout !== "narrow") {
-        setCollapseRail(false);
-        return;
-      }
-      if (!settledRef.current || selectedRef.current || rhythmRef.current) {
-        setCollapseRail(false);
-        return;
-      }
-      setCollapseRail(true);
-      const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      const timer = window.setTimeout(function () {
-        setCollapseRail(false);
-      }, reduce ? 0 : SLIDE_MS);
-      return function () {
-        window.clearTimeout(timer);
-      };
-    },
-    [layout]
   );
 
   const setSelectMode = React.useCallback(function (v: boolean) {
@@ -828,15 +925,31 @@ export default function Ui() {
   }
 
   const desk = layout === "desk";
-  const columnW = desk ? frameWidth - 800 : layout === "wide" ? frameWidth - 400 : Math.min(frameWidth, SINGLE_MAX);
-  const selectCols = columnW >= 720 ? 4 : 2;
   /** Desk keeps a side list beside the page. It holds 之后, or 今天 while 之后 is the page. */
   // 曾经 is a look-back: desk side keeps 今天 so the live work surface stays visible.
   const sideLens: ViewId = lens === "once" || (desk && lens === "next") ? "today" : "next";
   const sideLabel = LENSES.find(function (item) { return item.id === sideLens; })?.label ?? "";
   const overlay = layout === "narrow" && Boolean(selectedId || rhythmOpen);
-  const showPreview = layout === "desk" || holdPreview;
-  const showRail = layout !== "narrow" || overlay || collapseRail;
+  // Instant — no holdPreview / collapseRail delay (those remounted panes and shoved narrow content right).
+  const showPreview = layout === "desk";
+  const dockRail = layout !== "narrow";
+  const useSplit = layout !== "narrow";
+  const splitKind: SplitKind = showPreview ? "desk" : "wide";
+  const splitLayout = splitKind === "desk" ? deskSplit : wideSplit;
+
+  // Approximate main width for select-bar column count (panel flex owns the real size).
+  const columnW = useSplit
+    ? Math.max(320, Math.round((frameWidth * (splitLayout.main || 50)) / 100))
+    : Math.min(frameWidth, SINGLE_MAX);
+  const selectCols = columnW >= 720 ? 4 : 2;
+
+  function onSplitChanged(next: SplitLayout, meta: { isUserInteraction?: boolean; requestedLayout?: SplitLayout }) {
+    if (!meta || !meta.isUserInteraction) return;
+    const saved = clampSplitLayout(splitKind, meta.requestedLayout || next);
+    if (splitKind === "desk") setDeskSplit(saved);
+    else setWideSplit(saved);
+    writeSplitLayout(splitKind, saved);
+  }
 
   return (
     <StoreCtx.Provider value={store}>
@@ -857,11 +970,44 @@ export default function Ui() {
         ref={frameRef}
         data-kedu="app"
         data-layout={layout}
+        data-split={useSplit ? "1" : "0"}
+        data-preview={showPreview ? "1" : "0"}
         data-center={centered ? "1" : "0"}
         data-settle={settled ? "1" : "0"}
         className="kedu-stage relative flex h-full min-h-0 overflow-hidden bg-background text-foreground"
       >
-        <div className="kedu-main relative flex min-h-0 min-w-0 flex-col">
+        <StageShell
+          useSplit={useSplit}
+          showPreview={showPreview}
+          dockRail={dockRail}
+          splitKind={splitKind}
+          splitLayout={splitLayout}
+          onSplitChanged={onSplitChanged}
+          preview={
+            <section className="flex h-full min-h-0 w-full flex-col border-r border-border" data-kedu="preview">
+              <div className="flex shrink-0 items-center gap-2 px-4 pb-3 pt-4">
+                <h2 className="text-sm font-medium">{sideLabel}</h2>
+                {counts[sideLens] ? <Mono className="text-muted-foreground">{counts[sideLens]}</Mono> : null}
+              </div>
+              <div className="min-h-0 flex-1 overflow-auto">
+                <TaskList lens={sideLens} quiet />
+              </div>
+            </section>
+          }
+          rail={
+            <aside className="flex h-full min-h-0 w-full flex-col" data-kedu="rail">
+              <ContextRail closable={false} />
+            </aside>
+          }
+          overlayRail={
+            overlay ? (
+              <aside className="flex h-full min-h-0 flex-col" data-kedu="rail" data-overlay="1">
+                <ContextRail closable={true} />
+              </aside>
+            ) : null
+          }
+        >
+        <div className="kedu-main relative flex h-full min-h-0 min-w-0 flex-col">
         <header className="shrink-0">
           <div className="flex items-center gap-3 px-4 pt-4">
             <h1 className="min-w-0 truncate text-base font-medium">{dayHeading(today)}</h1>
@@ -1251,24 +1397,8 @@ export default function Ui() {
         ) : null}
         {!selectMode ? <Capture inputRef={addRef} dock /> : null}
         </div>
+        </StageShell>
 
-        <section className="kedu-preview flex justify-end" data-kedu="preview" aria-hidden={layout === "desk" ? undefined : true}>
-          {showPreview ? (
-            <div className="flex h-full w-[400px] shrink-0 flex-col border-r border-border">
-              <div className="flex shrink-0 items-center gap-2 px-4 pb-3 pt-4">
-                <h2 className="text-sm font-medium">{sideLabel}</h2>
-                {counts[sideLens] ? <Mono className="text-muted-foreground">{counts[sideLens]}</Mono> : null}
-              </div>
-              <div className="min-h-0 flex-1 overflow-auto">
-                <TaskList lens={sideLens} quiet />
-              </div>
-            </div>
-          ) : null}
-        </section>
-
-        <aside className="kedu-rail" data-kedu="rail" data-overlay={overlay ? "1" : "0"}>
-          {showRail ? <ContextRail closable={overlay} /> : null}
-        </aside>
         <AnimatePresence>
           {archiveOpen ? <Archive key="archive" detailSide={frameWidth >= WIDE_AT} /> : null}
         </AnimatePresence>

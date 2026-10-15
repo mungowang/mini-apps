@@ -30,7 +30,7 @@ export function ContextRail(props: { closable: boolean }) {
   const transition = reduce ? { duration: 0 } : { duration: 0.36, ease: EASE };
 
   return (
-    <div className="h-full w-[400px] shrink-0 border-l border-border bg-background">
+    <div className="h-full w-full min-w-0 border-l border-border bg-background">
       <AnimatePresence mode="wait" initial={false}>
         {showDetail ? (
           <motion.div

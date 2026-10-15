@@ -11,6 +11,36 @@ export function Mono(props: { children: React.ReactNode; className?: string }) {
   return <span className={cn("font-mono text-[11px] tabular-nums", props.className)}>{props.children}</span>;
 }
 
+/** Quiet monochrome mark for "today is clear" — matches kedu tick language, not a busy undraw. */
+export function IlluClear(props: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 120 88"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={props.className}
+      aria-hidden="true"
+    >
+      <rect x="18" y="14" width="84" height="60" rx="10" stroke="currentColor" strokeWidth="1.5" opacity="0.22" />
+      <path
+        d="M38 34h44M38 44h32M38 54h38"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        opacity="0.18"
+      />
+      <circle cx="86" cy="58" r="18" fill="var(--background)" stroke="currentColor" strokeWidth="1.6" />
+      <path
+        d="M78.5 58.5l5 5 10-12"
+        stroke="currentColor"
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 export function TickBar(props: { ratio: number; ticks?: number; celebrate?: boolean }) {
   const total = props.ticks === undefined ? 18 : props.ticks;
   const rate = props.ratio < 0 ? 0 : props.ratio > 1 ? 1 : props.ratio;

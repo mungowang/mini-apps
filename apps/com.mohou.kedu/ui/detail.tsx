@@ -239,9 +239,12 @@ function timeText(start: string | null, end: string | null): string {
 
 function SubtaskLine(props: {
   sub: Subtask;
+  dragging?: boolean;
+  drop?: boolean;
   onToggle: () => void;
   onRename: (title: string) => void;
   onRemove: () => void;
+  onGripDown: (e: React.PointerEvent<HTMLSpanElement>) => void;
 }) {
   const [draft, setDraft] = React.useState(props.sub.title);
   React.useEffect(
@@ -259,7 +262,32 @@ function SubtaskLine(props: {
     props.onRename(next);
   }
   return (
-    <li className="group flex items-center gap-2 border-b border-border py-1.5">
+    <li
+      data-kedu="sub-row"
+      data-id={props.sub.id}
+      className={cn(
+        "group relative flex items-center gap-1.5 border-b border-border py-1.5",
+        props.dragging ? "opacity-40" : ""
+      )}
+    >
+      {props.drop ? <span className="absolute inset-x-0 top-0 h-px bg-foreground" /> : null}
+      {/* Always-on quiet grip — avoids a blank left gutter that only fills on hover. */}
+      <span
+        aria-label="拖动排序"
+        title="拖动排序"
+        onPointerDown={props.onGripDown}
+        onClick={function (e) {
+          e.stopPropagation();
+        }}
+        className={cn(
+          "-ml-0.5 grid size-4 shrink-0 cursor-grab place-items-center transition-colors active:cursor-grabbing",
+          props.dragging
+            ? "text-foreground"
+            : "text-muted-foreground/40 hover:text-muted-foreground group-hover:text-muted-foreground"
+        )}
+      >
+        <Icon.GripVertical size={13} strokeWidth={2} />
+      </span>
       <TaskCheck done={props.sub.done} onToggle={props.onToggle} />
       <input
         value={draft}
@@ -295,6 +323,20 @@ function SubtaskLine(props: {
       </button>
     </li>
   );
+}
+
+function reorderSubs(list: Subtask[], fromId: string, toId: string): Subtask[] | null {
+  if (fromId === toId) return null;
+  const ids = list.map(function (s) {
+    return s.id;
+  });
+  const a = ids.indexOf(fromId);
+  const b = ids.indexOf(toId);
+  if (a < 0 || b < 0) return null;
+  const next = list.slice();
+  const [item] = next.splice(a, 1);
+  next.splice(b, 0, item);
+  return next;
 }
 
 function Chip(props: { on: boolean; children: React.ReactNode; onClick: () => void; part?: string }) {
@@ -535,6 +577,9 @@ export function TaskDetail() {
   const [title, setTitle] = React.useState("");
   const [notes, setNotes] = React.useState("");
   const [draftSub, setDraftSub] = React.useState("");
+  const subDragId = React.useRef<string | null>(null);
+  const [subDragging, setSubDragging] = React.useState<string | null>(null);
+  const [subOverId, setSubOverId] = React.useState<string | null>(null);
   const [urls, setUrls] = React.useState<Record<string, string>>({});
   const [confirmDel, setConfirmDel] = React.useState(false);
   const [timeOpen, setTimeOpen] = React.useState(false);
@@ -701,6 +746,60 @@ export function TaskDetail() {
     const subs: Subtask[] = current.subtasks.concat([{ id: "", title: text, done: false, completedAt: null }]);
     patch({ subtasks: subs });
     setDraftSub("");
+  }
+
+  function subGripDown(subId: string, event: React.PointerEvent<HTMLSpanElement>) {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const pointerId = event.pointerId;
+    const startY = event.clientY;
+    const snapshot = current.subtasks.slice();
+    let active = false;
+    const handle = event.currentTarget;
+    try {
+      handle.setPointerCapture(pointerId);
+    } catch (e) {
+      /* window listeners still follow the pointer */
+    }
+    function rowAt(x: number, y: number): string | null {
+      const el = document.elementFromPoint(x, y);
+      const row = el && el.closest ? el.closest("[data-kedu=sub-row]") : null;
+      return row ? row.getAttribute("data-id") : null;
+    }
+    function onMove(ev: PointerEvent) {
+      if (ev.pointerId !== pointerId) return;
+      if (!active && Math.abs(ev.clientY - startY) < 5) return;
+      if (!active) {
+        active = true;
+        subDragId.current = subId;
+        setSubDragging(subId);
+      }
+      const id = rowAt(ev.clientX, ev.clientY);
+      setSubOverId(function (prev) {
+        return prev === id ? prev : id;
+      });
+    }
+    function finish(ev: PointerEvent) {
+      if (ev.pointerId !== pointerId) return;
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", finish);
+      window.removeEventListener("pointercancel", finish);
+      if (active) {
+        const id = rowAt(ev.clientX, ev.clientY);
+        const from = subDragId.current;
+        if (from && id) {
+          const next = reorderSubs(snapshot, from, id);
+          if (next) patch({ subtasks: next });
+        }
+      }
+      subDragId.current = null;
+      setSubDragging(null);
+      setSubOverId(null);
+    }
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", finish);
+    window.addEventListener("pointercancel", finish);
   }
 
   return (
@@ -924,6 +1023,11 @@ export function TaskDetail() {
                   <SubtaskLine
                     key={s.id}
                     sub={s}
+                    dragging={subDragging === s.id}
+                    drop={Boolean(subDragging && subOverId === s.id && subDragging !== s.id)}
+                    onGripDown={function (e) {
+                      subGripDown(s.id, e);
+                    }}
                     onToggle={function () {
                       patch({
                         subtasks: current.subtasks.map(function (item) {
@@ -976,7 +1080,7 @@ export function TaskDetail() {
                   addSub();
                 }
               }}
-              className="mt-2 h-8 w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+              className="mt-2 h-8 w-full bg-transparent pl-[2.75rem] text-sm outline-none placeholder:text-muted-foreground"
             />
           </section>
 

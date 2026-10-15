@@ -247,7 +247,7 @@ export function Capture(props: { inputRef: React.RefObject<HTMLTextAreaElement |
         rows={1}
         autoComplete="off"
         spellCheck={false}
-        placeholder={focused && props.dock ? "写下一件要做的事" : "添加一件事，回车加入"}
+        placeholder={focused && props.dock ? "写下一件要做的事" : "添加一件事，Shift+Enter 添加"}
         aria-label="添加一件事"
         onFocus={function () {
           setFocused(true);
@@ -318,14 +318,17 @@ export function Capture(props: { inputRef: React.RefObject<HTMLTextAreaElement |
             return;
           }
           if (e.key !== "Enter") return;
-          // Shift+Enter inserts a newline; plain Enter submits.
-          if (e.shiftKey) return;
-          e.preventDefault();
-          if (showSuggest) {
-            applyToken(options[Math.min(index, options.length - 1)].token);
+          // Enter = newline (notes / subtasks). Shift+Enter = add.
+          // While @/#/! assist is open, plain Enter still picks the highlighted option.
+          if (e.shiftKey) {
+            e.preventDefault();
+            void submit();
             return;
           }
-          void submit();
+          if (showSuggest) {
+            e.preventDefault();
+            applyToken(options[Math.min(index, options.length - 1)].token);
+          }
         }}
         className={
           "box-border block w-full max-w-full resize-none overflow-hidden whitespace-pre-wrap break-words bg-transparent text-foreground outline-none transition-[font-size] duration-200 placeholder:text-muted-foreground [field-sizing:content] " +
@@ -394,8 +397,8 @@ export function Capture(props: { inputRef: React.RefObject<HTMLTextAreaElement |
       {focused && !raw.trim() ? (
         <p className={props.dock ? "pt-4 text-sm text-muted-foreground" : "pt-1 text-xs text-muted-foreground"}>
           {props.dock
-            ? "回车加入 · Shift+Enter 换行 · 例如 整理纪要 @周五 !2 #工作"
-            : "回车加入 · Shift+Enter 换行 · 例如：整理纪要 @周五 !2 #工作"}
+            ? "Enter 换行 · Shift+Enter 添加 · 例如 整理纪要 @周五 !2 #工作"
+            : "Enter 换行 · Shift+Enter 添加 · 例如：整理纪要 @周五 !2 #工作"}
         </p>
       ) : null}
     </div>

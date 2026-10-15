@@ -5,7 +5,7 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle, Icon, Ill
 import type { GroupId } from "../shared/model";
 import { GROUP_TITLE, completedOn, dayHeading, groupOf, inView, overdueTier, relativeTime, scheduleOf, shiftKey, sortTasks, weekendKey } from "../shared/model";
 import type { Priority, Task, ViewId } from "../shared/types";
-import { DueText, Mono, PriorityMark, SubtaskTicks, TaskCheck } from "./atoms";
+import { DueText, IlluClear, Mono, PriorityMark, SubtaskTicks, TaskCheck } from "./atoms";
 import { useStore } from "./store";
 
 const TINT = [
@@ -688,12 +688,19 @@ export function TaskList(props: { onClearFilters?: () => void; lens?: ViewId; qu
     : [];
 
   const copy = emptyCopy(lens, filtered);
-  const showClear = lens === "today" && !filtered && nonEmpty.length === 0 && doneToday.length > 0 && olderDone.length === 0;
   const doingCount = quiet
     ? 0
     : tasks.filter(function (t) {
         return t.doing && !t.done && match(t);
       }).length;
+  // Doing items still count as unfinished work — don't celebrate while any are open.
+  const showClear =
+    lens === "today" &&
+    !filtered &&
+    nonEmpty.length === 0 &&
+    doingCount === 0 &&
+    doneToday.length > 0 &&
+    olderDone.length === 0;
   const showEmpty = nonEmpty.length === 0 && doneToday.length === 0 && olderDone.length === 0 && doingCount === 0;
   const onlyDoing = nonEmpty.length === 0 && doneToday.length === 0 && olderDone.length === 0 && doingCount > 0;
 
@@ -832,7 +839,17 @@ export function TaskList(props: { onClearFilters?: () => void; lens?: ViewId; qu
         );
       })}
 
-      {showClear ? <p className="px-3 py-8 text-sm text-muted-foreground">今天的都做完了。</p> : null}
+      {showClear ? (
+        <Empty className="border-0 py-10">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <IlluClear className="size-28 text-foreground" />
+            </EmptyMedia>
+            <EmptyTitle>今天的都做完了</EmptyTitle>
+            <EmptyDescription>清单清空了。想再写一件，用底部快记。</EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      ) : null}
 
       {showEmpty ? (
         quiet ? (
