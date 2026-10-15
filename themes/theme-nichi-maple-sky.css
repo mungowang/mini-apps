@@ -1,0 +1,45 @@
+/* name: Maple Sky */
+/* name-zh-CN: 秋枝 */
+/* Soft cartoon autumn tree — honey yellow canopy, pale sky, warm bark. */
+:root[data-mode="light"] {
+  --background: #f7f1e6;
+  --foreground: #3d2e22;
+  --card: #fffaf0;
+  --card-foreground: #3d2e22;
+  --border: #e4d5bc;
+  --muted: #efe4d0;
+  --muted-foreground: #7a6a58;
+  --primary: #d4a017;
+  --primary-foreground: #fffaf0;
+  --secondary: #b8d4e8;
+  --secondary-foreground: #2a3a48;
+  --accent: #f0c43a;
+  --accent-foreground: #3d2e22;
+  --destructive: #c45c48;
+  --destructive-foreground: #fff8f4;
+  --ring: #d4a017;
+  --input: #f3eadc;
+  --radius: 16px;
+  --shadow: rgba(120, 90, 40, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #2a2218;
+  --foreground: #f7f1e6;
+  --card: #3a3024;
+  --card-foreground: #f7f1e6;
+  --border: #5a4a38;
+  --muted: #443828;
+  --muted-foreground: #c4b49a;
+  --primary: #f0c43a;
+  --primary-foreground: #2a2218;
+  --secondary: #4a6a80;
+  --secondary-foreground: #e8f0f6;
+  --accent: #e8a838;
+  --accent-foreground: #2a2218;
+  --destructive: #e07a6a;
+  --destructive-foreground: #2a1814;
+  --ring: #f0c43a;
+  --input: #1e1810;
+  --radius: 16px;
+  --shadow: rgba(0, 0, 0, 0.48);
+}

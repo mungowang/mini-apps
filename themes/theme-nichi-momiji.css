@@ -1,0 +1,45 @@
+/* name: Momiji */
+/* name-zh-CN: 枫叶 */
+/* 楓葉 — cream, gold, maple orange, deep red, bark. */
+:root[data-mode="light"] {
+  --background: #fdf2e6;
+  --foreground: #4e2a1e;
+  --card: #fffaf4;
+  --card-foreground: #4e2a1e;
+  --border: #efd4b8;
+  --muted: #f7e6d2;
+  --muted-foreground: #8a5a40;
+  --primary: #e8590c;
+  --primary-foreground: #fffaf4;
+  --secondary: #f5b041;
+  --secondary-foreground: #4e2a1e;
+  --accent: #a61e1e;
+  --accent-foreground: #fff5f0;
+  --destructive: #a61e1e;
+  --destructive-foreground: #fff5f0;
+  --ring: #e8590c;
+  --input: #f9eadc;
+  --radius: 14px;
+  --shadow: rgba(168, 30, 30, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #2a1810;
+  --foreground: #fdf2e6;
+  --card: #3a2418;
+  --card-foreground: #fdf2e6;
+  --border: #5a3828;
+  --muted: #442818;
+  --muted-foreground: #d4a888;
+  --primary: #f5b041;
+  --primary-foreground: #2a1810;
+  --secondary: #e8590c;
+  --secondary-foreground: #fffaf4;
+  --accent: #c44a2a;
+  --accent-foreground: #fff5f0;
+  --destructive: #e07060;
+  --destructive-foreground: #2a1010;
+  --ring: #f5b041;
+  --input: #1e1008;
+  --radius: 14px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}
