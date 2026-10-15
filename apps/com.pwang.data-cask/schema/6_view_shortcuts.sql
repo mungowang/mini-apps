@@ -1,0 +1,1 @@
+ALTER TABLE views ADD COLUMN shortcuts TEXT NOT NULL DEFAULT '[]';

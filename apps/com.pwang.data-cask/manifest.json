@@ -1,0 +1,12 @@
+{
+  "id": "com.pwang.data-cask",
+  "name": "数据手账",
+  "description": "本地的表和行。建表、查阅、从 CSV 或 Excel 导入。",
+  "version": "0.1.1",
+  "entry": "ui.tsx",
+  "acronym": "手账",
+  "tags": [
+    "data",
+    "import"
+  ]
+}
