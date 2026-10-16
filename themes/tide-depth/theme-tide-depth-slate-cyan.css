@@ -1,0 +1,46 @@
+/* name: Slate & Cyan */
+/* name-zh-CN: 板青 */
+/* description: Tide Depth · Slate & Cyan */
+/* description-zh-CN: 商务稳重 · 石板灰與青色 */
+:root[data-mode="light"] {
+  --background: #EEF9FB;
+  --foreground: #1B2127;
+  --card: #FBFEFF;
+  --card-foreground: #1B2127;
+  --border: #CEDFE3;
+  --muted: #DEF1F6;
+  --muted-foreground: #6C7176;
+  --primary: #007687;
+  --primary-foreground: #F4FCFD;
+  --secondary: #DFE8FF;
+  --secondary-foreground: #1B2127;
+  --accent: #C4EFF8;
+  --accent-foreground: #00515E;
+  --destructive: #C52C2A;
+  --destructive-foreground: #FDF9F9;
+  --ring: #007687;
+  --input: #CEDFE3;
+  --radius: 10px;
+  --shadow: rgba(27, 33, 39, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #070E14;
+  --foreground: #DAEEF3;
+  --card: #0F1820;
+  --card-foreground: #DAEEF3;
+  --border: #1F2B37;
+  --muted: #141F29;
+  --muted-foreground: #94A1A5;
+  --primary: #3AB7CD;
+  --primary-foreground: #051215;
+  --secondary: #1B2130;
+  --secondary-foreground: #DAEEF3;
+  --accent: #002D35;
+  --accent-foreground: #94E3F3;
+  --destructive: #D9544B;
+  --destructive-foreground: #051215;
+  --ring: #3AB7CD;
+  --input: #1A2530;
+  --radius: 10px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

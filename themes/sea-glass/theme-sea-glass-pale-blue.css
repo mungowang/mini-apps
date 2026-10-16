@@ -1,0 +1,46 @@
+/* name: Pale Blue */
+/* name-zh-CN: 浅蓝 */
+/* description: Sea Glass · Pale Blue */
+/* description-zh-CN: 涤荡心灵 · 淺藍與白色 */
+:root[data-mode="light"] {
+  --background: #F2F9FE;
+  --foreground: #15222B;
+  --card: #FCFEFF;
+  --card-foreground: #15222B;
+  --border: #D2DFE6;
+  --muted: #E3F1FA;
+  --muted-foreground: #677279;
+  --primary: #317095;
+  --primary-foreground: #F5FBFF;
+  --secondary: #EDE5F4;
+  --secondary-foreground: #15222B;
+  --accent: #D1EAFC;
+  --accent-foreground: #034D71;
+  --destructive: #C52C2A;
+  --destructive-foreground: #FDF9F9;
+  --ring: #317095;
+  --input: #D2DFE6;
+  --radius: 12px;
+  --shadow: rgba(21, 34, 43, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #0A1014;
+  --foreground: #E2EBF1;
+  --card: #121A20;
+  --card-foreground: #E2EBF1;
+  --border: #222E36;
+  --muted: #172128;
+  --muted-foreground: #95A0A7;
+  --primary: #6EADD5;
+  --primary-foreground: #071117;
+  --secondary: #26212B;
+  --secondary-foreground: #E2EBF1;
+  --accent: #0F2D3F;
+  --accent-foreground: #A8DCFF;
+  --destructive: #D9544B;
+  --destructive-foreground: #071117;
+  --ring: #6EADD5;
+  --input: #1D272F;
+  --radius: 12px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

@@ -1,0 +1,46 @@
+/* name: Pomegranate */
+/* name-zh-CN: 石榴 */
+/* description: Cellar Wine · Pomegranate */
+/* description-zh-CN: 温暖秋季 · 石榴 */
+:root[data-mode="light"] {
+  --background: #FFF2F0;
+  --foreground: #261D24;
+  --card: #FFFBFB;
+  --card-foreground: #261D24;
+  --border: #E9D5D2;
+  --muted: #FCE6E3;
+  --muted-foreground: #756D73;
+  --primary: #B23939;
+  --primary-foreground: #FDF9F9;
+  --secondary: #F0E5ED;
+  --secondary-foreground: #261D24;
+  --accent: #FFDDDA;
+  --accent-foreground: #742E2C;
+  --destructive: #BF2F52;
+  --destructive-foreground: #FDF9F9;
+  --ring: #B23939;
+  --input: #E9D5D2;
+  --radius: 12px;
+  --shadow: rgba(38, 29, 36, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #130910;
+  --foreground: #F8E4E2;
+  --card: #1E121B;
+  --card-foreground: #F8E4E2;
+  --border: #342430;
+  --muted: #271823;
+  --muted-foreground: #A89B99;
+  --primary: #F07E78;
+  --primary-foreground: #170C0B;
+  --secondary: #261F24;
+  --secondary-foreground: #F8E4E2;
+  --accent: #3E1B19;
+  --accent-foreground: #FFC3BE;
+  --destructive: #D8516A;
+  --destructive-foreground: #170C0B;
+  --ring: #F07E78;
+  --input: #2D1E29;
+  --radius: 12px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

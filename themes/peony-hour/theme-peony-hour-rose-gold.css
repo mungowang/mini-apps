@@ -1,0 +1,46 @@
+/* name: Rose Gold */
+/* name-zh-CN: 玫瑰金 */
+/* description: Peony Hour · Rose Gold */
+/* description-zh-CN: 柔和女性 · 玫瑰金 */
+:root[data-mode="light"] {
+  --background: #FEF4F1;
+  --foreground: #2B1C1C;
+  --card: #FFFDFC;
+  --card-foreground: #2B1C1C;
+  --border: #E8D7D4;
+  --muted: #FBE8E5;
+  --muted-foreground: #796D6C;
+  --primary: #96515C;
+  --primary-foreground: #FFF8F9;
+  --secondary: #F2E6DA;
+  --secondary-foreground: #2B1C1C;
+  --accent: #FFDCE0;
+  --accent-foreground: #712F3C;
+  --destructive: #C52C2A;
+  --destructive-foreground: #FDF9F9;
+  --ring: #96515C;
+  --input: #E8D7D4;
+  --radius: 14px;
+  --shadow: rgba(43, 28, 28, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #170E0E;
+  --foreground: #F8E5E1;
+  --card: #231717;
+  --card-foreground: #F8E5E1;
+  --border: #3A2929;
+  --muted: #2C1D1D;
+  --muted-foreground: #A89B98;
+  --primary: #D68D97;
+  --primary-foreground: #170C0A;
+  --secondary: #2B241B;
+  --secondary-foreground: #F8E5E1;
+  --accent: #412126;
+  --accent-foreground: #FFC2C9;
+  --destructive: #D9544B;
+  --destructive-foreground: #170C0A;
+  --ring: #D68D97;
+  --input: #332323;
+  --radius: 14px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

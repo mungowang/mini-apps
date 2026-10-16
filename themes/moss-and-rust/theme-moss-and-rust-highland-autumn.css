@@ -1,0 +1,46 @@
+/* name: Highland Autumn */
+/* name-zh-CN: 山秋 */
+/* description: Moss & Rust · Highland Autumn */
+/* description-zh-CN: 四季山林 · 山中秋色 */
+:root[data-mode="light"] {
+  --background: #FFEFE7;
+  --foreground: #242019;
+  --card: #FFF8F4;
+  --card-foreground: #242019;
+  --border: #ECD1C4;
+  --muted: #FFE2D5;
+  --muted-foreground: #706D68;
+  --primary: #905C00;
+  --primary-foreground: #FCFAF7;
+  --secondary: #E5EDCD;
+  --secondary-foreground: #242019;
+  --accent: #FCE2C3;
+  --accent-foreground: #643F00;
+  --destructive: #B94224;
+  --destructive-foreground: #FDF9F8;
+  --ring: #905C00;
+  --input: #ECD1C4;
+  --radius: 12px;
+  --shadow: rgba(36, 32, 25, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #140F06;
+  --foreground: #F7E5DD;
+  --card: #1F190D;
+  --card-foreground: #F7E5DD;
+  --border: #342C1B;
+  --muted: #272011;
+  --muted-foreground: #A79C96;
+  --primary: #D6963C;
+  --primary-foreground: #170D08;
+  --secondary: #222711;
+  --secondary-foreground: #F7E5DD;
+  --accent: #3B2506;
+  --accent-foreground: #F6CC9A;
+  --destructive: #D05F43;
+  --destructive-foreground: #170D08;
+  --ring: #D6963C;
+  --input: #2E2617;
+  --radius: 12px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

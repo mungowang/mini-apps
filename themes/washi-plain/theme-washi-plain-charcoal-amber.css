@@ -1,0 +1,46 @@
+/* name: Charcoal & Amber */
+/* name-zh-CN: 炭灰橙 */
+/* description: Plain Washi · Charcoal & Amber */
+/* description-zh-CN: 商务稳重 · 炭灰與橘色 */
+:root[data-mode="light"] {
+  --background: #FCF6F5;
+  --foreground: #1F2022;
+  --card: #FFFDFC;
+  --card-foreground: #1F2022;
+  --border: #E5DAD7;
+  --muted: #F8EBE8;
+  --muted-foreground: #6F7072;
+  --primary: #AC4400;
+  --primary-foreground: #FDF9F8;
+  --secondary: #F9E7C3;
+  --secondary-foreground: #1F2022;
+  --accent: #FFDED0;
+  --accent-foreground: #723212;
+  --destructive: #C52C2A;
+  --destructive-foreground: #FDF9F9;
+  --ring: #AC4400;
+  --input: #E5DAD7;
+  --radius: 10px;
+  --shadow: rgba(31, 32, 34, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #0B0C0F;
+  --foreground: #F8E5E1;
+  --card: #14161B;
+  --card-foreground: #F8E5E1;
+  --border: #252931;
+  --muted: #1A1D24;
+  --muted-foreground: #A89B98;
+  --primary: #D99070;
+  --primary-foreground: #170C0A;
+  --secondary: #2B1E03;
+  --secondary-foreground: #F8E5E1;
+  --accent: #3C1D0E;
+  --accent-foreground: #FFC5AD;
+  --destructive: #D9544B;
+  --destructive-foreground: #170C0A;
+  --ring: #D99070;
+  --input: #1F232A;
+  --radius: 10px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

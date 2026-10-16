@@ -1,0 +1,46 @@
+/* name: Clear Water */
+/* name-zh-CN: 清水 */
+/* description: Tide Depth · Clear Water */
+/* description-zh-CN: 清爽沙滩 · 清澈海水 */
+:root[data-mode="light"] {
+  --background: #EEF9FB;
+  --foreground: #102427;
+  --card: #FAFEFF;
+  --card-foreground: #102427;
+  --border: #CEDFE2;
+  --muted: #DEF1F5;
+  --muted-foreground: #647375;
+  --primary: #007782;
+  --primary-foreground: #F4FCFD;
+  --secondary: #DCE9FF;
+  --secondary-foreground: #102427;
+  --accent: #C3F0F5;
+  --accent-foreground: #00525A;
+  --destructive: #C52C2A;
+  --destructive-foreground: #FDF9F9;
+  --ring: #007782;
+  --input: #CEDFE2;
+  --radius: 10px;
+  --shadow: rgba(16, 36, 39, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #040F11;
+  --foreground: #DAEEF1;
+  --card: #0A1A1C;
+  --card-foreground: #DAEEF1;
+  --border: #182E31;
+  --muted: #0D2124;
+  --muted-foreground: #94A1A4;
+  --primary: #37B8C6;
+  --primary-foreground: #051214;
+  --secondary: #19212F;
+  --secondary-foreground: #DAEEF1;
+  --accent: #002D32;
+  --accent-foreground: #93E4EE;
+  --destructive: #D9544B;
+  --destructive-foreground: #051214;
+  --ring: #37B8C6;
+  --input: #14272A;
+  --radius: 10px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

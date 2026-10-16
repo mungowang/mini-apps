@@ -1,0 +1,46 @@
+/* name: Lime & Mint */
+/* name-zh-CN: 莱姆薄荷 */
+/* description: Reef Candy · Lime & Mint */
+/* description-zh-CN: 阳光夏日 · 萊姆與薄荷 */
+:root[data-mode="light"] {
+  --background: #F8FDF6;
+  --foreground: #17241B;
+  --card: #FCFEFB;
+  --card-foreground: #17241B;
+  --border: #DBE3D8;
+  --muted: #ECF5E9;
+  --muted-foreground: #68736B;
+  --primary: #337C00;
+  --primary-foreground: #F9FBF8;
+  --secondary: #E7E6FF;
+  --secondary-foreground: #17241B;
+  --accent: #D7EFCE;
+  --accent-foreground: #2A5418;
+  --destructive: #C52C2A;
+  --destructive-foreground: #FDF9F9;
+  --ring: #337C00;
+  --input: #DBE3D8;
+  --radius: 18px;
+  --shadow: rgba(23, 36, 27, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #080F0A;
+  --foreground: #E3EDDF;
+  --card: #101A13;
+  --card-foreground: #E3EDDF;
+  --border: #202E24;
+  --muted: #152119;
+  --muted-foreground: #9AA197;
+  --primary: #7CB764;
+  --primary-foreground: #0B1109;
+  --secondary: #201D38;
+  --secondary-foreground: #E3EDDF;
+  --accent: #1A2E12;
+  --accent-foreground: #BBE1AE;
+  --destructive: #D9544B;
+  --destructive-foreground: #0B1109;
+  --ring: #7CB764;
+  --input: #1B281F;
+  --radius: 18px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

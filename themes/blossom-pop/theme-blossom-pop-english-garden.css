@@ -1,0 +1,46 @@
+/* name: English Garden */
+/* name-zh-CN: 英式花园 */
+/* description: Blossom Pop · English Garden */
+/* description-zh-CN: 清新春季 · 英式花園 */
+:root[data-mode="light"] {
+  --background: #FBF9F0;
+  --foreground: #261D25;
+  --card: #FEFDFA;
+  --card-foreground: #261D25;
+  --border: #E1DED0;
+  --muted: #F3F0E1;
+  --muted-foreground: #756D74;
+  --primary: #7C606A;
+  --primary-foreground: #FFF8FA;
+  --secondary: #E2EDD8;
+  --secondary-foreground: #261D25;
+  --accent: #F0E2E6;
+  --accent-foreground: #593F48;
+  --destructive: #C52C2A;
+  --destructive-foreground: #FDF9F9;
+  --ring: #7C606A;
+  --input: #E1DED0;
+  --radius: 16px;
+  --shadow: rgba(38, 29, 37, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #130B12;
+  --foreground: #EDEADA;
+  --card: #1F141D;
+  --card-foreground: #EDEADA;
+  --border: #342632;
+  --muted: #271A25;
+  --muted-foreground: #A19F94;
+  --primary: #BA9BA5;
+  --primary-foreground: #120F06;
+  --secondary: #1F2518;
+  --secondary-foreground: #EDEADA;
+  --accent: #322429;
+  --accent-foreground: #EBCAD5;
+  --destructive: #D9544B;
+  --destructive-foreground: #120F06;
+  --ring: #BA9BA5;
+  --input: #2D202B;
+  --radius: 16px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

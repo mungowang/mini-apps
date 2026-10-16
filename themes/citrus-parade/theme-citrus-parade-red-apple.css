@@ -1,0 +1,46 @@
+/* name: Red Apple */
+/* name-zh-CN: 红苹果 */
+/* description: Citrus Parade · Red Apple */
+/* description-zh-CN: 温暖秋季 · 紅蘋果 */
+:root[data-mode="light"] {
+  --background: #FFF9F4;
+  --foreground: #2B1D18;
+  --card: #FFFDFB;
+  --card-foreground: #2B1D18;
+  --border: #EADCD2;
+  --muted: #FDEEE2;
+  --muted-foreground: #796D69;
+  --primary: #B83124;
+  --primary-foreground: #FDF9F8;
+  --secondary: #F6E8BF;
+  --secondary-foreground: #2B1D18;
+  --accent: #FFDDD7;
+  --accent-foreground: #742F26;
+  --destructive: #C13425;
+  --destructive-foreground: #FDF9F8;
+  --ring: #B83124;
+  --input: #EADCD2;
+  --radius: 16px;
+  --shadow: rgba(43, 29, 24, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #160C09;
+  --foreground: #F5E6DB;
+  --card: #221512;
+  --card-foreground: #F5E6DB;
+  --border: #392722;
+  --muted: #2B1C17;
+  --muted-foreground: #A69C95;
+  --primary: #EF806F;
+  --primary-foreground: #160D07;
+  --secondary: #2C2202;
+  --secondary-foreground: #F5E6DB;
+  --accent: #411E19;
+  --accent-foreground: #FFC4BA;
+  --destructive: #D95544;
+  --destructive-foreground: #160D07;
+  --ring: #EF806F;
+  --input: #31221D;
+  --radius: 16px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

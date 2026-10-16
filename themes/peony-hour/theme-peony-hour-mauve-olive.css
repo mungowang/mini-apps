@@ -1,0 +1,46 @@
+/* name: Mauve & Olive */
+/* name-zh-CN: 藕紫橄榄 */
+/* description: Peony Hour · Mauve & Olive */
+/* description-zh-CN: 柔和女性 · 藕紫與橄欖綠 */
+:root[data-mode="light"] {
+  --background: #FAF6EE;
+  --foreground: #22201D;
+  --card: #FFFDFA;
+  --card-foreground: #22201D;
+  --border: #E1DBCE;
+  --muted: #F3ECDE;
+  --muted-foreground: #71706D;
+  --primary: #865A6B;
+  --primary-foreground: #FFF8FA;
+  --secondary: #E8EBD7;
+  --secondary-foreground: #22201D;
+  --accent: #F5E0E7;
+  --accent-foreground: #623949;
+  --destructive: #C52C2A;
+  --destructive-foreground: #FDF9F9;
+  --ring: #865A6B;
+  --input: #E1DBCE;
+  --radius: 14px;
+  --shadow: rgba(34, 32, 29, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #141009;
+  --foreground: #EFE9DC;
+  --card: #201A10;
+  --card-foreground: #EFE9DC;
+  --border: #352D1F;
+  --muted: #282114;
+  --muted-foreground: #A39E93;
+  --primary: #C595A6;
+  --primary-foreground: #130F06;
+  --secondary: #252719;
+  --secondary-foreground: #EFE9DC;
+  --accent: #39252C;
+  --accent-foreground: #F6C4D6;
+  --destructive: #D9544B;
+  --destructive-foreground: #130F06;
+  --ring: #C595A6;
+  --input: #2E271A;
+  --radius: 14px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

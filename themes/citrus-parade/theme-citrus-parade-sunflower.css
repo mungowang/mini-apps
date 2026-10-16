@@ -1,0 +1,46 @@
+/* name: Sunflower */
+/* name-zh-CN: 向日葵 */
+/* description: Citrus Parade · Sunflower */
+/* description-zh-CN: 明亮活泼 · 向日葵 */
+:root[data-mode="light"] {
+  --background: #FFF9F1;
+  --foreground: #2A1D1A;
+  --card: #FFFDFA;
+  --card-foreground: #2A1D1A;
+  --border: #E7DDD0;
+  --muted: #FAEFE0;
+  --muted-foreground: #796D6A;
+  --primary: #8E5D00;
+  --primary-foreground: #FCFAF7;
+  --secondary: #DFF0C8;
+  --secondary-foreground: #2A1D1A;
+  --accent: #FBE2C2;
+  --accent-foreground: #633F00;
+  --destructive: #C13425;
+  --destructive-foreground: #FDF9F8;
+  --ring: #8E5D00;
+  --input: #E7DDD0;
+  --radius: 16px;
+  --shadow: rgba(42, 29, 26, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #160C0A;
+  --foreground: #F2E8DA;
+  --card: #221512;
+  --card-foreground: #F2E8DA;
+  --border: #392723;
+  --muted: #2B1B18;
+  --muted-foreground: #A49D94;
+  --primary: #D8952A;
+  --primary-foreground: #140E06;
+  --secondary: #1D280B;
+  --secondary-foreground: #F2E8DA;
+  --accent: #3A2505;
+  --accent-foreground: #F5CD9A;
+  --destructive: #D95544;
+  --destructive-foreground: #140E06;
+  --ring: #D8952A;
+  --input: #31211E;
+  --radius: 16px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

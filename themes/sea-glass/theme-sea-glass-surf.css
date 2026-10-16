@@ -1,0 +1,46 @@
+/* name: Surf */
+/* name-zh-CN: 浪花 */
+/* description: Sea Glass · Surf */
+/* description-zh-CN: 清爽沙滩 · 浪花 */
+:root[data-mode="light"] {
+  --background: #F0FAFA;
+  --foreground: #122423;
+  --card: #FAFEFE;
+  --card-foreground: #122423;
+  --border: #D0E0E1;
+  --muted: #E1F3F4;
+  --muted-foreground: #657372;
+  --primary: #277773;
+  --primary-foreground: #F4FCFB;
+  --secondary: #E1E9F6;
+  --secondary-foreground: #122423;
+  --accent: #CFEDEB;
+  --accent-foreground: #005350;
+  --destructive: #C52C2A;
+  --destructive-foreground: #FDF9F9;
+  --ring: #277773;
+  --input: #D0E0E1;
+  --radius: 12px;
+  --shadow: rgba(18, 36, 35, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #091110;
+  --foreground: #E0ECED;
+  --card: #101B1B;
+  --card-foreground: #E0ECED;
+  --border: #1F302F;
+  --muted: #152322;
+  --muted-foreground: #94A2A2;
+  --primary: #68B4B0;
+  --primary-foreground: #051213;
+  --secondary: #1F242C;
+  --secondary-foreground: #E0ECED;
+  --accent: #0A302E;
+  --accent-foreground: #98E5E0;
+  --destructive: #D9544B;
+  --destructive-foreground: #051213;
+  --ring: #68B4B0;
+  --input: #1A2928;
+  --radius: 12px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

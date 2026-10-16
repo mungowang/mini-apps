@@ -1,0 +1,46 @@
+/* name: Navy & Rose */
+/* name-zh-CN: 藏青腮红 */
+/* description: Midnight Vigil · Navy & Rose */
+/* description-zh-CN: 温馨婚礼 · 海軍藍與腮紅粉 */
+:root[data-mode="light"] {
+  --background: #FDF3F2;
+  --foreground: #1A212A;
+  --card: #FFFCFC;
+  --card-foreground: #1A212A;
+  --border: #E6D7D5;
+  --muted: #F9E8E6;
+  --muted-foreground: #6B7179;
+  --primary: #566A8A;
+  --primary-foreground: #F7FAFF;
+  --secondary: #FFE0DC;
+  --secondary-foreground: #1A212A;
+  --accent: #DDE7F7;
+  --accent-foreground: #364867;
+  --destructive: #C52C2A;
+  --destructive-foreground: #FDF9F9;
+  --ring: #566A8A;
+  --input: #E6D7D5;
+  --radius: 12px;
+  --shadow: rgba(26, 33, 42, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #050B17;
+  --foreground: #F8E4E2;
+  --card: #0C1523;
+  --card-foreground: #F8E4E2;
+  --border: #1C283A;
+  --muted: #111C2C;
+  --muted-foreground: #A89B99;
+  --primary: #90A6C9;
+  --primary-foreground: #170C0B;
+  --secondary: #2E1916;
+  --secondary-foreground: #F8E4E2;
+  --accent: #1C2535;
+  --accent-foreground: #BFD6FB;
+  --destructive: #D9544B;
+  --destructive-foreground: #170C0B;
+  --ring: #90A6C9;
+  --input: #172233;
+  --radius: 12px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

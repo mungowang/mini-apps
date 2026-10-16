@@ -1,0 +1,46 @@
+/* name: Shell */
+/* name-zh-CN: 贝壳 */
+/* description: Clay Bazaar · Shell */
+/* description-zh-CN: 清爽沙滩 · 貝殼 */
+:root[data-mode="light"] {
+  --background: #FFF2E9;
+  --foreground: #2B1C16;
+  --card: #FFFAF7;
+  --card-foreground: #2B1C16;
+  --border: #E9D5C8;
+  --muted: #FCE6D8;
+  --muted-foreground: #7A6D68;
+  --primary: #8D5A46;
+  --primary-foreground: #FFF9F6;
+  --secondary: #E3ECDD;
+  --secondary-foreground: #2B1C16;
+  --accent: #FAE0D6;
+  --accent-foreground: #693926;
+  --destructive: #BD3A2B;
+  --destructive-foreground: #FDF9F8;
+  --ring: #8D5A46;
+  --input: #E9D5C8;
+  --radius: 14px;
+  --shadow: rgba(43, 28, 22, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #1B0F0B;
+  --foreground: #F4E7DE;
+  --card: #281913;
+  --card-foreground: #F4E7DE;
+  --border: #3E2B24;
+  --muted: #311F18;
+  --muted-foreground: #A79C95;
+  --primary: #CD9680;
+  --primary-foreground: #160D07;
+  --secondary: #242A20;
+  --secondary-foreground: #F4E7DE;
+  --accent: #3F271D;
+  --accent-foreground: #FFC5AF;
+  --destructive: #D55948;
+  --destructive-foreground: #160D07;
+  --ring: #CD9680;
+  --input: #37251E;
+  --radius: 14px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

@@ -1,0 +1,46 @@
+/* name: Sage & Cream */
+/* name-zh-CN: 鼠尾草奶油 */
+/* description: Sage Choir · Sage & Cream */
+/* description-zh-CN: 温馨婚礼 · 鼠尾草綠與奶油色 */
+:root[data-mode="light"] {
+  --background: #F3F8EE;
+  --foreground: #1C2316;
+  --card: #FBFEF9;
+  --card-foreground: #1C2316;
+  --border: #D6DECF;
+  --muted: #E7F0E0;
+  --muted-foreground: #6C7268;
+  --primary: #5F704B;
+  --primary-foreground: #F8FBF6;
+  --secondary: #DEECEA;
+  --secondary-foreground: #1C2316;
+  --accent: #E1EAD8;
+  --accent-foreground: #3E4E2B;
+  --destructive: #C52C2A;
+  --destructive-foreground: #FDF9F9;
+  --ring: #5F704B;
+  --input: #D6DECF;
+  --radius: 14px;
+  --shadow: rgba(28, 35, 22, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #0F120C;
+  --foreground: #E6ECE1;
+  --card: #181D14;
+  --card-foreground: #E6ECE1;
+  --border: #2A3125;
+  --muted: #1F251A;
+  --muted-foreground: #9BA196;
+  --primary: #99AC85;
+  --primary-foreground: #0D1108;
+  --secondary: #1F2827;
+  --secondary-foreground: #E6ECE1;
+  --accent: #272F1E;
+  --accent-foreground: #C9DCB3;
+  --destructive: #D9544B;
+  --destructive-foreground: #0D1108;
+  --ring: #99AC85;
+  --input: #252B1F;
+  --radius: 14px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

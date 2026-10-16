@@ -1,0 +1,46 @@
+/* name: Glacier */
+/* name-zh-CN: 冰河 */
+/* description: Tide Depth · Glacier */
+/* description-zh-CN: 冷冽冬季 · 冰河藍 */
+:root[data-mode="light"] {
+  --background: #EEF9FB;
+  --foreground: #13232A;
+  --card: #FBFEFF;
+  --card-foreground: #13232A;
+  --border: #CEDFE3;
+  --muted: #DEF1F6;
+  --muted-foreground: #667279;
+  --primary: #00758F;
+  --primary-foreground: #F5FBFE;
+  --secondary: #E3E7FC;
+  --secondary-foreground: #13232A;
+  --accent: #CAEDF9;
+  --accent-foreground: #005063;
+  --destructive: #C52C2A;
+  --destructive-foreground: #FDF9F9;
+  --ring: #00758F;
+  --input: #CEDFE3;
+  --radius: 10px;
+  --shadow: rgba(19, 35, 42, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #050E13;
+  --foreground: #DAEEF2;
+  --card: #0C191F;
+  --card-foreground: #DAEEF2;
+  --border: #1B2C35;
+  --muted: #102027;
+  --muted-foreground: #94A1A4;
+  --primary: #57B2CE;
+  --primary-foreground: #051215;
+  --secondary: #1E202E;
+  --secondary-foreground: #DAEEF2;
+  --accent: #002C38;
+  --accent-foreground: #98E1F9;
+  --destructive: #D9544B;
+  --destructive-foreground: #051215;
+  --ring: #57B2CE;
+  --input: #16262E;
+  --radius: 10px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

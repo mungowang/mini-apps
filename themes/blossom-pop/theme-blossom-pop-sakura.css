@@ -1,0 +1,46 @@
+/* name: Sakura */
+/* name-zh-CN: 樱花 */
+/* description: Blossom Pop · Sakura */
+/* description-zh-CN: 清新春季 · 櫻花 */
+:root[data-mode="light"] {
+  --background: #FFF7F8;
+  --foreground: #1B231B;
+  --card: #FFFDFD;
+  --card-foreground: #1B231B;
+  --border: #EAD9DD;
+  --muted: #FDEAEE;
+  --muted-foreground: #6B726B;
+  --primary: #965063;
+  --primary-foreground: #FFF8F9;
+  --secondary: #D5F2D4;
+  --secondary-foreground: #1B231B;
+  --accent: #FFDCE3;
+  --accent-foreground: #702E43;
+  --destructive: #C52C2A;
+  --destructive-foreground: #FDF9F9;
+  --ring: #965063;
+  --input: #EAD9DD;
+  --radius: 16px;
+  --shadow: rgba(27, 35, 27, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #091109;
+  --foreground: #F7E4E8;
+  --card: #111B11;
+  --card-foreground: #F7E4E8;
+  --border: #222F22;
+  --muted: #172317;
+  --muted-foreground: #A89A9D;
+  --primary: #D88B9F;
+  --primary-foreground: #170C0F;
+  --secondary: #142814;
+  --secondary-foreground: #F7E4E8;
+  --accent: #3E1D26;
+  --accent-foreground: #FFC1CF;
+  --destructive: #D9544B;
+  --destructive-foreground: #170C0F;
+  --ring: #D88B9F;
+  --input: #1D291D;
+  --radius: 16px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

@@ -1,0 +1,46 @@
+/* name: Pine Needle */
+/* name-zh-CN: 松针 */
+/* description: Emerald Hall · Pine Needle */
+/* description-zh-CN: 冷冽冬季 · 松針綠與奶油色 */
+:root[data-mode="light"] {
+  --background: #FDF3EA;
+  --foreground: #16241C;
+  --card: #FFFBF8;
+  --card-foreground: #16241C;
+  --border: #E5D7CB;
+  --muted: #F8E9DB;
+  --muted-foreground: #68736C;
+  --primary: #477558;
+  --primary-foreground: #F6FCF8;
+  --secondary: #FDE3D0;
+  --secondary-foreground: #16241C;
+  --accent: #D8ECDE;
+  --accent-foreground: #265238;
+  --destructive: #C52C2A;
+  --destructive-foreground: #FDF9F9;
+  --ring: #477558;
+  --input: #E5D7CB;
+  --radius: 14px;
+  --shadow: rgba(22, 36, 28, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #060F09;
+  --foreground: #F5E7DB;
+  --card: #0D1A12;
+  --card-foreground: #F5E7DB;
+  --border: #1D2E24;
+  --muted: #122218;
+  --muted-foreground: #A69D94;
+  --primary: #82B293;
+  --primary-foreground: #160E06;
+  --secondary: #2E1D10;
+  --secondary-foreground: #F5E7DB;
+  --accent: #172D1F;
+  --accent-foreground: #B1E2C2;
+  --destructive: #D9544B;
+  --destructive-foreground: #160E06;
+  --ring: #82B293;
+  --input: #18281E;
+  --radius: 14px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

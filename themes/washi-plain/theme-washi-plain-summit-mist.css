@@ -1,0 +1,46 @@
+/* name: Summit Mist */
+/* name-zh-CN: 顶雾 */
+/* description: Plain Washi · Summit Mist */
+/* description-zh-CN: 四季山林 · 山頂之霧 */
+:root[data-mode="light"] {
+  --background: #F5F8FC;
+  --foreground: #1D2124;
+  --card: #FCFEFF;
+  --card-foreground: #1D2124;
+  --border: #D6DEE5;
+  --muted: #E7F0F8;
+  --muted-foreground: #6D7173;
+  --primary: #5C6D6D;
+  --primary-foreground: #F4FCFC;
+  --secondary: #E5E9EC;
+  --secondary-foreground: #1D2124;
+  --accent: #E0E8E8;
+  --accent-foreground: #3B4B4C;
+  --destructive: #C52C2A;
+  --destructive-foreground: #FDF9F9;
+  --ring: #5C6D6D;
+  --input: #D6DEE5;
+  --radius: 10px;
+  --shadow: rgba(29, 33, 36, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #0A0D0E;
+  --foreground: #E7EAEC;
+  --card: #12171A;
+  --card-foreground: #E7EAEC;
+  --border: #212A2F;
+  --muted: #161E22;
+  --muted-foreground: #97A0A8;
+  --primary: #97A9A9;
+  --primary-foreground: #081018;
+  --secondary: #1E2123;
+  --secondary-foreground: #E7EAEC;
+  --accent: #202828;
+  --accent-foreground: #C6D8D9;
+  --destructive: #D9544B;
+  --destructive-foreground: #081018;
+  --ring: #97A9A9;
+  --input: #1C2428;
+  --radius: 10px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

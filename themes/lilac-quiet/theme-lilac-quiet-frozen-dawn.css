@@ -1,0 +1,46 @@
+/* name: Frozen Dawn */
+/* name-zh-CN: 冻晓 */
+/* description: Lilac Quiet · Frozen Dawn */
+/* description-zh-CN: 冷冽冬季 · 凍結的黎明 */
+:root[data-mode="light"] {
+  --background: #FAF4FC;
+  --foreground: #1A202D;
+  --card: #FEFDFF;
+  --card-foreground: #1A202D;
+  --border: #E0D8E4;
+  --muted: #F3E9F7;
+  --muted-foreground: #6B707B;
+  --primary: #546895;
+  --primary-foreground: #F8FAFF;
+  --secondary: #F4E4E3;
+  --secondary-foreground: #1A202D;
+  --accent: #DCE6FC;
+  --accent-foreground: #344670;
+  --destructive: #C52C2A;
+  --destructive-foreground: #FDF9F9;
+  --ring: #546895;
+  --input: #E0D8E4;
+  --radius: 14px;
+  --shadow: rgba(26, 32, 45, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #0C0F17;
+  --foreground: #EDE7F0;
+  --card: #141924;
+  --card-foreground: #EDE7F0;
+  --border: #262C3B;
+  --muted: #1A202D;
+  --muted-foreground: #A29CA5;
+  --primary: #8EA4D5;
+  --primary-foreground: #130D15;
+  --secondary: #2B2121;
+  --secondary-foreground: #EDE7F0;
+  --accent: #202A3F;
+  --accent-foreground: #C0D4FF;
+  --destructive: #D9544B;
+  --destructive-foreground: #130D15;
+  --ring: #8EA4D5;
+  --input: #202633;
+  --radius: 14px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

@@ -1,0 +1,46 @@
+/* name: Summer Sunset */
+/* name-zh-CN: 夏夕 */
+/* description: Citrus Parade · Summer Sunset */
+/* description-zh-CN: 阳光夏日 · 夏日夕陽 */
+:root[data-mode="light"] {
+  --background: #FFF8F6;
+  --foreground: #221D2D;
+  --card: #FFFDFC;
+  --card-foreground: #221D2D;
+  --border: #ECDBD5;
+  --muted: #FFECE6;
+  --muted-foreground: #716E7B;
+  --primary: #B82653;
+  --primary-foreground: #FDF9F9;
+  --secondary: #FFE3CB;
+  --secondary-foreground: #221D2D;
+  --accent: #FFDCE1;
+  --accent-foreground: #732D3D;
+  --destructive: #C13425;
+  --destructive-foreground: #FDF9F8;
+  --ring: #B82653;
+  --input: #ECDBD5;
+  --radius: 16px;
+  --shadow: rgba(34, 29, 45, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #100D16;
+  --foreground: #F7E5DF;
+  --card: #1A1722;
+  --card-foreground: #F7E5DF;
+  --border: #2D2939;
+  --muted: #211D2B;
+  --muted-foreground: #A89B97;
+  --primary: #ED7C93;
+  --primary-foreground: #170C09;
+  --secondary: #341D06;
+  --secondary-foreground: #F7E5DF;
+  --accent: #401D24;
+  --accent-foreground: #FFC1CB;
+  --destructive: #D95544;
+  --destructive-foreground: #170C09;
+  --ring: #ED7C93;
+  --input: #272331;
+  --radius: 16px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

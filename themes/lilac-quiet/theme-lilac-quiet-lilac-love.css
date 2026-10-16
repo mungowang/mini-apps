@@ -1,0 +1,46 @@
+/* name: Lilac Love */
+/* name-zh-CN: 丁香恋 */
+/* description: Lilac Quiet · Lilac Love */
+/* description-zh-CN: 浪漫情人节 · 戀愛丁香紫 */
+:root[data-mode="light"] {
+  --background: #FAF4FC;
+  --foreground: #261C28;
+  --card: #FFFDFF;
+  --card-foreground: #261C28;
+  --border: #E1D8E3;
+  --muted: #F4E9F6;
+  --muted-foreground: #756D77;
+  --primary: #8A4B9A;
+  --primary-foreground: #FBF9FC;
+  --secondary: #D8EBFF;
+  --secondary-foreground: #261C28;
+  --accent: #F5DCFC;
+  --accent-foreground: #5E3469;
+  --destructive: #C52C2A;
+  --destructive-foreground: #FDF9F9;
+  --ring: #8A4B9A;
+  --input: #E1D8E3;
+  --radius: 14px;
+  --shadow: rgba(38, 28, 40, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #130D14;
+  --foreground: #F0E5F3;
+  --card: #1E1620;
+  --card-foreground: #F0E5F3;
+  --border: #332835;
+  --muted: #261C28;
+  --muted-foreground: #A39BA5;
+  --primary: #C38ED0;
+  --primary-foreground: #130D15;
+  --secondary: #182533;
+  --secondary-foreground: #F0E5F3;
+  --accent: #36213B;
+  --accent-foreground: #ECC4F6;
+  --destructive: #D9544B;
+  --destructive-foreground: #130D15;
+  --ring: #C38ED0;
+  --input: #2D222E;
+  --radius: 14px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

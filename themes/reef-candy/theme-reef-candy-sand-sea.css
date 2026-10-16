@@ -1,0 +1,46 @@
+/* name: Sand & Sea */
+/* name-zh-CN: 沙与海 */
+/* description: Reef Candy · Sand & Sea */
+/* description-zh-CN: 清爽沙滩 · 沙灘與大海 */
+:root[data-mode="light"] {
+  --background: #F4FDFC;
+  --foreground: #13232B;
+  --card: #FAFEFE;
+  --card-foreground: #13232B;
+  --border: #D4E4E2;
+  --muted: #E4F6F4;
+  --muted-foreground: #667279;
+  --primary: #007493;
+  --primary-foreground: #F5FBFE;
+  --secondary: #F0E7D8;
+  --secondary-foreground: #13232B;
+  --accent: #C9EDFC;
+  --accent-foreground: #005066;
+  --destructive: #C52C2A;
+  --destructive-foreground: #FDF9F9;
+  --ring: #007493;
+  --input: #D4E4E2;
+  --radius: 18px;
+  --shadow: rgba(19, 35, 43, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #070E13;
+  --foreground: #DAEFEC;
+  --card: #0E191F;
+  --card-foreground: #DAEFEC;
+  --border: #1D2C35;
+  --muted: #122028;
+  --muted-foreground: #94A2A0;
+  --primary: #53B2D4;
+  --primary-foreground: #051211;
+  --secondary: #262117;
+  --secondary-foreground: #DAEFEC;
+  --accent: #002D3B;
+  --accent-foreground: #9AE0FC;
+  --destructive: #D9544B;
+  --destructive-foreground: #051211;
+  --ring: #53B2D4;
+  --input: #18262E;
+  --radius: 18px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

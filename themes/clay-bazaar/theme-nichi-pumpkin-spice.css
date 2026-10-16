@@ -1,0 +1,46 @@
+/* name: Pumpkin Spice */
+/* name-zh-CN: 南瓜肉桂 */
+/* description: Clay Bazaar · Pumpkin Spice */
+/* description-zh-CN: 陶土市集 · 南瓜肉桂 */
+:root[data-mode="light"] {
+  --background: #fbefe2;
+  --foreground: #3a2a1f;
+  --card: #fff8f0;
+  --card-foreground: #3a2a1f;
+  --border: #ebd4bc;
+  --muted: #f5e4d2;
+  --muted-foreground: #7a5a48;
+  --primary: #c8642a;
+  --primary-foreground: #fff8f0;
+  --secondary: #f28c28;
+  --secondary-foreground: #3a2a1f;
+  --accent: #8b4a2b;
+  --accent-foreground: #fff5ee;
+  --destructive: #a03828;
+  --destructive-foreground: #fff5f0;
+  --ring: #c8642a;
+  --input: #f8eadc;
+  --radius: 14px;
+  --shadow: rgba(200, 100, 42, 0.14);
+}
+:root[data-mode="dark"] {
+  --background: #241810;
+  --foreground: #fbefe2;
+  --card: #322218;
+  --card-foreground: #fbefe2;
+  --border: #523828;
+  --muted: #3e2a1e;
+  --muted-foreground: #d0a888;
+  --primary: #f28c28;
+  --primary-foreground: #241810;
+  --secondary: #c8642a;
+  --secondary-foreground: #fff8f0;
+  --accent: #d4a070;
+  --accent-foreground: #241810;
+  --destructive: #e07060;
+  --destructive-foreground: #241010;
+  --ring: #f28c28;
+  --input: #180e08;
+  --radius: 14px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

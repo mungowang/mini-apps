@@ -1,0 +1,46 @@
+/* name: Palm & Sand */
+/* name-zh-CN: 椰沙 */
+/* description: Emerald Hall · Palm & Sand */
+/* description-zh-CN: 清爽沙滩 · 椰子樹 */
+:root[data-mode="light"] {
+  --background: #F1F8EC;
+  --foreground: #17241E;
+  --card: #FAFDF8;
+  --card-foreground: #17241E;
+  --border: #D5DDCE;
+  --muted: #E6F0DE;
+  --muted-foreground: #68736E;
+  --primary: #3E7A1F;
+  --primary-foreground: #F9FBF8;
+  --secondary: #F2E8D3;
+  --secondary-foreground: #17241E;
+  --accent: #D7EFCE;
+  --accent-foreground: #2B5317;
+  --destructive: #C52C2A;
+  --destructive-foreground: #FDF9F9;
+  --ring: #3E7A1F;
+  --input: #D5DDCE;
+  --radius: 14px;
+  --shadow: rgba(23, 36, 30, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #05100B;
+  --foreground: #E4EDDE;
+  --card: #0C1A14;
+  --card-foreground: #E4EDDE;
+  --border: #1B2E26;
+  --muted: #10221A;
+  --muted-foreground: #9BA196;
+  --primary: #80B66A;
+  --primary-foreground: #0C1108;
+  --secondary: #272012;
+  --secondary-foreground: #E4EDDE;
+  --accent: #1A2D11;
+  --accent-foreground: #BCE1AD;
+  --destructive: #D9544B;
+  --destructive-foreground: #0C1108;
+  --ring: #80B66A;
+  --input: #162820;
+  --radius: 14px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

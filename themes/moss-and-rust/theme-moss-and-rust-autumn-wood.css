@@ -1,0 +1,46 @@
+/* name: Autumn Woodland */
+/* name-zh-CN: 秋林 */
+/* description: Moss & Rust · Autumn Woodland */
+/* description-zh-CN: 温暖秋季 · 秋日森林 */
+:root[data-mode="light"] {
+  --background: #FFEFE6;
+  --foreground: #1D2317;
+  --card: #FFF8F4;
+  --card-foreground: #1D2317;
+  --border: #EBD2C3;
+  --muted: #FFE3D3;
+  --muted-foreground: #6B6F66;
+  --primary: #8D5E00;
+  --primary-foreground: #FCFAF7;
+  --secondary: #E3EECE;
+  --secondary-foreground: #1D2317;
+  --accent: #FAE2C2;
+  --accent-foreground: #624000;
+  --destructive: #B94224;
+  --destructive-foreground: #FDF9F8;
+  --ring: #8D5E00;
+  --input: #EBD2C3;
+  --radius: 12px;
+  --shadow: rgba(29, 35, 23, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #0D1208;
+  --foreground: #F6E6DD;
+  --card: #161C10;
+  --card-foreground: #F6E6DD;
+  --border: #283020;
+  --muted: #1D2415;
+  --muted-foreground: #A79C96;
+  --primary: #D3983A;
+  --primary-foreground: #160D08;
+  --secondary: #212811;
+  --secondary-foreground: #F6E6DD;
+  --accent: #3A2605;
+  --accent-foreground: #F4CD99;
+  --destructive: #D05F43;
+  --destructive-foreground: #160D08;
+  --ring: #D3983A;
+  --input: #232A1B;
+  --radius: 12px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

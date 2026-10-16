@@ -1,0 +1,46 @@
+/* name: April Sky */
+/* name-zh-CN: 四月天 */
+/* description: Sea Glass · April Sky */
+/* description-zh-CN: 清新春季 · 四月的天空 */
+:root[data-mode="light"] {
+  --background: #F6F9F2;
+  --foreground: #19241A;
+  --card: #FDFEFB;
+  --card-foreground: #19241A;
+  --border: #DBDFD2;
+  --muted: #ECF1E3;
+  --muted-foreground: #6A736A;
+  --primary: #3A6F8F;
+  --primary-foreground: #F5FBFF;
+  --secondary: #D8F0D9;
+  --secondary-foreground: #19241A;
+  --accent: #D3EAF9;
+  --accent-foreground: #154D6B;
+  --destructive: #C52C2A;
+  --destructive-foreground: #FDF9F9;
+  --ring: #3A6F8F;
+  --input: #DBDFD2;
+  --radius: 12px;
+  --shadow: rgba(25, 36, 26, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #0C100C;
+  --foreground: #E7ECDC;
+  --card: #141B15;
+  --card-foreground: #E7ECDC;
+  --border: #252F26;
+  --muted: #1A231A;
+  --muted-foreground: #9DA095;
+  --primary: #76ACCE;
+  --primary-foreground: #0E1107;
+  --secondary: #172819;
+  --secondary-foreground: #E7ECDC;
+  --accent: #132D3C;
+  --accent-foreground: #A6DCFF;
+  --destructive: #D9544B;
+  --destructive-foreground: #0E1107;
+  --ring: #76ACCE;
+  --input: #202920;
+  --radius: 12px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

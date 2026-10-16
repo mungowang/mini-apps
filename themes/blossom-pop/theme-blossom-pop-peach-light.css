@@ -1,0 +1,46 @@
+/* name: Peach Light */
+/* name-zh-CN: 蜜桃 */
+/* description: Blossom Pop · Peach Light */
+/* description-zh-CN: 柔和女性 · 蜜桃色 */
+:root[data-mode="light"] {
+  --background: #FFF7F4;
+  --foreground: #2D1B17;
+  --card: #FFFDFC;
+  --card-foreground: #2D1B17;
+  --border: #E9DBD3;
+  --muted: #FDECE4;
+  --muted-foreground: #7B6C69;
+  --primary: #9B5137;
+  --primary-foreground: #FDF9F8;
+  --secondary: #E0EED3;
+  --secondary-foreground: #2D1B17;
+  --accent: #FFDED3;
+  --accent-foreground: #733118;
+  --destructive: #C52C2A;
+  --destructive-foreground: #FDF9F9;
+  --ring: #9B5137;
+  --input: #E9DBD3;
+  --radius: 16px;
+  --shadow: rgba(45, 27, 23, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #160B09;
+  --foreground: #F7E6DD;
+  --card: #221411;
+  --card-foreground: #F7E6DD;
+  --border: #392622;
+  --muted: #2B1A17;
+  --muted-foreground: #A79C96;
+  --primary: #DD8D71;
+  --primary-foreground: #170D08;
+  --secondary: #1D2614;
+  --secondary-foreground: #F7E6DD;
+  --accent: #3F1F13;
+  --accent-foreground: #FFC5B1;
+  --destructive: #D9544B;
+  --destructive-foreground: #170D08;
+  --ring: #DD8D71;
+  --input: #32201C;
+  --radius: 16px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

@@ -1,0 +1,46 @@
+/* name: Gilded White */
+/* name-zh-CN: 描白 */
+/* description: Linen Hour · Gilded White */
+/* description-zh-CN: 涤荡心灵 · 白色與金色 */
+:root[data-mode="light"] {
+  --background: #FBF5EA;
+  --foreground: #271F0F;
+  --card: #FFFDF8;
+  --card-foreground: #271F0F;
+  --border: #E1DACA;
+  --muted: #F4ECDA;
+  --muted-foreground: #756F63;
+  --primary: #836414;
+  --primary-foreground: #FCFAF4;
+  --secondary: #F9E3DE;
+  --secondary-foreground: #271F0F;
+  --accent: #F3E5C7;
+  --accent-foreground: #5C4300;
+  --destructive: #C52C2A;
+  --destructive-foreground: #FDF9F9;
+  --ring: #836414;
+  --input: #E1DACA;
+  --radius: 14px;
+  --shadow: rgba(39, 31, 15, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #141007;
+  --foreground: #EEE9DF;
+  --card: #1F1A0F;
+  --card-foreground: #EEE9DF;
+  --border: #342D1D;
+  --muted: #272113;
+  --muted-foreground: #A39E93;
+  --primary: #C1A058;
+  --primary-foreground: #130F06;
+  --secondary: #2F211E;
+  --secondary-foreground: #EEE9DF;
+  --accent: #382905;
+  --accent-foreground: #EDD198;
+  --destructive: #D9544B;
+  --destructive-foreground: #130F06;
+  --ring: #C1A058;
+  --input: #2D2719;
+  --radius: 14px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

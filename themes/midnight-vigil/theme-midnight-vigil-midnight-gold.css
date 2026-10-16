@@ -1,0 +1,46 @@
+/* name: Midnight & Gold */
+/* name-zh-CN: 午夜金 */
+/* description: Midnight Vigil · Midnight & Gold */
+/* description-zh-CN: 冷冽冬季 · 午夜與金色 */
+:root[data-mode="light"] {
+  --background: #EFF8FA;
+  --foreground: #1C202A;
+  --card: #FAFEFE;
+  --card-foreground: #1C202A;
+  --border: #CFDEE1;
+  --muted: #DFF0F4;
+  --muted-foreground: #6C7078;
+  --primary: #836414;
+  --primary-foreground: #FCFAF4;
+  --secondary: #E0E9F9;
+  --secondary-foreground: #1C202A;
+  --accent: #F3E5C7;
+  --accent-foreground: #5C4300;
+  --destructive: #C52C2A;
+  --destructive-foreground: #FDF9F9;
+  --ring: #836414;
+  --input: #CFDEE1;
+  --radius: 12px;
+  --shadow: rgba(28, 32, 42, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #060B17;
+  --foreground: #DAEEF2;
+  --card: #0E1423;
+  --card-foreground: #DAEEF2;
+  --border: #1F273B;
+  --muted: #141B2D;
+  --muted-foreground: #94A1A4;
+  --primary: #C1A058;
+  --primary-foreground: #051214;
+  --secondary: #1A1F2A;
+  --secondary-foreground: #DAEEF2;
+  --accent: #312300;
+  --accent-foreground: #EDD198;
+  --destructive: #D9544B;
+  --destructive-foreground: #051214;
+  --ring: #C1A058;
+  --input: #192133;
+  --radius: 12px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

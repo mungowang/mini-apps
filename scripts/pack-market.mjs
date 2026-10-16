@@ -185,13 +185,15 @@ function listThemes() {
 function readTheme(file, name, packId) {
   const id = name.slice('theme-'.length, -'.css'.length)
   const css = readFileSync(file, 'utf8')
-  const names = headerNames(css, id)
+  const meta = themeMeta(css, id)
   return {
     id,
     fileName: name,
     css,
-    name: names.name,
-    description: names.nameZh ?? names.name,
+    name: meta.name,
+    description: meta.description,
+    ...meta.nameZh === undefined ? {} : { nameZh: meta.nameZh },
+    ...meta.descriptionZh === undefined ? {} : { descriptionZh: meta.descriptionZh },
     colors: themeColors(css),
     ...packId === undefined ? {} : { packId },
   }
@@ -324,6 +326,8 @@ function packThemes(themes) {
     source: 'npm',
     official: true,
     author: 'Mohou',
+    ...theme.nameZh === undefined ? {} : { nameZh: theme.nameZh },
+    ...theme.descriptionZh === undefined ? {} : { descriptionZh: theme.descriptionZh },
     ...theme.colors.length === 0 ? {} : { colors: theme.colors },
     ...theme.packId === undefined ? {} : { themePackId: theme.packId },
     tarballPath,
@@ -456,13 +460,20 @@ function token(block, name) {
   return match?.[1]?.trim()
 }
 
-function headerNames(css, fallback) {
+/** Theme CSS formal headers: name, name-zh-CN, description, description-zh-CN. Catalog needs name + description. */
+function themeMeta(css, fallback) {
   const name = headerField(css, 'name')
   const nameZh = headerField(css, 'name-zh-CN')
-  if (name !== undefined && nameZh !== undefined) return { name, nameZh }
-  if (name !== undefined) return { name }
-  if (nameZh !== undefined) return { name: nameZh, nameZh }
-  return { name: fallback }
+  const description = headerField(css, 'description')
+  const descriptionZh = headerField(css, 'description-zh-CN')
+  const resolvedName = name ?? nameZh ?? fallback
+  const resolvedDescription = description ?? descriptionZh ?? nameZh ?? resolvedName
+  return {
+    name: resolvedName,
+    description: resolvedDescription,
+    ...nameZh === undefined ? {} : { nameZh },
+    ...descriptionZh === undefined ? {} : { descriptionZh },
+  }
 }
 
 function headerField(css, field) {

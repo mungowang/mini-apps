@@ -1,0 +1,46 @@
+/* name: April Rain */
+/* name-zh-CN: 春雨 */
+/* description: Moss & Rust · April Rain */
+/* description-zh-CN: 清新春季 · 春雨 */
+:root[data-mode="light"] {
+  --background: #EDF6E2;
+  --foreground: #182227;
+  --card: #F7FBF3;
+  --card-foreground: #182227;
+  --border: #D1DCC4;
+  --muted: #E2EED4;
+  --muted-foreground: #686E73;
+  --primary: #5A7400;
+  --primary-foreground: #F9FBF8;
+  --secondary: #DCECF3;
+  --secondary-foreground: #182227;
+  --accent: #DFECC8;
+  --accent-foreground: #3D5000;
+  --destructive: #B94224;
+  --destructive-foreground: #FDF9F8;
+  --ring: #5A7400;
+  --input: #D1DCC4;
+  --radius: 12px;
+  --shadow: rgba(24, 34, 39, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #071117;
+  --foreground: #E5EDDD;
+  --card: #0E1C23;
+  --card-foreground: #E5EDDD;
+  --border: #1D303A;
+  --muted: #13232C;
+  --muted-foreground: #9CA096;
+  --primary: #94B250;
+  --primary-foreground: #0D1108;
+  --secondary: #1B262B;
+  --secondary-foreground: #E5EDDD;
+  --accent: #252F0D;
+  --accent-foreground: #C9DEA4;
+  --destructive: #D05F43;
+  --destructive-foreground: #0D1108;
+  --ring: #94B250;
+  --input: #192932;
+  --radius: 12px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

@@ -1,0 +1,46 @@
+/* name: Forest & Cream */
+/* name-zh-CN: 森林奶油 */
+/* description: Emerald Hall · Forest & Cream */
+/* description-zh-CN: 商务稳重 · 森林綠與奶油色 */
+:root[data-mode="light"] {
+  --background: #FBF4E9;
+  --foreground: #16241D;
+  --card: #FEFCF7;
+  --card-foreground: #16241D;
+  --border: #E2D9CA;
+  --muted: #F5EADA;
+  --muted-foreground: #68736D;
+  --primary: #8B6001;
+  --primary-foreground: #FCFAF7;
+  --secondary: #D7F0E1;
+  --secondary-foreground: #16241D;
+  --accent: #F7E3C5;
+  --accent-foreground: #604100;
+  --destructive: #C52C2A;
+  --destructive-foreground: #FDF9F9;
+  --ring: #8B6001;
+  --input: #E2D9CA;
+  --radius: 14px;
+  --shadow: rgba(22, 36, 29, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #05100A;
+  --foreground: #F1E8D9;
+  --card: #0C1A13;
+  --card-foreground: #F1E8D9;
+  --border: #1C2E25;
+  --muted: #11221A;
+  --muted-foreground: #A49E94;
+  --primary: #CA9C51;
+  --primary-foreground: #140E06;
+  --secondary: #14251C;
+  --secondary-foreground: #F1E8D9;
+  --accent: #362302;
+  --accent-foreground: #F2CE99;
+  --destructive: #D9544B;
+  --destructive-foreground: #140E06;
+  --ring: #CA9C51;
+  --input: #17281F;
+  --radius: 14px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

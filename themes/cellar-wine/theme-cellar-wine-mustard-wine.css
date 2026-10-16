@@ -1,0 +1,46 @@
+/* name: Mustard & Wine */
+/* name-zh-CN: 芥末酒红 */
+/* description: Cellar Wine · Mustard & Wine */
+/* description-zh-CN: 温暖秋季 · 葡萄酒與芥末黃 */
+:root[data-mode="light"] {
+  --background: #FFF2F0;
+  --foreground: #271E1F;
+  --card: #FFFBFB;
+  --card-foreground: #271E1F;
+  --border: #E9D5D3;
+  --muted: #FCE6E4;
+  --muted-foreground: #766E6F;
+  --primary: #A7434E;
+  --primary-foreground: #FDF9F9;
+  --secondary: #FCE5C0;
+  --secondary-foreground: #271E1F;
+  --accent: #FFDDDD;
+  --accent-foreground: #742D35;
+  --destructive: #BF2F52;
+  --destructive-foreground: #FDF9F9;
+  --ring: #A7434E;
+  --input: #E9D5D3;
+  --radius: 12px;
+  --shadow: rgba(39, 30, 31, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #15090B;
+  --foreground: #F8E4E2;
+  --card: #211215;
+  --card-foreground: #F8E4E2;
+  --border: #372327;
+  --muted: #2A181B;
+  --muted-foreground: #A89B99;
+  --primary: #EB8088;
+  --primary-foreground: #170C0B;
+  --secondary: #2D1E01;
+  --secondary-foreground: #F8E4E2;
+  --accent: #3E1B1E;
+  --accent-foreground: #FFC2C5;
+  --destructive: #D8516A;
+  --destructive-foreground: #170C0B;
+  --ring: #EB8088;
+  --input: #301D21;
+  --radius: 12px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

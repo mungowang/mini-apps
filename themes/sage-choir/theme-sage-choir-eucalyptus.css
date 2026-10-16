@@ -1,0 +1,46 @@
+/* name: Eucalyptus White */
+/* name-zh-CN: 尤加利 */
+/* description: Sage Choir · Eucalyptus White */
+/* description-zh-CN: 温馨婚礼 · 白色與尤加利綠 */
+:root[data-mode="light"] {
+  --background: #F1F8F1;
+  --foreground: #16241E;
+  --card: #FBFEFB;
+  --card-foreground: #16241E;
+  --border: #D3DED4;
+  --muted: #E4F1E5;
+  --muted-foreground: #68736E;
+  --primary: #537163;
+  --primary-foreground: #F5FCF9;
+  --secondary: #E2EAEE;
+  --secondary-foreground: #16241E;
+  --accent: #DDEAE3;
+  --accent-foreground: #334F42;
+  --destructive: #C52C2A;
+  --destructive-foreground: #FDF9F9;
+  --ring: #537163;
+  --input: #D3DED4;
+  --radius: 14px;
+  --shadow: rgba(22, 36, 30, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #0D1310;
+  --foreground: #E6EBE7;
+  --card: #151E1A;
+  --card-foreground: #E6EBE7;
+  --border: #25322C;
+  --muted: #1A2520;
+  --muted-foreground: #98A199;
+  --primary: #8EAD9F;
+  --primary-foreground: #0A120A;
+  --secondary: #212729;
+  --secondary-foreground: #E6EBE7;
+  --accent: #223029;
+  --accent-foreground: #BDDDCE;
+  --destructive: #D9544B;
+  --destructive-foreground: #0A120A;
+  --ring: #8EAD9F;
+  --input: #202B26;
+  --radius: 14px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

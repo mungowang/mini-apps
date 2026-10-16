@@ -1,0 +1,46 @@
+/* name: Rock & Moss */
+/* name-zh-CN: 岩苔 */
+/* description: Sage Choir · Rock & Moss */
+/* description-zh-CN: 四季山林 · 岩石與青苔 */
+:root[data-mode="light"] {
+  --background: #F4F7F0;
+  --foreground: #20211E;
+  --card: #FCFDFA;
+  --card-foreground: #20211E;
+  --border: #D9DDD1;
+  --muted: #EAEFE1;
+  --muted-foreground: #6F716E;
+  --primary: #626F49;
+  --primary-foreground: #F9FBF5;
+  --secondary: #DEECE9;
+  --secondary-foreground: #20211E;
+  --accent: #E3E9D7;
+  --accent-foreground: #414D28;
+  --destructive: #C52C2A;
+  --destructive-foreground: #FDF9F9;
+  --ring: #626F49;
+  --input: #D9DDD1;
+  --radius: 14px;
+  --shadow: rgba(32, 33, 30, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #10120E;
+  --foreground: #E9EAE6;
+  --card: #1A1C16;
+  --card-foreground: #E9EAE6;
+  --border: #2C3026;
+  --muted: #20241B;
+  --muted-foreground: #9CA095;
+  --primary: #9DAB83;
+  --primary-foreground: #0E1107;
+  --secondary: #1F2827;
+  --secondary-foreground: #E9EAE6;
+  --accent: #292F1D;
+  --accent-foreground: #CCDBB1;
+  --destructive: #D9544B;
+  --destructive-foreground: #0E1107;
+  --ring: #9DAB83;
+  --input: #262A21;
+  --radius: 14px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

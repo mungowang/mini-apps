@@ -1,0 +1,46 @@
+/* name: Cloudy Coast */
+/* name-zh-CN: 阴海岸 */
+/* description: Sea Glass · Cloudy Coast */
+/* description-zh-CN: 清爽沙滩 · 陰天海岸 */
+:root[data-mode="light"] {
+  --background: #F3F9FA;
+  --foreground: #1A2225;
+  --card: #FBFEFE;
+  --card-foreground: #1A2225;
+  --border: #D3E0E1;
+  --muted: #E3F2F3;
+  --muted-foreground: #6B7174;
+  --primary: #5A6C74;
+  --primary-foreground: #F5FBFE;
+  --secondary: #E9E8EC;
+  --secondary-foreground: #1A2225;
+  --accent: #DFE8EB;
+  --accent-foreground: #3A4B52;
+  --destructive: #C52C2A;
+  --destructive-foreground: #FDF9F9;
+  --ring: #5A6C74;
+  --input: #D3E0E1;
+  --radius: 12px;
+  --shadow: rgba(26, 34, 37, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #0C1011;
+  --foreground: #E6EAEB;
+  --card: #141A1D;
+  --card-foreground: #E6EAEB;
+  --border: #242E32;
+  --muted: #192225;
+  --muted-foreground: #94A2A3;
+  --primary: #95A8B0;
+  --primary-foreground: #051213;
+  --secondary: #242326;
+  --secondary-foreground: #E6EAEB;
+  --accent: #232B2F;
+  --accent-foreground: #C4D8E0;
+  --destructive: #D9544B;
+  --destructive-foreground: #051213;
+  --ring: #95A8B0;
+  --input: #1F282B;
+  --radius: 12px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

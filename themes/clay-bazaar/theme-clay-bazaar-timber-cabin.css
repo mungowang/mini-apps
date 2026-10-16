@@ -1,0 +1,46 @@
+/* name: Timber Cabin */
+/* name-zh-CN: 木屋 */
+/* description: Clay Bazaar · Timber Cabin */
+/* description-zh-CN: 四季山林 · 木造山屋 */
+:root[data-mode="light"] {
+  --background: #FFF2E7;
+  --foreground: #1C221C;
+  --card: #FFFAF7;
+  --card-foreground: #1C221C;
+  --border: #E8D6C7;
+  --muted: #FBE7D7;
+  --muted-foreground: #6A6F6A;
+  --primary: #8C5C35;
+  --primary-foreground: #FEF9F5;
+  --secondary: #E3EBE3;
+  --secondary-foreground: #1C221C;
+  --accent: #F9E1D0;
+  --accent-foreground: #683B10;
+  --destructive: #BD3A2B;
+  --destructive-foreground: #FDF9F8;
+  --ring: #8C5C35;
+  --input: #E8D6C7;
+  --radius: 14px;
+  --shadow: rgba(28, 34, 28, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #0C150D;
+  --foreground: #F5E7DB;
+  --card: #152015;
+  --card-foreground: #F5E7DB;
+  --border: #263526;
+  --muted: #1B281B;
+  --muted-foreground: #A69C95;
+  --primary: #CC986F;
+  --primary-foreground: #160D07;
+  --secondary: #242924;
+  --secondary-foreground: #F5E7DB;
+  --accent: #3F2815;
+  --accent-foreground: #FCC8A0;
+  --destructive: #D55948;
+  --destructive-foreground: #160D07;
+  --ring: #CC986F;
+  --input: #212E21;
+  --radius: 14px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

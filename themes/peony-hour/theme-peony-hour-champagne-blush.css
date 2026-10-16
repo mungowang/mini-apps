@@ -1,0 +1,46 @@
+/* name: Champagne Blush */
+/* name-zh-CN: 香槟腮红 */
+/* description: Peony Hour · Champagne Blush */
+/* description-zh-CN: 浪漫情人节 · 香檳色與粉紅 */
+:root[data-mode="light"] {
+  --background: #FFF3F3;
+  --foreground: #291E13;
+  --card: #FFFDFD;
+  --card-foreground: #291E13;
+  --border: #E8D7D6;
+  --muted: #FBE8E7;
+  --muted-foreground: #786E65;
+  --primary: #905757;
+  --primary-foreground: #FFF8F8;
+  --secondary: #FBE4CE;
+  --secondary-foreground: #291E13;
+  --accent: #FBDEDE;
+  --accent-foreground: #6B3537;
+  --destructive: #C52C2A;
+  --destructive-foreground: #FDF9F9;
+  --ring: #905757;
+  --input: #E8D7D6;
+  --radius: 14px;
+  --shadow: rgba(41, 30, 19, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #160F09;
+  --foreground: #F8E4E3;
+  --card: #211911;
+  --card-foreground: #F8E4E3;
+  --border: #372C20;
+  --muted: #2A2016;
+  --muted-foreground: #A89B9A;
+  --primary: #D09292;
+  --primary-foreground: #170C0B;
+  --secondary: #312212;
+  --secondary-foreground: #F8E4E3;
+  --accent: #3E2323;
+  --accent-foreground: #FFC3C2;
+  --destructive: #D9544B;
+  --destructive-foreground: #170C0B;
+  --ring: #D09292;
+  --input: #30261B;
+  --radius: 14px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

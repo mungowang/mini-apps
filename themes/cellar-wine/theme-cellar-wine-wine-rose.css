@@ -1,0 +1,46 @@
+/* name: Wine & Rose */
+/* name-zh-CN: 酒红粉 */
+/* description: Cellar Wine · Wine & Rose */
+/* description-zh-CN: 柔和女性 · 酒紅與粉紅 */
+:root[data-mode="light"] {
+  --background: #FFF1F3;
+  --foreground: #2D1A1F;
+  --card: #FFFBFB;
+  --card-foreground: #2D1A1F;
+  --border: #E9D4D7;
+  --muted: #FCE5E9;
+  --muted-foreground: #7B6B6F;
+  --primary: #9F495F;
+  --primary-foreground: #FDF9FA;
+  --secondary: #EBEBCE;
+  --secondary-foreground: #2D1A1F;
+  --accent: #FFDCE2;
+  --accent-foreground: #722D3F;
+  --destructive: #BF2F52;
+  --destructive-foreground: #FDF9F9;
+  --ring: #9F495F;
+  --input: #E9D4D7;
+  --radius: 12px;
+  --shadow: rgba(45, 26, 31, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #15090C;
+  --foreground: #F8E4E7;
+  --card: #211215;
+  --card-foreground: #F8E4E7;
+  --border: #372328;
+  --muted: #2A181C;
+  --muted-foreground: #A89B9C;
+  --primary: #E28499;
+  --primary-foreground: #170C0E;
+  --secondary: #23220E;
+  --secondary-foreground: #F8E4E7;
+  --accent: #3D1B23;
+  --accent-foreground: #FFC1CD;
+  --destructive: #D8516A;
+  --destructive-foreground: #170C0E;
+  --ring: #E28499;
+  --input: #301D22;
+  --radius: 12px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

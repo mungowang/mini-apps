@@ -1,0 +1,46 @@
+/* name: Lilac & Yellow */
+/* name-zh-CN: 丁香黄 */
+/* description: Lilac Quiet · Lilac & Yellow */
+/* description-zh-CN: 清新春季 · 丁香紫與黃色 */
+:root[data-mode="light"] {
+  --background: #FDF3F9;
+  --foreground: #221E2B;
+  --card: #FFFDFE;
+  --card-foreground: #221E2B;
+  --border: #E5D7DF;
+  --muted: #F8E8F1;
+  --muted-foreground: #716E79;
+  --primary: #75599B;
+  --primary-foreground: #FAF9FC;
+  --secondary: #F4E9C0;
+  --secondary-foreground: #221E2B;
+  --accent: #ECE0FF;
+  --accent-foreground: #533874;
+  --destructive: #C52C2A;
+  --destructive-foreground: #FDF9F9;
+  --ring: #75599B;
+  --input: #E5D7DF;
+  --radius: 14px;
+  --shadow: rgba(34, 30, 43, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #100E16;
+  --foreground: #F5E4EE;
+  --card: #1B1722;
+  --card-foreground: #F5E4EE;
+  --border: #2E2A39;
+  --muted: #221E2B;
+  --muted-foreground: #A69BA1;
+  --primary: #B294DB;
+  --primary-foreground: #150C12;
+  --secondary: #2C2303;
+  --secondary-foreground: #F5E4EE;
+  --accent: #302340;
+  --accent-foreground: #DEC9FF;
+  --destructive: #D9544B;
+  --destructive-foreground: #150C12;
+  --ring: #B294DB;
+  --input: #282432;
+  --radius: 14px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

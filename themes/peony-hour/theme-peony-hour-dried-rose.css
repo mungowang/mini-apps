@@ -1,0 +1,46 @@
+/* name: Dried Rose */
+/* name-zh-CN: 干玫瑰 */
+/* description: Peony Hour · Dried Rose */
+/* description-zh-CN: 柔和女性 · 乾燥玫瑰色 */
+:root[data-mode="light"] {
+  --background: #FFF4F2;
+  --foreground: #2C1B1B;
+  --card: #FFFDFD;
+  --card-foreground: #2C1B1B;
+  --border: #E8D7D5;
+  --muted: #FBE8E6;
+  --muted-foreground: #7B6C6B;
+  --primary: #915654;
+  --primary-foreground: #FFF8F8;
+  --secondary: #EEE8DC;
+  --secondary-foreground: #2C1B1B;
+  --accent: #FCDEDC;
+  --accent-foreground: #6C3534;
+  --destructive: #C52C2A;
+  --destructive-foreground: #FDF9F9;
+  --ring: #915654;
+  --input: #E8D7D5;
+  --radius: 14px;
+  --shadow: rgba(44, 27, 27, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #170E0E;
+  --foreground: #F8E4E2;
+  --card: #231717;
+  --card-foreground: #F8E4E2;
+  --border: #3A2928;
+  --muted: #2C1D1D;
+  --muted-foreground: #A89B99;
+  --primary: #D1928E;
+  --primary-foreground: #170C0B;
+  --secondary: #29251D;
+  --secondary-foreground: #F8E4E2;
+  --accent: #3E2322;
+  --accent-foreground: #FFC3C0;
+  --destructive: #D9544B;
+  --destructive-foreground: #170C0B;
+  --ring: #D1928E;
+  --input: #332323;
+  --radius: 14px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

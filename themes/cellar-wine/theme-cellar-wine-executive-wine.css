@@ -1,0 +1,46 @@
+/* name: Executive Wine */
+/* name-zh-CN: 主管酒红 */
+/* description: Cellar Wine · Executive Wine */
+/* description-zh-CN: 商务稳重 · 主管酒紅 */
+:root[data-mode="light"] {
+  --background: #F8F4F2;
+  --foreground: #231F1F;
+  --card: #FDFCFB;
+  --card-foreground: #231F1F;
+  --border: #E2D8D4;
+  --muted: #F5E9E4;
+  --muted-foreground: #726F6F;
+  --primary: #A4464D;
+  --primary-foreground: #FDF9F9;
+  --secondary: #E6EDCF;
+  --secondary-foreground: #231F1F;
+  --accent: #FFDDDD;
+  --accent-foreground: #742D33;
+  --destructive: #BF2F52;
+  --destructive-foreground: #FDF9F9;
+  --ring: #A4464D;
+  --input: #E2D8D4;
+  --radius: 12px;
+  --shadow: rgba(35, 31, 31, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #0F0C0C;
+  --foreground: #EBE9E8;
+  --card: #1B1515;
+  --card-foreground: #EBE9E8;
+  --border: #312727;
+  --muted: #231B1C;
+  --muted-foreground: #A89B97;
+  --primary: #E88387;
+  --primary-foreground: #170D08;
+  --secondary: #20230F;
+  --secondary-foreground: #EBE9E8;
+  --accent: #3E1B1D;
+  --accent-foreground: #FFC2C3;
+  --destructive: #D8516A;
+  --destructive-foreground: #170D08;
+  --ring: #E88387;
+  --input: #292121;
+  --radius: 12px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

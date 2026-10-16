@@ -1,0 +1,46 @@
+/* name: New Shoot */
+/* name-zh-CN: 新芽 */
+/* description: Moss & Rust · New Shoot */
+/* description-zh-CN: 清新春季 · 新芽綠 */
+:root[data-mode="light"] {
+  --background: #EDF6E3;
+  --foreground: #1A2415;
+  --card: #F7FBF3;
+  --card-foreground: #1A2415;
+  --border: #D1DCC4;
+  --muted: #E2EED4;
+  --muted-foreground: #697065;
+  --primary: #447A00;
+  --primary-foreground: #F9FBF8;
+  --secondary: #FFE0E2;
+  --secondary-foreground: #1A2415;
+  --accent: #D9EECC;
+  --accent-foreground: #315311;
+  --destructive: #B94224;
+  --destructive-foreground: #FDF9F8;
+  --ring: #447A00;
+  --input: #D1DCC4;
+  --radius: 12px;
+  --shadow: rgba(26, 36, 21, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #0C1209;
+  --foreground: #E5EDDD;
+  --card: #151C11;
+  --card-foreground: #E5EDDD;
+  --border: #273121;
+  --muted: #1B2416;
+  --muted-foreground: #9BA096;
+  --primary: #84B65E;
+  --primary-foreground: #0D1108;
+  --secondary: #39191D;
+  --secondary-foreground: #E5EDDD;
+  --accent: #1F3012;
+  --accent-foreground: #C0E0AA;
+  --destructive: #D05F43;
+  --destructive-foreground: #0D1108;
+  --ring: #84B65E;
+  --input: #212A1C;
+  --radius: 12px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

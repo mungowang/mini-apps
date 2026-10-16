@@ -1,0 +1,46 @@
+/* name: Silver Frost */
+/* name-zh-CN: 银霜 */
+/* description: Plain Washi · Silver Frost */
+/* description-zh-CN: 冷冽冬季 · 銀色與霜 */
+:root[data-mode="light"] {
+  --background: #F5F8FC;
+  --foreground: #1E2125;
+  --card: #FCFDFF;
+  --card-foreground: #1E2125;
+  --border: #D8DDE6;
+  --muted: #E8EFF9;
+  --muted-foreground: #6E7074;
+  --primary: #516C84;
+  --primary-foreground: #F6FBFF;
+  --secondary: #E7E7F2;
+  --secondary-foreground: #1E2125;
+  --accent: #DBE8F4;
+  --accent-foreground: #304B61;
+  --destructive: #C52C2A;
+  --destructive-foreground: #FDF9F9;
+  --ring: #516C84;
+  --input: #D8DDE6;
+  --radius: 10px;
+  --shadow: rgba(30, 33, 37, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #0B0C0F;
+  --foreground: #E7EAED;
+  --card: #13161B;
+  --card-foreground: #E7EAED;
+  --border: #242931;
+  --muted: #191D24;
+  --muted-foreground: #989FA9;
+  --primary: #8BA9C2;
+  --primary-foreground: #0A1018;
+  --secondary: #202026;
+  --secondary-foreground: #E7EAED;
+  --accent: #1B2833;
+  --accent-foreground: #BAD8F4;
+  --destructive: #D9544B;
+  --destructive-foreground: #0A1018;
+  --ring: #8BA9C2;
+  --input: #1F232A;
+  --radius: 10px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

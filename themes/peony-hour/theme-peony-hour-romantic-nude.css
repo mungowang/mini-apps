@@ -1,0 +1,46 @@
+/* name: Romantic Nude */
+/* name-zh-CN: 浪漫裸 */
+/* description: Peony Hour · Romantic Nude */
+/* description-zh-CN: 浪漫情人节 · 浪漫裸色 */
+:root[data-mode="light"] {
+  --background: #FEF4F1;
+  --foreground: #2C1C19;
+  --card: #FFFDFC;
+  --card-foreground: #2C1C19;
+  --border: #E7D7D2;
+  --muted: #FBE9E3;
+  --muted-foreground: #7A6C6A;
+  --primary: #8B5B50;
+  --primary-foreground: #FFF8F7;
+  --secondary: #ECE8DE;
+  --secondary-foreground: #2C1C19;
+  --accent: #F8E0DB;
+  --accent-foreground: #673A30;
+  --destructive: #C52C2A;
+  --destructive-foreground: #FDF9F9;
+  --ring: #8B5B50;
+  --input: #E7D7D2;
+  --radius: 14px;
+  --shadow: rgba(44, 28, 25, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #170E0C;
+  --foreground: #F5E6E1;
+  --card: #231715;
+  --card-foreground: #F5E6E1;
+  --border: #3A2926;
+  --muted: #2C1E1B;
+  --muted-foreground: #A89B97;
+  --primary: #CB968A;
+  --primary-foreground: #170C09;
+  --secondary: #28251E;
+  --secondary-foreground: #F5E6E1;
+  --accent: #3C2520;
+  --accent-foreground: #FDC5B9;
+  --destructive: #D9544B;
+  --destructive-foreground: #170C09;
+  --ring: #CB968A;
+  --input: #332421;
+  --radius: 14px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

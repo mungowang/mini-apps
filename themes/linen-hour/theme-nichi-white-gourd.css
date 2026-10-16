@@ -1,0 +1,46 @@
+/* name: White Gourd */
+/* name-zh-CN: 白南瓜 */
+/* description: Linen Hour · White Gourd */
+/* description-zh-CN: 亚麻时辰 · 白南瓜 */
+:root[data-mode="light"] {
+  --background: #faf6ef;
+  --foreground: #5e5246;
+  --card: #fffcf7;
+  --card-foreground: #5e5246;
+  --border: #e8dcc8;
+  --muted: #f0e8da;
+  --muted-foreground: #8a7c6c;
+  --primary: #d88c4a;
+  --primary-foreground: #fffcf7;
+  --secondary: #cbb79a;
+  --secondary-foreground: #3e3428;
+  --accent: #e8dcc8;
+  --accent-foreground: #5e5246;
+  --destructive: #c45c48;
+  --destructive-foreground: #fff8f4;
+  --ring: #d88c4a;
+  --input: #f5efe4;
+  --radius: 16px;
+  --shadow: rgba(94, 82, 70, 0.1);
+}
+:root[data-mode="dark"] {
+  --background: #2a241c;
+  --foreground: #faf6ef;
+  --card: #383028;
+  --card-foreground: #faf6ef;
+  --border: #564a3c;
+  --muted: #443a30;
+  --muted-foreground: #c4b8a4;
+  --primary: #d88c4a;
+  --primary-foreground: #2a241c;
+  --secondary: #cbb79a;
+  --secondary-foreground: #2a241c;
+  --accent: #e8dcc8;
+  --accent-foreground: #2a241c;
+  --destructive: #e07a6a;
+  --destructive-foreground: #2a1814;
+  --ring: #d88c4a;
+  --input: #1e1812;
+  --radius: 16px;
+  --shadow: rgba(0, 0, 0, 0.48);
+}

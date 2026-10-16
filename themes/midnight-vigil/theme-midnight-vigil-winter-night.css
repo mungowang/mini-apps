@@ -1,0 +1,46 @@
+/* name: Winter Night */
+/* name-zh-CN: 冬夜 */
+/* description: Midnight Vigil · Winter Night */
+/* description-zh-CN: 冷冽冬季 · 冬夜 */
+:root[data-mode="light"] {
+  --background: #F2F6FD;
+  --foreground: #1B212B;
+  --card: #FBFDFF;
+  --card-foreground: #1B212B;
+  --border: #D4DBE6;
+  --muted: #E5EDFA;
+  --muted-foreground: #6B7079;
+  --primary: #4E6A96;
+  --primary-foreground: #F7FAFF;
+  --secondary: #FAE2DE;
+  --secondary-foreground: #1B212B;
+  --accent: #DAE7FD;
+  --accent-foreground: #2E4871;
+  --destructive: #C52C2A;
+  --destructive-foreground: #FDF9F9;
+  --ring: #4E6A96;
+  --input: #D4DBE6;
+  --radius: 12px;
+  --shadow: rgba(27, 33, 43, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #060B17;
+  --foreground: #E1EAF9;
+  --card: #0D1523;
+  --card-foreground: #E1EAF9;
+  --border: #1E283A;
+  --muted: #131C2D;
+  --muted-foreground: #989FA9;
+  --primary: #88A6D6;
+  --primary-foreground: #0A1018;
+  --secondary: #2A1B18;
+  --secondary-foreground: #E1EAF9;
+  --accent: #19253A;
+  --accent-foreground: #BCD6FF;
+  --destructive: #D9544B;
+  --destructive-foreground: #0A1018;
+  --ring: #88A6D6;
+  --input: #182133;
+  --radius: 12px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

@@ -1,0 +1,46 @@
+/* name: Andes Valley */
+/* name-zh-CN: 安第斯 */
+/* description: Clay Bazaar · Andes Valley */
+/* description-zh-CN: 四季山林 · 安地斯山 */
+:root[data-mode="light"] {
+  --background: #FFF2E7;
+  --foreground: #2C1C15;
+  --card: #FFFAF7;
+  --card-foreground: #2C1C15;
+  --border: #E8D6C6;
+  --muted: #FBE7D7;
+  --muted-foreground: #7B6D66;
+  --primary: #915A28;
+  --primary-foreground: #FEF9F5;
+  --secondary: #DAEBFE;
+  --secondary-foreground: #2C1C15;
+  --accent: #FCE1CC;
+  --accent-foreground: #6B3900;
+  --destructive: #BD3A2B;
+  --destructive-foreground: #FDF9F8;
+  --ring: #915A28;
+  --input: #E8D6C6;
+  --radius: 14px;
+  --shadow: rgba(44, 28, 21, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #1B100A;
+  --foreground: #F5E7DB;
+  --card: #271912;
+  --card-foreground: #F5E7DB;
+  --border: #3E2B22;
+  --muted: #302017;
+  --muted-foreground: #A69C95;
+  --primary: #D29665;
+  --primary-foreground: #160D07;
+  --secondary: #1D2936;
+  --secondary-foreground: #F5E7DB;
+  --accent: #41270F;
+  --accent-foreground: #FCC89F;
+  --destructive: #D55948;
+  --destructive-foreground: #160D07;
+  --ring: #D29665;
+  --input: #37261D;
+  --radius: 14px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

@@ -1,0 +1,46 @@
+/* name: Pink & Black */
+/* name-zh-CN: 粉与黑 */
+/* description: Noir Couture · Pink & Black */
+/* description-zh-CN: 浪漫情人节 · 粉紅與黑色 */
+:root[data-mode="light"] {
+  --background: #FFFDFD;
+  --foreground: #202022;
+  --card: #FEFDFD;
+  --card-foreground: #202022;
+  --border: #E8E0E1;
+  --muted: #FBF1F3;
+  --muted-foreground: #707072;
+  --primary: #B62A55;
+  --primary-foreground: #FDF9F9;
+  --secondary: #FDE2D5;
+  --secondary-foreground: #202022;
+  --accent: #FFDCE1;
+  --accent-foreground: #732D3D;
+  --destructive: #C52C2A;
+  --destructive-foreground: #FDF9F9;
+  --ring: #B62A55;
+  --input: #E8E0E1;
+  --radius: 8px;
+  --shadow: rgba(32, 32, 34, 0.16);
+}
+:root[data-mode="dark"] {
+  --background: #070708;
+  --foreground: #F8E4E7;
+  --card: #0F1014;
+  --card-foreground: #F8E4E7;
+  --border: #212229;
+  --muted: #15161C;
+  --muted-foreground: #A89A9D;
+  --primary: #FA7090;
+  --primary-foreground: #170C0E;
+  --secondary: #26150D;
+  --secondary-foreground: #F8E4E7;
+  --accent: #35131B;
+  --accent-foreground: #FFC1CB;
+  --destructive: #D9544B;
+  --destructive-foreground: #170C0E;
+  --ring: #FA7090;
+  --input: #1B1C22;
+  --radius: 8px;
+  --shadow: rgba(0, 0, 0, 0.62);
+}

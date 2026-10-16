@@ -1,0 +1,46 @@
+/* name: Modern Magenta */
+/* name-zh-CN: 现代桃红 */
+/* description: Noir Couture · Modern Magenta */
+/* description-zh-CN: 柔和女性 · 現代桃紅 */
+:root[data-mode="light"] {
+  --background: #FFFDFD;
+  --foreground: #202022;
+  --card: #FEFDFD;
+  --card-foreground: #202022;
+  --border: #E8E0E2;
+  --muted: #FBF1F4;
+  --muted-foreground: #707072;
+  --primary: #BE1058;
+  --primary-foreground: #FDF9FA;
+  --secondary: #FFE2D4;
+  --secondary-foreground: #202022;
+  --accent: #FFDCE2;
+  --accent-foreground: #722D40;
+  --destructive: #C52C2A;
+  --destructive-foreground: #FDF9F9;
+  --ring: #BE1058;
+  --input: #E8E0E2;
+  --radius: 8px;
+  --shadow: rgba(32, 32, 34, 0.16);
+}
+:root[data-mode="dark"] {
+  --background: #070708;
+  --foreground: #F7E4E9;
+  --card: #0F1014;
+  --card-foreground: #F7E4E9;
+  --border: #212229;
+  --muted: #15161C;
+  --muted-foreground: #A89A9E;
+  --primary: #F97095;
+  --primary-foreground: #170C0F;
+  --secondary: #28140B;
+  --secondary-foreground: #F7E4E9;
+  --accent: #35131C;
+  --accent-foreground: #FFC1CD;
+  --destructive: #D9544B;
+  --destructive-foreground: #170C0F;
+  --ring: #F97095;
+  --input: #1B1C22;
+  --radius: 8px;
+  --shadow: rgba(0, 0, 0, 0.62);
+}

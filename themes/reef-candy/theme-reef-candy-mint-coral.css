@@ -1,0 +1,46 @@
+/* name: Mint & Coral */
+/* name-zh-CN: 薄荷珊瑚 */
+/* description: Reef Candy · Mint & Coral */
+/* description-zh-CN: 清新春季 · 薄荷綠與珊瑚色 */
+:root[data-mode="light"] {
+  --background: #F5FDFA;
+  --foreground: #152421;
+  --card: #FBFEFD;
+  --card-foreground: #152421;
+  --border: #D6E4DE;
+  --muted: #E6F6EF;
+  --muted-foreground: #687371;
+  --primary: #227A5E;
+  --primary-foreground: #F5FCF9;
+  --secondary: #FFE1DA;
+  --secondary-foreground: #152421;
+  --accent: #CEEFE1;
+  --accent-foreground: #00553F;
+  --destructive: #C52C2A;
+  --destructive-foreground: #FDF9F9;
+  --ring: #227A5E;
+  --input: #D6E4DE;
+  --radius: 18px;
+  --shadow: rgba(21, 36, 33, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #06100E;
+  --foreground: #DCEFE7;
+  --card: #0C1A18;
+  --card-foreground: #DCEFE7;
+  --border: #1B2E2B;
+  --muted: #10221F;
+  --muted-foreground: #95A29D;
+  --primary: #66B799;
+  --primary-foreground: #06120E;
+  --secondary: #361812;
+  --secondary-foreground: #DCEFE7;
+  --accent: #062F23;
+  --accent-foreground: #A0E6CA;
+  --destructive: #D9544B;
+  --destructive-foreground: #06120E;
+  --ring: #66B799;
+  --input: #162825;
+  --radius: 18px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

@@ -1,0 +1,46 @@
+/* name: Lemonade */
+/* name-zh-CN: 柠檬水 */
+/* description: Citrus Parade · Lemonade */
+/* description-zh-CN: 阳光夏日 · 檸檬水 */
+:root[data-mode="light"] {
+  --background: #FCFAF0;
+  --foreground: #182417;
+  --card: #FEFEF9;
+  --card-foreground: #182417;
+  --border: #E2E0D0;
+  --muted: #F4F1E0;
+  --muted-foreground: #697369;
+  --primary: #796900;
+  --primary-foreground: #FBFAF7;
+  --secondary: #D3F3D2;
+  --secondary-foreground: #182417;
+  --accent: #EEE7C2;
+  --accent-foreground: #534800;
+  --destructive: #C13425;
+  --destructive-foreground: #FDF9F8;
+  --ring: #796900;
+  --input: #E2E0D0;
+  --radius: 16px;
+  --shadow: rgba(24, 36, 23, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #0A110A;
+  --foreground: #EDEADA;
+  --card: #131C13;
+  --card-foreground: #EDEADA;
+  --border: #243023;
+  --muted: #182318;
+  --muted-foreground: #A19F94;
+  --primary: #BBA523;
+  --primary-foreground: #111006;
+  --secondary: #132A13;
+  --secondary-foreground: #EDEADA;
+  --accent: #302A03;
+  --accent-foreground: #E1D699;
+  --destructive: #D95544;
+  --destructive-foreground: #111006;
+  --ring: #BBA523;
+  --input: #1E291E;
+  --radius: 16px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

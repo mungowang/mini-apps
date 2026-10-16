@@ -1,0 +1,46 @@
+/* name: Electric Grey */
+/* name-zh-CN: 电光灰 */
+/* description: Plain Washi · Electric Grey */
+/* description-zh-CN: 商务稳重 · 灰色與電光藍 */
+:root[data-mode="light"] {
+  --background: #F6F8FC;
+  --foreground: #1E2124;
+  --card: #FDFDFF;
+  --card-foreground: #1E2124;
+  --border: #D8DDE6;
+  --muted: #E9EFF9;
+  --muted-foreground: #6E7073;
+  --primary: #0F62D3;
+  --primary-foreground: #F8FAFD;
+  --secondary: #EBE4FF;
+  --secondary-foreground: #1E2124;
+  --accent: #D8E7FF;
+  --accent-foreground: #24477D;
+  --destructive: #C52C2A;
+  --destructive-foreground: #FDF9F9;
+  --ring: #0F62D3;
+  --input: #D8DDE6;
+  --radius: 10px;
+  --shadow: rgba(30, 33, 36, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #0B0C0F;
+  --foreground: #E6EAF1;
+  --card: #14161B;
+  --card-foreground: #E6EAF1;
+  --border: #252931;
+  --muted: #191D24;
+  --muted-foreground: #999FA9;
+  --primary: #7EA6E3;
+  --primary-foreground: #0B0F18;
+  --secondary: #241B34;
+  --secondary-foreground: #E6EAF1;
+  --accent: #152641;
+  --accent-foreground: #BBD6FF;
+  --destructive: #D9544B;
+  --destructive-foreground: #0B0F18;
+  --ring: #7EA6E3;
+  --input: #1F232A;
+  --radius: 10px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

@@ -1,0 +1,46 @@
+/* name: Mountain Tarn */
+/* name-zh-CN: 山湖 */
+/* description: Tide Depth · Mountain Tarn */
+/* description-zh-CN: 四季山林 · 高山湖泊 */
+:root[data-mode="light"] {
+  --background: #EEF9FA;
+  --foreground: #132422;
+  --card: #FAFEFF;
+  --card-foreground: #132422;
+  --border: #CEDFE1;
+  --muted: #DEF2F3;
+  --muted-foreground: #667371;
+  --primary: #24767D;
+  --primary-foreground: #F4FCFC;
+  --secondary: #F0E7DA;
+  --secondary-foreground: #132422;
+  --accent: #CEEDF0;
+  --accent-foreground: #005258;
+  --destructive: #C52C2A;
+  --destructive-foreground: #FDF9F9;
+  --ring: #24767D;
+  --input: #CEDFE1;
+  --radius: 10px;
+  --shadow: rgba(19, 36, 34, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #040F0E;
+  --foreground: #D9EEF0;
+  --card: #0A1A18;
+  --card-foreground: #D9EEF0;
+  --border: #192E2B;
+  --muted: #0E221F;
+  --muted-foreground: #94A2A3;
+  --primary: #66B3BA;
+  --primary-foreground: #051213;
+  --secondary: #262017;
+  --secondary-foreground: #D9EEF0;
+  --accent: #062D30;
+  --accent-foreground: #96E4EB;
+  --destructive: #D9544B;
+  --destructive-foreground: #051213;
+  --ring: #66B3BA;
+  --input: #142825;
+  --radius: 10px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

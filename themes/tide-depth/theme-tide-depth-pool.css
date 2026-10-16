@@ -1,0 +1,46 @@
+/* name: Pool */
+/* name-zh-CN: 泳池 */
+/* description: Tide Depth · Pool */
+/* description-zh-CN: 阳光夏日 · 泳池 */
+:root[data-mode="light"] {
+  --background: #EEF9FB;
+  --foreground: #13232B;
+  --card: #FBFEFF;
+  --card-foreground: #13232B;
+  --border: #CEDFE3;
+  --muted: #DEF1F6;
+  --muted-foreground: #667279;
+  --primary: #00729D;
+  --primary-foreground: #F8FBFC;
+  --secondary: #E7E5FF;
+  --secondary-foreground: #13232B;
+  --accent: #CBECFF;
+  --accent-foreground: #004E6D;
+  --destructive: #C52C2A;
+  --destructive-foreground: #FDF9F9;
+  --ring: #00729D;
+  --input: #CEDFE3;
+  --radius: 10px;
+  --shadow: rgba(19, 35, 43, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #050E13;
+  --foreground: #DCEDF1;
+  --card: #0C181F;
+  --card-foreground: #DCEDF1;
+  --border: #1B2C35;
+  --muted: #112028;
+  --muted-foreground: #94A1A4;
+  --primary: #43B1E6;
+  --primary-foreground: #051215;
+  --secondary: #201F30;
+  --secondary-foreground: #DCEDF1;
+  --accent: #022B3E;
+  --accent-foreground: #A2DEFF;
+  --destructive: #D9544B;
+  --destructive-foreground: #051215;
+  --ring: #43B1E6;
+  --input: #17262E;
+  --radius: 10px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

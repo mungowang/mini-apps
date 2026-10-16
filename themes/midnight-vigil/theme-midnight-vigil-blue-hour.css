@@ -1,0 +1,46 @@
+/* name: Blue Hour */
+/* name-zh-CN: 蓝调时刻 */
+/* description: Midnight Vigil · Blue Hour */
+/* description-zh-CN: 四季山林 · 藍調時刻 */
+:root[data-mode="light"] {
+  --background: #F7F4FC;
+  --foreground: #1B202C;
+  --card: #FDFCFF;
+  --card-foreground: #1B202C;
+  --border: #DCD8E5;
+  --muted: #EEEAF8;
+  --muted-foreground: #6C707A;
+  --primary: #5A688D;
+  --primary-foreground: #F8FAFF;
+  --secondary: #F9E4D4;
+  --secondary-foreground: #1B202C;
+  --accent: #DFE6F8;
+  --accent-foreground: #3A4669;
+  --destructive: #C52C2A;
+  --destructive-foreground: #FDF9F9;
+  --ring: #5A688D;
+  --input: #DCD8E5;
+  --radius: 12px;
+  --shadow: rgba(27, 32, 44, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #060A17;
+  --foreground: #ECE6F6;
+  --card: #0F1423;
+  --card-foreground: #ECE6F6;
+  --border: #20273B;
+  --muted: #141B2D;
+  --muted-foreground: #A09CA7;
+  --primary: #94A4CC;
+  --primary-foreground: #110D17;
+  --secondary: #291C11;
+  --secondary-foreground: #ECE6F6;
+  --accent: #1E2536;
+  --accent-foreground: #C3D4FE;
+  --destructive: #D9544B;
+  --destructive-foreground: #110D17;
+  --ring: #94A4CC;
+  --input: #1A2133;
+  --radius: 12px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

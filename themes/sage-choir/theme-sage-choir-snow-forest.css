@@ -1,0 +1,46 @@
+/* name: Snow Forest */
+/* name-zh-CN: 雪林 */
+/* description: Sage Choir · Snow Forest */
+/* description-zh-CN: 冷冽冬季 · 雪中森林 */
+:root[data-mode="light"] {
+  --background: #EEF9F2;
+  --foreground: #1B231E;
+  --card: #FAFEFB;
+  --card-foreground: #1B231E;
+  --border: #D0DFD6;
+  --muted: #E0F2E7;
+  --muted-foreground: #6B726E;
+  --primary: #51725F;
+  --primary-foreground: #F6FCF8;
+  --secondary: #E0EBEE;
+  --secondary-foreground: #1B231E;
+  --accent: #DBEBE2;
+  --accent-foreground: #30503F;
+  --destructive: #C52C2A;
+  --destructive-foreground: #FDF9F9;
+  --ring: #51725F;
+  --input: #D0DFD6;
+  --radius: 14px;
+  --shadow: rgba(27, 35, 30, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #0C130F;
+  --foreground: #E1EDE5;
+  --card: #141E18;
+  --card-foreground: #E1EDE5;
+  --border: #24322B;
+  --muted: #19261F;
+  --muted-foreground: #97A29B;
+  --primary: #8BAE9A;
+  --primary-foreground: #08120C;
+  --secondary: #20272A;
+  --secondary-foreground: #E1EDE5;
+  --accent: #213028;
+  --accent-foreground: #BADECA;
+  --destructive: #D9544B;
+  --destructive-foreground: #08120C;
+  --ring: #8BAE9A;
+  --input: #1F2C25;
+  --radius: 14px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

@@ -1,0 +1,46 @@
+/* name: Terracotta & Sand */
+/* name-zh-CN: 赤陶沙米 */
+/* description: Clay Bazaar · Terracotta & Sand */
+/* description-zh-CN: 温馨婚礼 · 赤陶色與沙米色 */
+:root[data-mode="light"] {
+  --background: #FFF1EB;
+  --foreground: #2D1B16;
+  --card: #FFFAF8;
+  --card-foreground: #2D1B16;
+  --border: #EBD4CA;
+  --muted: #FEE5DA;
+  --muted-foreground: #7B6C68;
+  --primary: #A3493E;
+  --primary-foreground: #FDF9F8;
+  --secondary: #E5ECD1;
+  --secondary-foreground: #2D1B16;
+  --accent: #FFDDD8;
+  --accent-foreground: #742F26;
+  --destructive: #BD3A2B;
+  --destructive-foreground: #FDF9F8;
+  --ring: #A3493E;
+  --input: #EBD4CA;
+  --radius: 14px;
+  --shadow: rgba(45, 27, 22, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #1B0F0C;
+  --foreground: #F7E5DD;
+  --card: #281914;
+  --card-foreground: #F7E5DD;
+  --border: #3F2B25;
+  --muted: #311F1A;
+  --muted-foreground: #A79C96;
+  --primary: #E78678;
+  --primary-foreground: #170D08;
+  --secondary: #262A17;
+  --secondary-foreground: #F7E5DD;
+  --accent: #46221D;
+  --accent-foreground: #FFC4BA;
+  --destructive: #D55948;
+  --destructive-foreground: #170D08;
+  --ring: #E78678;
+  --input: #372520;
+  --radius: 14px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

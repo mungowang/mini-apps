@@ -1,0 +1,46 @@
+/* name: Music Festival */
+/* name-zh-CN: 音乐祭 */
+/* description: Noir Couture · Music Festival */
+/* description-zh-CN: 阳光夏日 · 夏日音樂祭 */
+:root[data-mode="light"] {
+  --background: #FCFEFD;
+  --foreground: #202023;
+  --card: #FDFEFD;
+  --card-foreground: #202023;
+  --border: #DCE4E3;
+  --muted: #EDF7F5;
+  --muted-foreground: #707072;
+  --primary: #BF0062;
+  --primary-foreground: #FDF9FA;
+  --secondary: #F4E9C0;
+  --secondary-foreground: #202023;
+  --accent: #FFDCE4;
+  --accent-foreground: #712D44;
+  --destructive: #C52C2A;
+  --destructive-foreground: #FDF9F9;
+  --ring: #BF0062;
+  --input: #DCE4E3;
+  --radius: 8px;
+  --shadow: rgba(32, 32, 35, 0.16);
+}
+:root[data-mode="dark"] {
+  --background: #070708;
+  --foreground: #DAEFEB;
+  --card: #101013;
+  --card-foreground: #DAEFEB;
+  --border: #222129;
+  --muted: #16161C;
+  --muted-foreground: #94A29F;
+  --primary: #F7719E;
+  --primary-foreground: #051210;
+  --secondary: #211A00;
+  --secondary-foreground: #DAEFEB;
+  --accent: #34131E;
+  --accent-foreground: #FFC0D1;
+  --destructive: #D9544B;
+  --destructive-foreground: #051210;
+  --ring: #F7719E;
+  --input: #1C1C22;
+  --radius: 8px;
+  --shadow: rgba(0, 0, 0, 0.62);
+}

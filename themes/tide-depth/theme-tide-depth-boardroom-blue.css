@@ -1,0 +1,46 @@
+/* name: Boardroom Blue */
+/* name-zh-CN: 议事蓝 */
+/* description: Tide Depth · Boardroom Blue */
+/* description-zh-CN: 商务稳重 · 企業藍 */
+:root[data-mode="light"] {
+  --background: #FAF6EE;
+  --foreground: #17212D;
+  --card: #FFFDFA;
+  --card-foreground: #17212D;
+  --border: #E0DBCE;
+  --muted: #F3EDDE;
+  --muted-foreground: #69717B;
+  --primary: #2A6AB0;
+  --primary-foreground: #F8FAFD;
+  --secondary: #FFE3C5;
+  --secondary-foreground: #17212D;
+  --accent: #D5E8FF;
+  --accent-foreground: #19497C;
+  --destructive: #C52C2A;
+  --destructive-foreground: #FDF9F9;
+  --ring: #2A6AB0;
+  --input: #E0DBCE;
+  --radius: 10px;
+  --shadow: rgba(23, 33, 45, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #070D14;
+  --foreground: #EFE9D9;
+  --card: #0F1721;
+  --card-foreground: #EFE9D9;
+  --border: #202B37;
+  --muted: #151E2A;
+  --muted-foreground: #A29E93;
+  --primary: #68A8F3;
+  --primary-foreground: #130F06;
+  --secondary: #301C03;
+  --secondary-foreground: #EFE9D9;
+  --accent: #122841;
+  --accent-foreground: #B6D8FF;
+  --destructive: #D9544B;
+  --destructive-foreground: #130F06;
+  --ring: #68A8F3;
+  --input: #1A2430;
+  --radius: 10px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

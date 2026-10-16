@@ -1,0 +1,46 @@
+/* name: Fruit Popsicle */
+/* name-zh-CN: 水果冰棒 */
+/* description: Reef Candy · Fruit Popsicle */
+/* description-zh-CN: 阳光夏日 · 水果冰棒 */
+:root[data-mode="light"] {
+  --background: #F6FDF8;
+  --foreground: #19212D;
+  --card: #FBFEFC;
+  --card-foreground: #19212D;
+  --border: #D7E4DC;
+  --muted: #E8F6ED;
+  --muted-foreground: #6A717B;
+  --primary: #49699E;
+  --primary-foreground: #F7FAFF;
+  --secondary: #F4E8C7;
+  --secondary-foreground: #19212D;
+  --accent: #D9E7FF;
+  --accent-foreground: #294779;
+  --destructive: #C52C2A;
+  --destructive-foreground: #FDF9F9;
+  --ring: #49699E;
+  --input: #D7E4DC;
+  --radius: 18px;
+  --shadow: rgba(25, 33, 45, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #090D14;
+  --foreground: #DEEEE4;
+  --card: #121720;
+  --card-foreground: #DEEEE4;
+  --border: #232A37;
+  --muted: #171E2A;
+  --muted-foreground: #97A29A;
+  --primary: #83A6DF;
+  --primary-foreground: #08120C;
+  --secondary: #292108;
+  --secondary-foreground: #DEEEE4;
+  --accent: #192840;
+  --accent-foreground: #BCD6FF;
+  --destructive: #D9544B;
+  --destructive-foreground: #08120C;
+  --ring: #83A6DF;
+  --input: #1D2430;
+  --radius: 18px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

@@ -1,0 +1,46 @@
+/* name: Tulip Bed */
+/* name-zh-CN: 郁金香 */
+/* description: Blossom Pop · Tulip Bed */
+/* description-zh-CN: 清新春季 · 鬱金香 */
+:root[data-mode="light"] {
+  --background: #FFF7F5;
+  --foreground: #192416;
+  --card: #FFFDFC;
+  --card-foreground: #192416;
+  --border: #EADAD6;
+  --muted: #FEEBE7;
+  --muted-foreground: #6A7368;
+  --primary: #B53239;
+  --primary-foreground: #FDF9F9;
+  --secondary: #F9E7BF;
+  --secondary-foreground: #192416;
+  --accent: #FFDDDB;
+  --accent-foreground: #742E2E;
+  --destructive: #C52C2A;
+  --destructive-foreground: #FDF9F9;
+  --ring: #B53239;
+  --input: #EADAD6;
+  --radius: 16px;
+  --shadow: rgba(25, 36, 22, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #0A1008;
+  --foreground: #F8E5E0;
+  --card: #131B10;
+  --card-foreground: #F8E5E0;
+  --border: #242F21;
+  --muted: #182316;
+  --muted-foreground: #A89B98;
+  --primary: #F47A78;
+  --primary-foreground: #170C0A;
+  --secondary: #2D2102;
+  --secondary-foreground: #F8E5E0;
+  --accent: #401D1C;
+  --accent-foreground: #FFC3BF;
+  --destructive: #D9544B;
+  --destructive-foreground: #170C0A;
+  --ring: #F47A78;
+  --input: #1E291B;
+  --radius: 16px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

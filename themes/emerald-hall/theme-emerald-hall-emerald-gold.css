@@ -1,0 +1,46 @@
+/* name: Emerald & Gold */
+/* name-zh-CN: 祖母绿金 */
+/* description: Emerald Hall · Emerald & Gold */
+/* description-zh-CN: 温馨婚礼 · 祖母綠與金色 */
+:root[data-mode="light"] {
+  --background: #FBF4E9;
+  --foreground: #11251D;
+  --card: #FEFCF7;
+  --card-foreground: #11251D;
+  --border: #E2D9CA;
+  --muted: #F5EADA;
+  --muted-foreground: #63716C;
+  --primary: #2F785F;
+  --primary-foreground: #F5FCF9;
+  --secondary: #F9E6C9;
+  --secondary-foreground: #11251D;
+  --accent: #D1EEE1;
+  --accent-foreground: #00553E;
+  --destructive: #C52C2A;
+  --destructive-foreground: #FDF9F9;
+  --ring: #2F785F;
+  --input: #E2D9CA;
+  --radius: 14px;
+  --shadow: rgba(17, 37, 29, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #05100B;
+  --foreground: #F1E8DA;
+  --card: #0B1A14;
+  --card-foreground: #F1E8DA;
+  --border: #1A2E27;
+  --muted: #10221B;
+  --muted-foreground: #A49E94;
+  --primary: #6EB69A;
+  --primary-foreground: #140E06;
+  --secondary: #2B1F09;
+  --secondary-foreground: #F1E8DA;
+  --accent: #0B2E22;
+  --accent-foreground: #A1E6C9;
+  --destructive: #D9544B;
+  --destructive-foreground: #140E06;
+  --ring: #6EB69A;
+  --input: #162821;
+  --radius: 14px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

@@ -1,0 +1,46 @@
+/* name: Field Bus */
+/* name-zh-CN: 田野 */
+/* description: Sage Choir · Field Bus */
+/* description-zh-CN: 鼠尾草 · 田野 */
+:root[data-mode="light"] {
+  --background: #F4F8F2;
+  --foreground: #2C3A30;
+  --card: #FBFEF8;
+  --card-foreground: #2C3A30;
+  --border: #D5E4D0;
+  --muted: #E7F0DC;
+  --muted-foreground: #5E6E58;
+  --primary: #62A03D;
+  --primary-foreground: #F7FBF4;
+  --secondary: #E3F1BB;
+  --secondary-foreground: #2C3A30;
+  --accent: #BEE2E4;
+  --accent-foreground: #1E3A3C;
+  --destructive: #C45C5C;
+  --destructive-foreground: #FFF8F6;
+  --ring: #62A03D;
+  --input: #EEF4EA;
+  --radius: 14px;
+  --shadow: rgba(98, 160, 61, 0.14);
+}
+:root[data-mode="dark"] {
+  --background: #1C2820;
+  --foreground: #E3F1BB;
+  --card: #243028;
+  --card-foreground: #E3F1BB;
+  --border: #3A4A40;
+  --muted: #2A362C;
+  --muted-foreground: #A8B8A4;
+  --primary: #7EBE58;
+  --primary-foreground: #1C2820;
+  --secondary: #2E3A30;
+  --secondary-foreground: #E3F1BB;
+  --accent: #8ED0D2;
+  --accent-foreground: #1C2820;
+  --destructive: #E07A7A;
+  --destructive-foreground: #1C2820;
+  --ring: #7EBE58;
+  --input: #18221C;
+  --radius: 14px;
+  --shadow: rgba(0, 0, 0, 0.45);
+}

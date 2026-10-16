@@ -1,0 +1,46 @@
+/* name: Red Rose */
+/* name-zh-CN: 红玫瑰 */
+/* description: Emerald Hall · Red Rose */
+/* description-zh-CN: 浪漫情人节 · 紅玫瑰 */
+:root[data-mode="light"] {
+  --background: #F1F8ED;
+  --foreground: #16241C;
+  --card: #FAFDF8;
+  --card-foreground: #16241C;
+  --border: #D4DECE;
+  --muted: #E6F0DF;
+  --muted-foreground: #68736D;
+  --primary: #B3373B;
+  --primary-foreground: #FDF9F9;
+  --secondary: #D2F2DD;
+  --secondary-foreground: #16241C;
+  --accent: #FFDDDB;
+  --accent-foreground: #742E2E;
+  --destructive: #C52C2A;
+  --destructive-foreground: #FDF9F9;
+  --ring: #B3373B;
+  --input: #D4DECE;
+  --radius: 14px;
+  --shadow: rgba(22, 36, 28, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #060F0A;
+  --foreground: #E4EDDE;
+  --card: #0D1A13;
+  --card-foreground: #E4EDDE;
+  --border: #1C2E24;
+  --muted: #122219;
+  --muted-foreground: #9BA197;
+  --primary: #E68582;
+  --primary-foreground: #0C1108;
+  --secondary: #10271A;
+  --secondary-foreground: #E4EDDE;
+  --accent: #3E1B1A;
+  --accent-foreground: #FFC3BF;
+  --destructive: #D9544B;
+  --destructive-foreground: #0C1108;
+  --ring: #E68582;
+  --input: #17281F;
+  --radius: 14px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

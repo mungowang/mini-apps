@@ -1,0 +1,46 @@
+/* name: Warm Linen */
+/* name-zh-CN: 温麻 */
+/* description: Plain Washi · Warm Linen */
+/* description-zh-CN: 涤荡心灵 · 亞麻色與溫暖中性色 */
+:root[data-mode="light"] {
+  --background: #FBF7F4;
+  --foreground: #24201A;
+  --card: #FFFDFC;
+  --card-foreground: #24201A;
+  --border: #E4DBD5;
+  --muted: #F7ECE5;
+  --muted-foreground: #736F6B;
+  --primary: #78664D;
+  --primary-foreground: #FDF9F4;
+  --secondary: #E8EAE1;
+  --secondary-foreground: #24201A;
+  --accent: #EEE5D9;
+  --accent-foreground: #56442D;
+  --destructive: #C52C2A;
+  --destructive-foreground: #FDF9F9;
+  --ring: #78664D;
+  --input: #E4DBD5;
+  --radius: 10px;
+  --shadow: rgba(36, 32, 26, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #0E0C09;
+  --foreground: #EFE8E3;
+  --card: #191511;
+  --card-foreground: #EFE8E3;
+  --border: #2E2820;
+  --muted: #211C16;
+  --muted-foreground: #A79C95;
+  --primary: #B5A187;
+  --primary-foreground: #160D07;
+  --secondary: #20211B;
+  --secondary-foreground: #EFE8E3;
+  --accent: #2D2519;
+  --accent-foreground: #E6D1B6;
+  --destructive: #D9544B;
+  --destructive-foreground: #160D07;
+  --ring: #B5A187;
+  --input: #27221B;
+  --radius: 10px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

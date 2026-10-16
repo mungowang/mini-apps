@@ -1,0 +1,46 @@
+/* name: Coral & Turquoise */
+/* name-zh-CN: 珊瑚土绿 */
+/* description: Reef Candy · Coral & Turquoise */
+/* description-zh-CN: 阳光夏日 · 珊瑚色與土耳其藍 */
+:root[data-mode="light"] {
+  --background: #F5FDFA;
+  --foreground: #112423;
+  --card: #FBFEFD;
+  --card-foreground: #112423;
+  --border: #D6E4DD;
+  --muted: #E6F6EF;
+  --muted-foreground: #657472;
+  --primary: #B23929;
+  --primary-foreground: #FDF9F8;
+  --secondary: #C0F5ED;
+  --secondary-foreground: #112423;
+  --accent: #FFDDD7;
+  --accent-foreground: #742F24;
+  --destructive: #C52C2A;
+  --destructive-foreground: #FDF9F9;
+  --ring: #B23929;
+  --input: #D6E4DD;
+  --radius: 18px;
+  --shadow: rgba(17, 36, 35, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #050F0F;
+  --foreground: #DCEFE6;
+  --card: #0C1A19;
+  --card-foreground: #DCEFE6;
+  --border: #1A2E2D;
+  --muted: #102220;
+  --muted-foreground: #96A29C;
+  --primary: #EA8372;
+  --primary-foreground: #07120E;
+  --secondary: #002824;
+  --secondary-foreground: #DCEFE6;
+  --accent: #3F1C16;
+  --accent-foreground: #FFC4B9;
+  --destructive: #D9544B;
+  --destructive-foreground: #07120E;
+  --ring: #EA8372;
+  --input: #162826;
+  --radius: 18px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

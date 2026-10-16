@@ -22,7 +22,16 @@
 | 主题 | `@mohou-apps/themes` | 整棵树的 `theme-<id>.css` 打成一个包，无论原来自哪个目录，包里都是扁平的；外层 `mohou.sum` 覆盖这些文件 |
 | 目录 | `@mohou-apps/catalog` | 只有 `package.json`；`mohou.apps` 是列表（app + theme），`mohou.themePacks` 是合集 |
 
-主题编辑树：独立主题放 `themes/theme-<id>.css`，属于某个灵感合集（bundle）的放 `themes/<bundleId>/theme-<id>.css`。id 符合 `^[a-z0-9-]+$`，并且在整棵树里（扁平与合集合并计算）必须唯一：一台机器只装一个扁平的 `theme-<id>.css` 配一把锁，两个合集复用同一个 id 装不下两份。文件头 `/* name: */` 和可选的 `/* name-zh-CN: */` 写入目录行。版本在 `themes.version`。
+主题编辑树：独立主题放 `themes/theme-<id>.css`，属于某个灵感合集（bundle）的放 `themes/<bundleId>/theme-<id>.css`。id 符合 `^[a-z0-9-]+$`，并且在整棵树里（扁平与合集合并计算）必须唯一：一台机器只装一个扁平的 `theme-<id>.css` 配一把锁，两个合集复用同一个 id 装不下两份。正式文件头写入目录行：
+
+```css
+/* name: Charcoal & Amber */
+/* name-zh-CN: 炭灰橙 */
+/* description: Plain Washi · Charcoal & Amber */
+/* description-zh-CN: 商务稳重 · 炭灰與橘色 */
+```
+
+`name` / `description` 为英文（目录必填）；`name-zh-CN` / `description-zh-CN` 可选，中文界面优先。其它注释机器不读。版本在 `themes.version`。
 
 合集目录里放 `theme.manifest.json`：`{ id, name, nameZh?, description?, descriptionZh?, author?, official? }`。`id` 必须等于目录名，目录里至少得有一个主题。**manifest 只是构建输入**：主题包仍旧是一叠扁平的 `theme-*.css`——子目录和 manifest 都不会落到机器上；合集本身不可安装。`pack-market` 把它写进 `mohou.themePacks`，并在它的每个行上盖 `themePackId`，所以把主题在合集之间挪动只是重建目录，不需要重发主题。
 

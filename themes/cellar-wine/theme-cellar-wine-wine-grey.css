@@ -1,0 +1,46 @@
+/* name: Wine & Grey */
+/* name-zh-CN: 酒红灰 */
+/* description: Cellar Wine · Wine & Grey */
+/* description-zh-CN: 冷冽冬季 · 酒紅與灰色 */
+:root[data-mode="light"] {
+  --background: #F9F4F2;
+  --foreground: #231F20;
+  --card: #FEFCFB;
+  --card-foreground: #231F20;
+  --border: #E2D8D3;
+  --muted: #F5E9E3;
+  --muted-foreground: #726F6F;
+  --primary: #9D4C55;
+  --primary-foreground: #FDF9F9;
+  --secondary: #E7ECD1;
+  --secondary-foreground: #231F20;
+  --accent: #FFDCDE;
+  --accent-foreground: #742D36;
+  --destructive: #BF2F52;
+  --destructive-foreground: #FDF9F9;
+  --ring: #9D4C55;
+  --input: #E2D8D3;
+  --radius: 12px;
+  --shadow: rgba(35, 31, 32, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #0F0C0C;
+  --foreground: #ECE9E7;
+  --card: #1B1515;
+  --card-foreground: #ECE9E7;
+  --border: #312727;
+  --muted: #241B1C;
+  --muted-foreground: #A79C96;
+  --primary: #E0878F;
+  --primary-foreground: #170D08;
+  --secondary: #212311;
+  --secondary-foreground: #ECE9E7;
+  --accent: #3E1B1E;
+  --accent-foreground: #FFC2C6;
+  --destructive: #D8516A;
+  --destructive-foreground: #170D08;
+  --ring: #E0878F;
+  --input: #2A2121;
+  --radius: 12px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

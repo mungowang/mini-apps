@@ -1,0 +1,46 @@
+/* name: Ice Cream */
+/* name-zh-CN: 冰淇淋 */
+/* description: Reef Candy · Ice Cream */
+/* description-zh-CN: 明亮活泼 · 繽紛冰淇淋 */
+:root[data-mode="light"] {
+  --background: #F4FDFD;
+  --foreground: #2C1B1B;
+  --card: #FAFEFE;
+  --card-foreground: #2C1B1B;
+  --border: #D4E4E3;
+  --muted: #E4F6F6;
+  --muted-foreground: #7A6C6C;
+  --primary: #47773E;
+  --primary-foreground: #F9FBF8;
+  --secondary: #C7F2F6;
+  --secondary-foreground: #2C1B1B;
+  --accent: #D8EED3;
+  --accent-foreground: #26541C;
+  --destructive: #C52C2A;
+  --destructive-foreground: #FDF9F9;
+  --ring: #47773E;
+  --input: #D4E4E3;
+  --radius: 18px;
+  --shadow: rgba(44, 27, 27, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #140B0A;
+  --foreground: #DAEEEE;
+  --card: #201413;
+  --card-foreground: #DAEEEE;
+  --border: #362525;
+  --muted: #281A19;
+  --muted-foreground: #94A2A1;
+  --primary: #82B478;
+  --primary-foreground: #051212;
+  --secondary: #04272A;
+  --secondary-foreground: #DAEEEE;
+  --accent: #182E13;
+  --accent-foreground: #B9E2B0;
+  --destructive: #D9544B;
+  --destructive-foreground: #051212;
+  --ring: #82B478;
+  --input: #2F1F1F;
+  --radius: 18px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

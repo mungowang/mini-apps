@@ -1,0 +1,46 @@
+/* name: Teal & Brass */
+/* name-zh-CN: 蓝绿黄铜 */
+/* description: Tide Depth · Teal & Brass */
+/* description-zh-CN: 商务稳重 · 深藍綠 */
+:root[data-mode="light"] {
+  --background: #F9F7EE;
+  --foreground: #112423;
+  --card: #FEFDFA;
+  --card-foreground: #112423;
+  --border: #DFDCCE;
+  --muted: #F1EDDE;
+  --muted-foreground: #657472;
+  --primary: #886100;
+  --primary-foreground: #FBFAF7;
+  --secondary: #CBF2EE;
+  --secondary-foreground: #112423;
+  --accent: #F7E4C1;
+  --accent-foreground: #5E4200;
+  --destructive: #C52C2A;
+  --destructive-foreground: #FDF9F9;
+  --ring: #886100;
+  --input: #DFDCCE;
+  --radius: 10px;
+  --shadow: rgba(17, 36, 35, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #040F0E;
+  --foreground: #EEEADA;
+  --card: #0A1A19;
+  --card-foreground: #EEEADA;
+  --border: #182E2D;
+  --muted: #0E2220;
+  --muted-foreground: #A19F94;
+  --primary: #CD9B34;
+  --primary-foreground: #120F06;
+  --secondary: #082725;
+  --secondary-foreground: #EEEADA;
+  --accent: #352401;
+  --accent-foreground: #EFD098;
+  --destructive: #D9544B;
+  --destructive-foreground: #120F06;
+  --ring: #CD9B34;
+  --input: #142826;
+  --radius: 10px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

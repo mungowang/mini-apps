@@ -1,0 +1,46 @@
+/* name: Navy & White */
+/* name-zh-CN: 海军蓝 */
+/* description: Midnight Vigil · Navy & White */
+/* description-zh-CN: 涤荡心灵 · 海軍藍與白色 */
+:root[data-mode="light"] {
+  --background: #F1F6FD;
+  --foreground: #18212F;
+  --card: #FBFDFF;
+  --card-foreground: #18212F;
+  --border: #D3DCE6;
+  --muted: #E4EEF9;
+  --muted-foreground: #69717C;
+  --primary: #536A8E;
+  --primary-foreground: #F7FAFF;
+  --secondary: #F7E3E0;
+  --secondary-foreground: #18212F;
+  --accent: #DCE7F9;
+  --accent-foreground: #33486B;
+  --destructive: #C52C2A;
+  --destructive-foreground: #FDF9F9;
+  --ring: #536A8E;
+  --input: #D3DCE6;
+  --radius: 12px;
+  --shadow: rgba(24, 33, 47, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #080B11;
+  --foreground: #E5EAF0;
+  --card: #10151D;
+  --card-foreground: #E5EAF0;
+  --border: #212833;
+  --muted: #161C26;
+  --muted-foreground: #989FA8;
+  --primary: #8DA6CE;
+  --primary-foreground: #091018;
+  --secondary: #281C1A;
+  --secondary-foreground: #E5EAF0;
+  --accent: #1B2537;
+  --accent-foreground: #BCD6FF;
+  --destructive: #D9544B;
+  --destructive-foreground: #091018;
+  --ring: #8DA6CE;
+  --input: #1C222C;
+  --radius: 12px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

@@ -1,0 +1,9 @@
+{
+  "id": "washi-plain",
+  "name": "Plain Washi",
+  "nameZh": "素纸",
+  "description": "Near-neutral paper where contrast comes from value, not hue. One restrained signal colour, nothing else loud.",
+  "descriptionZh": "无彩色或近无彩色，一个克制的信号色。对比全靠明度，不靠色相。",
+  "author": "Mohou",
+  "official": true
+}

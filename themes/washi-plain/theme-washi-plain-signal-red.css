@@ -1,0 +1,46 @@
+/* name: Signal Red */
+/* name-zh-CN: 号红 */
+/* description: Plain Washi · Signal Red */
+/* description-zh-CN: 商务稳重 · 單色配紅 */
+:root[data-mode="light"] {
+  --background: #F8F8F8;
+  --foreground: #1F2022;
+  --card: #FDFDFD;
+  --card-foreground: #1F2022;
+  --border: #DADDE1;
+  --muted: #EBEEF5;
+  --muted-foreground: #6F7072;
+  --primary: #BE2035;
+  --primary-foreground: #FDF9F9;
+  --secondary: #FFE3CC;
+  --secondary-foreground: #1F2022;
+  --accent: #FFDDDB;
+  --accent-foreground: #742D2F;
+  --destructive: #C52C2A;
+  --destructive-foreground: #FDF9F9;
+  --ring: #BE2035;
+  --input: #DADDE1;
+  --radius: 10px;
+  --shadow: rgba(31, 32, 34, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #0C0C0C;
+  --foreground: #E9E9E9;
+  --card: #151618;
+  --card-foreground: #E9E9E9;
+  --border: #26292E;
+  --muted: #1B1D21;
+  --muted-foreground: #999EA9;
+  --primary: #DC8B89;
+  --primary-foreground: #0B0F18;
+  --secondary: #301B06;
+  --secondary-foreground: #E9E9E9;
+  --accent: #3D1A1A;
+  --accent-foreground: #FFC3C0;
+  --destructive: #D9544B;
+  --destructive-foreground: #0B0F18;
+  --ring: #DC8B89;
+  --input: #212327;
+  --radius: 10px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

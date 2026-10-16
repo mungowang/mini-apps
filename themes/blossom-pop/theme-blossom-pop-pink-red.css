@@ -1,0 +1,46 @@
+/* name: Pink & Red */
+/* name-zh-CN: 粉红与红 */
+/* description: Blossom Pop · Pink & Red */
+/* description-zh-CN: 浪漫情人节 · 粉紅與紅色 */
+:root[data-mode="light"] {
+  --background: #FFF7F8;
+  --foreground: #2D1A1D;
+  --card: #FFFDFD;
+  --card-foreground: #2D1A1D;
+  --border: #EAD9DB;
+  --muted: #FDEAED;
+  --muted-foreground: #7B6C6D;
+  --primary: #C20844;
+  --primary-foreground: #FDF9F9;
+  --secondary: #EEEBC1;
+  --secondary-foreground: #2D1A1D;
+  --accent: #FFDCDF;
+  --accent-foreground: #742D37;
+  --destructive: #C52C2A;
+  --destructive-foreground: #FDF9F9;
+  --ring: #C20844;
+  --input: #EAD9DB;
+  --radius: 16px;
+  --shadow: rgba(45, 26, 29, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #160B0C;
+  --foreground: #F8E4E6;
+  --card: #221416;
+  --card-foreground: #F8E4E6;
+  --border: #392528;
+  --muted: #2B1A1C;
+  --muted-foreground: #A89B9C;
+  --primary: #F37988;
+  --primary-foreground: #170C0D;
+  --secondary: #272403;
+  --secondary-foreground: #F8E4E6;
+  --accent: #401C21;
+  --accent-foreground: #FFC2C7;
+  --destructive: #D9544B;
+  --destructive-foreground: #170C0D;
+  --ring: #F37988;
+  --input: #312022;
+  --radius: 16px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

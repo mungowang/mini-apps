@@ -1,0 +1,46 @@
+/* name: Ice & Snow */
+/* name-zh-CN: 冰雪 */
+/* description: Sea Glass · Ice & Snow */
+/* description-zh-CN: 冷冽冬季 · 冰雪 */
+:root[data-mode="light"] {
+  --background: #F2F9FE;
+  --foreground: #17222B;
+  --card: #FCFEFF;
+  --card-foreground: #17222B;
+  --border: #D3DFE7;
+  --muted: #E3F1FA;
+  --muted-foreground: #68717A;
+  --primary: #476D8D;
+  --primary-foreground: #F6FBFF;
+  --secondary: #EDE5F0;
+  --secondary-foreground: #17222B;
+  --accent: #D7E9F8;
+  --accent-foreground: #264B69;
+  --destructive: #C52C2A;
+  --destructive-foreground: #FDF9F9;
+  --ring: #476D8D;
+  --input: #D3DFE7;
+  --radius: 12px;
+  --shadow: rgba(23, 34, 43, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #0B1014;
+  --foreground: #E2EBF1;
+  --card: #131A20;
+  --card-foreground: #E2EBF1;
+  --border: #232D37;
+  --muted: #182129;
+  --muted-foreground: #96A0A7;
+  --primary: #82AACC;
+  --primary-foreground: #071117;
+  --secondary: #262129;
+  --secondary-foreground: #E2EBF1;
+  --accent: #1A2C3A;
+  --accent-foreground: #B0DAFD;
+  --destructive: #D9544B;
+  --destructive-foreground: #071117;
+  --ring: #82AACC;
+  --input: #1E272F;
+  --radius: 12px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

@@ -22,7 +22,16 @@ The default runtime root is `~/.mini-app/runtime`. On Windows it is `%USERPROFIL
 | Themes | `@mohou-apps/themes` | every `theme-<id>.css` in the tree, flat in `package/themes/` whatever the folder it was edited in; outer `mohou.sum` is over those files |
 | Catalog | `@mohou-apps/catalog` | `package.json` only; `mohou.apps` is the list (apps and themes) and `mohou.themePacks` the bundles |
 
-Theme edit tree is `themes/theme-<id>.css` for a theme on its own, and `themes/<bundleId>/theme-<id>.css` for one inside a bundle (灵感 / Inspiration). Id is `^[a-z0-9-]+$` and must stay unique across the whole tree, flat and bundled together: a machine installs one flat `theme-<id>.css` with one lock, so an id reused between two bundles cannot keep both. Headers `/* name: */` and optional `/* name-zh-CN: */` feed the catalog row. Version is `themes.version`.
+Theme edit tree is `themes/theme-<id>.css` for a theme on its own, and `themes/<bundleId>/theme-<id>.css` for one inside a bundle (灵感 / Inspiration). Id is `^[a-z0-9-]+$` and must stay unique across the whole tree, flat and bundled together: a machine installs one flat `theme-<id>.css` with one lock, so an id reused between two bundles cannot keep both. Formal headers feed the catalog row:
+
+```css
+/* name: Charcoal & Amber */
+/* name-zh-CN: 炭灰橙 */
+/* description: Plain Washi · Charcoal & Amber */
+/* description-zh-CN: 商务稳重 · 炭灰與橘色 */
+```
+
+`name` and `description` are required for the catalog (English). `name-zh-CN` and `description-zh-CN` are optional and surface under zh-CN. No other comment is machine-read. Version is `themes.version`.
 
 A bundle folder holds `theme.manifest.json`: `{ id, name, nameZh?, description?, descriptionZh?, author?, official? }`. `id` must equal the folder name, and the folder needs at least one theme. **The manifest is build input.** The themes package stays one flat set of `theme-*.css` — no subfolder and no manifest reach a machine — and the bundle itself is not installable: `pack-market` writes it to `mohou.themePacks` and stamps `themePackId` on each of its rows, so moving a theme between bundles is a catalog rebuild, not a theme republish.
 

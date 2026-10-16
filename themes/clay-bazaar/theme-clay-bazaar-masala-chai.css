@@ -1,0 +1,46 @@
+/* name: Masala Chai */
+/* name-zh-CN: 印度奶茶 */
+/* description: Clay Bazaar · Masala Chai */
+/* description-zh-CN: 温暖秋季 · 印度奶茶 */
+:root[data-mode="light"] {
+  --background: #FFF2E8;
+  --foreground: #291E18;
+  --card: #FFFAF7;
+  --card-foreground: #291E18;
+  --border: #E9D5C7;
+  --muted: #FCE7D7;
+  --muted-foreground: #786E69;
+  --primary: #885E3E;
+  --primary-foreground: #FFF9F5;
+  --secondary: #DFEDE1;
+  --secondary-foreground: #291E18;
+  --accent: #F6E2D3;
+  --accent-foreground: #643D1D;
+  --destructive: #BD3A2B;
+  --destructive-foreground: #FDF9F8;
+  --ring: #885E3E;
+  --input: #E9D5C7;
+  --radius: 14px;
+  --shadow: rgba(41, 30, 24, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #1B100A;
+  --foreground: #F5E6DB;
+  --card: #271912;
+  --card-foreground: #F5E6DB;
+  --border: #3E2C22;
+  --muted: #302017;
+  --muted-foreground: #A69C95;
+  --primary: #C79A78;
+  --primary-foreground: #160D07;
+  --secondary: #212A22;
+  --secondary-foreground: #F5E6DB;
+  --accent: #3D291A;
+  --accent-foreground: #F9C9A6;
+  --destructive: #D55948;
+  --destructive-foreground: #160D07;
+  --ring: #C79A78;
+  --input: #36261D;
+  --radius: 14px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

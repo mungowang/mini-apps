@@ -1,0 +1,46 @@
+/* name: Navy & Gold */
+/* name-zh-CN: 藏金 */
+/* description: Midnight Vigil · Navy & Gold */
+/* description-zh-CN: 商务稳重 · 海軍藍與金色 */
+:root[data-mode="light"] {
+  --background: #F7F6EF;
+  --foreground: #1C212A;
+  --card: #FDFDFA;
+  --card-foreground: #1C212A;
+  --border: #DCDBCF;
+  --muted: #EEEDDF;
+  --muted-foreground: #6C7078;
+  --primary: #846301;
+  --primary-foreground: #FBFAF7;
+  --secondary: #DFE9FA;
+  --secondary-foreground: #1C212A;
+  --accent: #F4E5C5;
+  --accent-foreground: #5B4400;
+  --destructive: #C52C2A;
+  --destructive-foreground: #FDF9F9;
+  --ring: #846301;
+  --input: #DCDBCF;
+  --radius: 12px;
+  --shadow: rgba(28, 33, 42, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #060B17;
+  --foreground: #ECEADA;
+  --card: #0D1523;
+  --card-foreground: #ECEADA;
+  --border: #1E273A;
+  --muted: #131B2D;
+  --muted-foreground: #A09F94;
+  --primary: #C2A051;
+  --primary-foreground: #111006;
+  --secondary: #191F2A;
+  --secondary-foreground: #ECEADA;
+  --accent: #312300;
+  --accent-foreground: #ECD198;
+  --destructive: #D9544B;
+  --destructive-foreground: #111006;
+  --ring: #C2A051;
+  --input: #192133;
+  --radius: 12px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

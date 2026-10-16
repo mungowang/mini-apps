@@ -1,0 +1,46 @@
+/* name: Lavender Field */
+/* name-zh-CN: 薰衣草田 */
+/* description: Lilac Quiet · Lavender Field */
+/* description-zh-CN: 清新春季 · 盛開的薰衣草 */
+:root[data-mode="light"] {
+  --background: #F8F5FD;
+  --foreground: #1A2317;
+  --card: #FEFDFF;
+  --card-foreground: #1A2317;
+  --border: #DDD9E6;
+  --muted: #EFEAF9;
+  --muted-foreground: #6B7369;
+  --primary: #7257A5;
+  --primary-foreground: #FAF9FC;
+  --secondary: #DCEFD5;
+  --secondary-foreground: #1A2317;
+  --accent: #E9E1FF;
+  --accent-foreground: #4F3A76;
+  --destructive: #C52C2A;
+  --destructive-foreground: #FDF9F9;
+  --ring: #7257A5;
+  --input: #DDD9E6;
+  --radius: 14px;
+  --shadow: rgba(26, 35, 23, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #0C110A;
+  --foreground: #ECE6F6;
+  --card: #141C12;
+  --card-foreground: #ECE6F6;
+  --border: #263022;
+  --muted: #1A2317;
+  --muted-foreground: #A09CA7;
+  --primary: #AD95E0;
+  --primary-foreground: #110D17;
+  --secondary: #1B2817;
+  --secondary-foreground: #ECE6F6;
+  --accent: #2E2442;
+  --accent-foreground: #DACAFF;
+  --destructive: #D9544B;
+  --destructive-foreground: #110D17;
+  --ring: #AD95E0;
+  --input: #202A1D;
+  --radius: 14px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

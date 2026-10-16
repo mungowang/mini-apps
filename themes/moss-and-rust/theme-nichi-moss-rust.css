@@ -1,0 +1,46 @@
+/* name: Moss Rust */
+/* name-zh-CN: 苔锈 */
+/* description: Moss & Rust · Moss Rust */
+/* description-zh-CN: 苔与锈 · 苔锈 */
+:root[data-mode="light"] {
+  --background: #eee7d7;
+  --foreground: #3b2f25;
+  --card: #f8f3e8;
+  --card-foreground: #3b2f25;
+  --border: #d4cbb4;
+  --muted: #e4dcc8;
+  --muted-foreground: #6b5e4e;
+  --primary: #6b7b3a;
+  --primary-foreground: #f8f3e8;
+  --secondary: #a3a15a;
+  --secondary-foreground: #2a2810;
+  --accent: #b5542d;
+  --accent-foreground: #fff8f2;
+  --destructive: #b5542d;
+  --destructive-foreground: #fff8f2;
+  --ring: #6b7b3a;
+  --input: #f2ecde;
+  --radius: 14px;
+  --shadow: rgba(59, 47, 37, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #221c16;
+  --foreground: #eee7d7;
+  --card: #2e261e;
+  --card-foreground: #eee7d7;
+  --border: #4a4034;
+  --muted: #3a3228;
+  --muted-foreground: #b8ad98;
+  --primary: #a3a15a;
+  --primary-foreground: #221c16;
+  --secondary: #6b7b3a;
+  --secondary-foreground: #eee7d7;
+  --accent: #d07048;
+  --accent-foreground: #221810;
+  --destructive: #d07048;
+  --destructive-foreground: #221810;
+  --ring: #a3a15a;
+  --input: #18140e;
+  --radius: 14px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

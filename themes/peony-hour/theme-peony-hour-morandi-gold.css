@@ -1,0 +1,46 @@
+/* name: Morandi Pink & Gold */
+/* name-zh-CN: 莫兰迪金 */
+/* description: Peony Hour · Morandi Pink & Gold */
+/* description-zh-CN: 温馨婚礼 · 莫蘭迪粉與金色 */
+:root[data-mode="light"] {
+  --background: #FDF5EF;
+  --foreground: #2A1D14;
+  --card: #FFFDFC;
+  --card-foreground: #2A1D14;
+  --border: #E6D9D0;
+  --muted: #F9EAE0;
+  --muted-foreground: #796E66;
+  --primary: #8B5E2F;
+  --primary-foreground: #FEF9F5;
+  --secondary: #FCE1E3;
+  --secondary-foreground: #2A1D14;
+  --accent: #F8E2CE;
+  --accent-foreground: #673C06;
+  --destructive: #C52C2A;
+  --destructive-foreground: #FDF9F9;
+  --ring: #8B5E2F;
+  --input: #E6D9D0;
+  --radius: 14px;
+  --shadow: rgba(42, 29, 20, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #160F0A;
+  --foreground: #F6E6DC;
+  --card: #221912;
+  --card-foreground: #F6E6DC;
+  --border: #382B21;
+  --muted: #2B1F16;
+  --muted-foreground: #A79C95;
+  --primary: #CA9A6A;
+  --primary-foreground: #160D07;
+  --secondary: #322022;
+  --secondary-foreground: #F6E6DC;
+  --accent: #3C2610;
+  --accent-foreground: #F9CA9D;
+  --destructive: #D9544B;
+  --destructive-foreground: #160D07;
+  --ring: #CA9A6A;
+  --input: #31251C;
+  --radius: 14px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

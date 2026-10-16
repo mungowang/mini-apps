@@ -1,0 +1,46 @@
+/* name: Wool & Coffee */
+/* name-zh-CN: 羊毛与咖啡 */
+/* description: Linen Hour · Wool & Coffee */
+/* description-zh-CN: 冷冽冬季 · 羊毛與咖啡 */
+:root[data-mode="light"] {
+  --background: #FDF4EA;
+  --foreground: #251F1B;
+  --card: #FFFCF9;
+  --card-foreground: #251F1B;
+  --border: #E4D9CB;
+  --muted: #F7EADB;
+  --muted-foreground: #746F6B;
+  --primary: #776552;
+  --primary-foreground: #FEF9F4;
+  --secondary: #EFE6E6;
+  --secondary-foreground: #251F1B;
+  --accent: #EDE5DB;
+  --accent-foreground: #554431;
+  --destructive: #C52C2A;
+  --destructive-foreground: #FDF9F9;
+  --ring: #776552;
+  --input: #E4D9CB;
+  --radius: 14px;
+  --shadow: rgba(37, 31, 27, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #170F09;
+  --foreground: #EFE8E0;
+  --card: #221810;
+  --card-foreground: #EFE8E0;
+  --border: #392A20;
+  --muted: #2B1F15;
+  --muted-foreground: #A59D94;
+  --primary: #B4A18C;
+  --primary-foreground: #150E06;
+  --secondary: #292423;
+  --secondary-foreground: #EFE8E0;
+  --accent: #322A20;
+  --accent-foreground: #E5D1BA;
+  --destructive: #D9544B;
+  --destructive-foreground: #150E06;
+  --ring: #B4A18C;
+  --input: #32251B;
+  --radius: 14px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

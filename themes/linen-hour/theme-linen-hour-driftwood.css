@@ -1,0 +1,46 @@
+/* name: Driftwood */
+/* name-zh-CN: 漂流木 */
+/* description: Linen Hour · Driftwood */
+/* description-zh-CN: 清爽沙滩 · 漂流木 */
+:root[data-mode="light"] {
+  --background: #FCF5EA;
+  --foreground: #142329;
+  --card: #FFFCF8;
+  --card-foreground: #142329;
+  --border: #E3D9CA;
+  --muted: #F6EBDA;
+  --muted-foreground: #677278;
+  --primary: #756750;
+  --primary-foreground: #FDFAF4;
+  --secondary: #DBECF4;
+  --secondary-foreground: #142329;
+  --accent: #ECE5DB;
+  --accent-foreground: #534530;
+  --destructive: #C52C2A;
+  --destructive-foreground: #FDF9F9;
+  --ring: #756750;
+  --input: #E3D9CA;
+  --radius: 14px;
+  --shadow: rgba(20, 35, 41, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #081217;
+  --foreground: #EEE9E0;
+  --card: #0F1D23;
+  --card-foreground: #EEE9E0;
+  --border: #1E3139;
+  --muted: #14242B;
+  --muted-foreground: #A49D94;
+  --primary: #B2A28A;
+  --primary-foreground: #140E06;
+  --secondary: #1B272C;
+  --secondary-foreground: #EEE9E0;
+  --accent: #312A20;
+  --accent-foreground: #E2D2B9;
+  --destructive: #D9544B;
+  --destructive-foreground: #140E06;
+  --ring: #B2A28A;
+  --input: #1A2A32;
+  --radius: 14px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

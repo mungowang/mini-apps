@@ -1,0 +1,46 @@
+/* name: Morning Sun */
+/* name-zh-CN: 晨光 */
+/* description: Citrus Parade · Morning Sun */
+/* description-zh-CN: 明亮活泼 · 早晨的太陽 */
+:root[data-mode="light"] {
+  --background: #FFF9F0;
+  --foreground: #21201E;
+  --card: #FFFDFA;
+  --card-foreground: #21201E;
+  --border: #E6DED0;
+  --muted: #F9EFE0;
+  --muted-foreground: #71706E;
+  --primary: #A34D00;
+  --primary-foreground: #FCF9F8;
+  --secondary: #F4E9C0;
+  --secondary-foreground: #21201E;
+  --accent: #FFDFCC;
+  --accent-foreground: #703505;
+  --destructive: #C13425;
+  --destructive-foreground: #FDF9F8;
+  --ring: #A34D00;
+  --input: #E6DED0;
+  --radius: 16px;
+  --shadow: rgba(33, 32, 30, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #130E06;
+  --foreground: #F1E8DA;
+  --card: #1E180D;
+  --card-foreground: #F1E8DA;
+  --border: #332B1C;
+  --muted: #261F11;
+  --muted-foreground: #A49D94;
+  --primary: #E8894B;
+  --primary-foreground: #140E06;
+  --secondary: #2B2302;
+  --secondary-foreground: #F1E8DA;
+  --accent: #3F210E;
+  --accent-foreground: #FFC6A5;
+  --destructive: #D95544;
+  --destructive-foreground: #140E06;
+  --ring: #E8894B;
+  --input: #2D2517;
+  --radius: 16px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

@@ -1,0 +1,46 @@
+/* name: Pine & Snow */
+/* name-zh-CN: 松雪 */
+/* description: Sage Choir · Pine & Snow */
+/* description-zh-CN: 四季山林 · 松樹與白雪 */
+:root[data-mode="light"] {
+  --background: #EFF9F1;
+  --foreground: #1A231E;
+  --card: #FAFEFB;
+  --card-foreground: #1A231E;
+  --border: #D1DFD4;
+  --muted: #E2F1E5;
+  --muted-foreground: #6B726E;
+  --primary: #55715B;
+  --primary-foreground: #F6FCF7;
+  --secondary: #E0EBED;
+  --secondary-foreground: #1A231E;
+  --accent: #DDEAE0;
+  --accent-foreground: #344F3A;
+  --destructive: #C52C2A;
+  --destructive-foreground: #FDF9F9;
+  --ring: #55715B;
+  --input: #D1DFD4;
+  --radius: 14px;
+  --shadow: rgba(26, 35, 30, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #0C130F;
+  --foreground: #E2EDE4;
+  --card: #141E19;
+  --card-foreground: #E2EDE4;
+  --border: #24322B;
+  --muted: #19261F;
+  --muted-foreground: #98A199;
+  --primary: #90AE96;
+  --primary-foreground: #09120B;
+  --secondary: #202729;
+  --secondary-foreground: #E2EDE4;
+  --accent: #233025;
+  --accent-foreground: #BEDEC5;
+  --destructive: #D9544B;
+  --destructive-foreground: #09120B;
+  --ring: #90AE96;
+  --input: #1F2C25;
+  --radius: 14px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

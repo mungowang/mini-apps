@@ -1,0 +1,46 @@
+/* name: Wine & Gold */
+/* name-zh-CN: 酒红金 */
+/* description: Cellar Wine · Wine & Gold */
+/* description-zh-CN: 浪漫情人节 · 酒紅與金色 */
+:root[data-mode="light"] {
+  --background: #FFF1F1;
+  --foreground: #261E20;
+  --card: #FFFBFB;
+  --card-foreground: #261E20;
+  --border: #E9D4D4;
+  --muted: #FCE6E5;
+  --muted-foreground: #756E70;
+  --primary: #AD3A53;
+  --primary-foreground: #FDF9F9;
+  --secondary: #F7E7C1;
+  --secondary-foreground: #261E20;
+  --accent: #FFDCE0;
+  --accent-foreground: #732D3A;
+  --destructive: #BF2F52;
+  --destructive-foreground: #FDF9F9;
+  --ring: #AD3A53;
+  --input: #E9D4D4;
+  --radius: 12px;
+  --shadow: rgba(38, 30, 32, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #15090C;
+  --foreground: #F8E4E3;
+  --card: #211216;
+  --card-foreground: #F8E4E3;
+  --border: #372329;
+  --muted: #29181D;
+  --muted-foreground: #A89B9A;
+  --primary: #EE7C8E;
+  --primary-foreground: #170C0C;
+  --secondary: #2B2002;
+  --secondary-foreground: #F8E4E3;
+  --accent: #3E1B20;
+  --accent-foreground: #FFC2C8;
+  --destructive: #D8516A;
+  --destructive-foreground: #170C0C;
+  --ring: #EE7C8E;
+  --input: #301D23;
+  --radius: 12px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

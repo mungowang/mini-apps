@@ -1,0 +1,46 @@
+/* name: Mango & Passion */
+/* name-zh-CN: 芒果百香 */
+/* description: Citrus Parade · Mango & Passion */
+/* description-zh-CN: 阳光夏日 · 芒果與百香果 */
+:root[data-mode="light"] {
+  --background: #FFF9F3;
+  --foreground: #1A2416;
+  --card: #FFFDFB;
+  --card-foreground: #1A2416;
+  --border: #E9DDD1;
+  --muted: #FCEEE1;
+  --muted-foreground: #6B7368;
+  --primary: #B53800;
+  --primary-foreground: #FDF9F8;
+  --secondary: #F9E7BF;
+  --secondary-foreground: #1A2416;
+  --accent: #FFDED4;
+  --accent-foreground: #73311B;
+  --destructive: #C13425;
+  --destructive-foreground: #FDF9F8;
+  --ring: #B53800;
+  --input: #E9DDD1;
+  --radius: 16px;
+  --shadow: rgba(26, 36, 22, 0.12);
+}
+:root[data-mode="dark"] {
+  --background: #0B1109;
+  --foreground: #F4E7DA;
+  --card: #141B11;
+  --card-foreground: #F4E7DA;
+  --border: #252F22;
+  --muted: #1A2317;
+  --muted-foreground: #A59D94;
+  --primary: #EE8361;
+  --primary-foreground: #150E06;
+  --secondary: #2E2102;
+  --secondary-foreground: #F4E7DA;
+  --accent: #401F15;
+  --accent-foreground: #FFC5B2;
+  --destructive: #D95544;
+  --destructive-foreground: #150E06;
+  --ring: #EE8361;
+  --input: #20291D;
+  --radius: 16px;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

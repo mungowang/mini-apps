@@ -1,0 +1,46 @@
+/* name: Pop Art */
+/* name-zh-CN: 普普 */
+/* description: Noir Couture · Pop Art */
+/* description-zh-CN: 明亮活泼 · 普普藝術 */
+:root[data-mode="light"] {
+  --background: #FCFEFE;
+  --foreground: #202022;
+  --card: #FDFDFE;
+  --card-foreground: #202022;
+  --border: #DCE4E6;
+  --muted: #ECF6F8;
+  --muted-foreground: #707072;
+  --primary: #C30044;
+  --primary-foreground: #FDF9F9;
+  --secondary: #F0EAC0;
+  --secondary-foreground: #202022;
+  --accent: #FFDCDE;
+  --accent-foreground: #742D37;
+  --destructive: #C52C2A;
+  --destructive-foreground: #FDF9F9;
+  --ring: #C30044;
+  --input: #DCE4E6;
+  --radius: 8px;
+  --shadow: rgba(32, 32, 34, 0.16);
+}
+:root[data-mode="dark"] {
+  --background: #070708;
+  --foreground: #DAEEF2;
+  --card: #0F1014;
+  --card-foreground: #DAEEF2;
+  --border: #212229;
+  --muted: #15161C;
+  --muted-foreground: #94A1A4;
+  --primary: #FC7184;
+  --primary-foreground: #051215;
+  --secondary: #1F1A00;
+  --secondary-foreground: #DAEEF2;
+  --accent: #361318;
+  --accent-foreground: #FFC2C6;
+  --destructive: #D9544B;
+  --destructive-foreground: #051215;
+  --ring: #FC7184;
+  --input: #1B1C22;
+  --radius: 8px;
+  --shadow: rgba(0, 0, 0, 0.62);
+}
