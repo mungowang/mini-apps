@@ -19,10 +19,12 @@
 | 单元 | 包名 | 内容 |
 |---|---|---|
 | 一个 app | `@mohou-apps/<appId>` | `package/app/` = `apps/<appId>/` 的拷贝；外层 `package.json` 带 `mohou.id` 和 `mohou.sum` |
-| 主题 | `@mohou-apps/themes` | 全部 `themes/theme-<id>.css` 打成一个包；外层 `mohou.sum` 覆盖这些文件 |
-| 目录 | `@mohou-apps/catalog` | 只有 `package.json`；`mohou.apps` 是列表（app + theme） |
+| 主题 | `@mohou-apps/themes` | 整棵树的 `theme-<id>.css` 打成一个包，无论原来自哪个目录，包里都是扁平的；外层 `mohou.sum` 覆盖这些文件 |
+| 目录 | `@mohou-apps/catalog` | 只有 `package.json`；`mohou.apps` 是列表（app + theme），`mohou.themePacks` 是合集 |
 
-主题编辑树是 `themes/theme-<id>.css`。id 符合 `^[a-z0-9-]+$`。文件头 `/* name: */` 和可选的 `/* name-zh-CN: */` 写入目录行。版本在 `themes.version`。
+主题编辑树：独立主题放 `themes/theme-<id>.css`，属于某个灵感合集（bundle）的放 `themes/<bundleId>/theme-<id>.css`。id 符合 `^[a-z0-9-]+$`，并且在整棵树里（扁平与合集合并计算）必须唯一：一台机器只装一个扁平的 `theme-<id>.css` 配一把锁，两个合集复用同一个 id 装不下两份。文件头 `/* name: */` 和可选的 `/* name-zh-CN: */` 写入目录行。版本在 `themes.version`。
+
+合集目录里放 `theme.manifest.json`：`{ id, name, nameZh?, description?, descriptionZh?, author?, official? }`。`id` 必须等于目录名，目录里至少得有一个主题。**manifest 只是构建输入**：主题包仍旧是一叠扁平的 `theme-*.css`——子目录和 manifest 都不会落到机器上；合集本身不可安装。`pack-market` 把它写进 `mohou.themePacks`，并在它的每个行上盖 `themePackId`，所以把主题在合集之间挪动只是重建目录，不需要重发主题。
 
 校验和是待安装树（`package/app/`）的 sha256，路径排序。排除 `storage/`、`logs/`、`theme.json`、`.git`、`node_modules`、`.autogen`、`.ui-build/`、`.market.lock`，以及 npm 永不发布的 `.gitignore`、`.npmignore`、`.npmrc`、`.DS_Store`。
 
@@ -71,13 +73,23 @@ rsync -a --exclude storage --exclude .git --exclude node_modules --exclude .auto
 |---|---|---|
 | `com.mohou.kedu` | 刻度清单 | [`apps/com.mohou.kedu`](./apps/com.mohou.kedu) |
 | `com.mohou.llm-ocr` | AI 识图 | [`apps/com.mohou.llm-ocr`](./apps/com.mohou.llm-ocr) |
-| `luxe-rhythm` | Rhythm / 紫穗 | [`themes/theme-luxe-rhythm.css`](./themes/theme-luxe-rhythm.css) |
-| `luxe-saffron` | Saffron Ink / 藏红 | [`themes/theme-luxe-saffron.css`](./themes/theme-luxe-saffron.css) |
-| `luxe-sunset` | Sunset Bay / 暮湾 | [`themes/theme-luxe-sunset.css`](./themes/theme-luxe-sunset.css) |
-| `nichi-field` | Field Bus / 田野 | [`themes/theme-nichi-field.css`](./themes/theme-nichi-field.css) |
-| `nichi-lamp` | Corner Lamp / 晚灯 | [`themes/theme-nichi-lamp.css`](./themes/theme-nichi-lamp.css) |
-| `nichi-sakura` | Sakura Lane / 樱巷 | [`themes/theme-nichi-sakura.css`](./themes/theme-nichi-sakura.css) |
-| `nichi-sea` | Sea Bench / 海边 | [`themes/theme-nichi-sea.css`](./themes/theme-nichi-sea.css) |
+| `com.pwang.data-cask` | 数据手账 | [`apps/com.pwang.data-cask`](./apps/com.pwang.data-cask) |
+| `nichi-moss-rust` | Moss Rust / 苔锈 | [`themes/theme-nichi-moss-rust.css`](./themes/theme-nichi-moss-rust.css) |
+| `nichi-reed-field` | Reed Field / 荻原 | [`themes/theme-nichi-reed-field.css`](./themes/theme-nichi-reed-field.css) |
+| `nichi-lamp` | Corner Lamp / 晚灯 · autumn | [`themes/autumn/theme-nichi-lamp.css`](./themes/autumn/theme-nichi-lamp.css) |
+| `nichi-maple-sky` | Maple Sky / 秋枝 · autumn | [`themes/autumn/theme-nichi-maple-sky.css`](./themes/autumn/theme-nichi-maple-sky.css) |
+| `nichi-momiji` | Momiji / 枫叶 · autumn | [`themes/autumn/theme-nichi-momiji.css`](./themes/autumn/theme-nichi-momiji.css) |
+| `nichi-pumpkin-spice` | Pumpkin Spice / 南瓜肉桂 · autumn | [`themes/autumn/theme-nichi-pumpkin-spice.css`](./themes/autumn/theme-nichi-pumpkin-spice.css) |
+| `nichi-white-gourd` | White Gourd / 白南瓜 · autumn | [`themes/autumn/theme-nichi-white-gourd.css`](./themes/autumn/theme-nichi-white-gourd.css) |
+| `luxe-festive-plate` | Festive Plate / 珠光盘 · dusk | [`themes/dusk/theme-luxe-festive-plate.css`](./themes/dusk/theme-luxe-festive-plate.css) |
+| `luxe-folio` | Warm Folio / 素笺 · dusk | [`themes/dusk/theme-luxe-folio.css`](./themes/dusk/theme-luxe-folio.css) |
+| `luxe-rhythm` | Rhythm / 紫穗 · dusk | [`themes/dusk/theme-luxe-rhythm.css`](./themes/dusk/theme-luxe-rhythm.css) |
+| `luxe-saffron` | Saffron Ink / 藏红 · dusk | [`themes/dusk/theme-luxe-saffron.css`](./themes/dusk/theme-luxe-saffron.css) |
+| `luxe-soft-coral` | Soft Coral / 淡珊瑚 · dusk | [`themes/dusk/theme-luxe-soft-coral.css`](./themes/dusk/theme-luxe-soft-coral.css) |
+| `luxe-sunset` | Sunset Bay / 暮湾 · shore | [`themes/shore/theme-luxe-sunset.css`](./themes/shore/theme-luxe-sunset.css) |
+| `nichi-field` | Field Bus / 田野 · shore | [`themes/shore/theme-nichi-field.css`](./themes/shore/theme-nichi-field.css) |
+| `nichi-sakura` | Sakura Lane / 樱巷 · shore | [`themes/shore/theme-nichi-sakura.css`](./themes/shore/theme-nichi-sakura.css) |
+| `nichi-sea` | Sea Bench / 海边 · shore | [`themes/shore/theme-nichi-sea.css`](./themes/shore/theme-nichi-sea.css) |
 
 ## 再加一个 app
 
@@ -85,3 +97,10 @@ rsync -a --exclude storage --exclude .git --exclude node_modules --exclude .auto
 2. 不要提交 `storage/`、`logs/`、`theme.json`、`.autogen/`、`node_modules/`、`.ui-build/`、`.market.lock`。
 3. 在中英文 README 里补上这一行。
 4. 改这个 app 的 `version`。目录行变了就 bump `catalog.version`。`MINI_APP_PUBLISH=1 pnpm publish:market` 会打包、上传，并在 npmmirror 排队同步。
+
+## 新增主题或灵感合集
+
+1. 独立主题：把 `theme-<id>.css` 放进 `themes/`，它会落在未分类里。
+2. 灵感合集：建 `themes/<bundleId>/`，放入 `theme.manifest.json`，主题 css 与 manifest 同目录。打包脚本会拒绝：缺 manifest 的目录、`id` 与目录名不符、空合集。
+3. 主题 id 在整棵树里保持唯一。重用时打包脚本会停，机器读目录时也会停。
+4. 在合集之间移动主题就是移文件。只需升 `catalog.version`——主题包和它的校验和都不变。

@@ -19,10 +19,12 @@ The default runtime root is `~/.mini-app/runtime`. On Windows it is `%USERPROFIL
 | Piece | Package | Contents |
 |---|---|---|
 | One app | `@mohou-apps/<appId>` | `package/app/` = copy of `apps/<appId>/`; outer `package.json` has `mohou.id` and `mohou.sum` |
-| Themes | `@mohou-apps/themes` | all `themes/theme-<id>.css` in one package; outer `mohou.sum` is over those files |
-| Catalog | `@mohou-apps/catalog` | `package.json` only; `mohou.apps` is the list (apps and themes) |
+| Themes | `@mohou-apps/themes` | every `theme-<id>.css` in the tree, flat in `package/themes/` whatever the folder it was edited in; outer `mohou.sum` is over those files |
+| Catalog | `@mohou-apps/catalog` | `package.json` only; `mohou.apps` is the list (apps and themes) and `mohou.themePacks` the bundles |
 
-Theme edit tree is `themes/theme-<id>.css`. Id is `^[a-z0-9-]+$`. Headers `/* name: */` and optional `/* name-zh-CN: */` feed the catalog row. Version is `themes.version`.
+Theme edit tree is `themes/theme-<id>.css` for a theme on its own, and `themes/<bundleId>/theme-<id>.css` for one inside a bundle (灵感 / Inspiration). Id is `^[a-z0-9-]+$` and must stay unique across the whole tree, flat and bundled together: a machine installs one flat `theme-<id>.css` with one lock, so an id reused between two bundles cannot keep both. Headers `/* name: */` and optional `/* name-zh-CN: */` feed the catalog row. Version is `themes.version`.
+
+A bundle folder holds `theme.manifest.json`: `{ id, name, nameZh?, description?, descriptionZh?, author?, official? }`. `id` must equal the folder name, and the folder needs at least one theme. **The manifest is build input.** The themes package stays one flat set of `theme-*.css` — no subfolder and no manifest reach a machine — and the bundle itself is not installable: `pack-market` writes it to `mohou.themePacks` and stamps `themePackId` on each of its rows, so moving a theme between bundles is a catalog rebuild, not a theme republish.
 
 The sum is sha256 over the tree that will be installed (`package/app/`), paths sorted. It excludes `storage/`, `logs/`, `theme.json`, `.git`, `node_modules`, `.autogen`, `.ui-build/`, `.market.lock`, and the names npm never publishes: `.gitignore`, `.npmignore`, `.npmrc`, `.DS_Store`.
 
@@ -71,13 +73,23 @@ rsync -a --exclude storage --exclude .git --exclude node_modules --exclude .auto
 |---|---|---|
 | `com.mohou.kedu` | 刻度清单 | [`apps/com.mohou.kedu`](./apps/com.mohou.kedu) |
 | `com.mohou.llm-ocr` | AI 识图 | [`apps/com.mohou.llm-ocr`](./apps/com.mohou.llm-ocr) |
-| `luxe-rhythm` | Rhythm / 紫穗 | [`themes/theme-luxe-rhythm.css`](./themes/theme-luxe-rhythm.css) |
-| `luxe-saffron` | Saffron Ink / 藏红 | [`themes/theme-luxe-saffron.css`](./themes/theme-luxe-saffron.css) |
-| `luxe-sunset` | Sunset Bay / 暮湾 | [`themes/theme-luxe-sunset.css`](./themes/theme-luxe-sunset.css) |
-| `nichi-field` | Field Bus / 田野 | [`themes/theme-nichi-field.css`](./themes/theme-nichi-field.css) |
-| `nichi-lamp` | Corner Lamp / 晚灯 | [`themes/theme-nichi-lamp.css`](./themes/theme-nichi-lamp.css) |
-| `nichi-sakura` | Sakura Lane / 樱巷 | [`themes/theme-nichi-sakura.css`](./themes/theme-nichi-sakura.css) |
-| `nichi-sea` | Sea Bench / 海边 | [`themes/theme-nichi-sea.css`](./themes/theme-nichi-sea.css) |
+| `com.pwang.data-cask` | 数据手账 | [`apps/com.pwang.data-cask`](./apps/com.pwang.data-cask) |
+| `nichi-moss-rust` | Moss Rust / 苔锈 | [`themes/theme-nichi-moss-rust.css`](./themes/theme-nichi-moss-rust.css) |
+| `nichi-reed-field` | Reed Field / 荻原 | [`themes/theme-nichi-reed-field.css`](./themes/theme-nichi-reed-field.css) |
+| `nichi-lamp` | Corner Lamp / 晚灯 · autumn | [`themes/autumn/theme-nichi-lamp.css`](./themes/autumn/theme-nichi-lamp.css) |
+| `nichi-maple-sky` | Maple Sky / 秋枝 · autumn | [`themes/autumn/theme-nichi-maple-sky.css`](./themes/autumn/theme-nichi-maple-sky.css) |
+| `nichi-momiji` | Momiji / 枫叶 · autumn | [`themes/autumn/theme-nichi-momiji.css`](./themes/autumn/theme-nichi-momiji.css) |
+| `nichi-pumpkin-spice` | Pumpkin Spice / 南瓜肉桂 · autumn | [`themes/autumn/theme-nichi-pumpkin-spice.css`](./themes/autumn/theme-nichi-pumpkin-spice.css) |
+| `nichi-white-gourd` | White Gourd / 白南瓜 · autumn | [`themes/autumn/theme-nichi-white-gourd.css`](./themes/autumn/theme-nichi-white-gourd.css) |
+| `luxe-festive-plate` | Festive Plate / 珠光盘 · dusk | [`themes/dusk/theme-luxe-festive-plate.css`](./themes/dusk/theme-luxe-festive-plate.css) |
+| `luxe-folio` | Warm Folio / 素笺 · dusk | [`themes/dusk/theme-luxe-folio.css`](./themes/dusk/theme-luxe-folio.css) |
+| `luxe-rhythm` | Rhythm / 紫穗 · dusk | [`themes/dusk/theme-luxe-rhythm.css`](./themes/dusk/theme-luxe-rhythm.css) |
+| `luxe-saffron` | Saffron Ink / 藏红 · dusk | [`themes/dusk/theme-luxe-saffron.css`](./themes/dusk/theme-luxe-saffron.css) |
+| `luxe-soft-coral` | Soft Coral / 淡珊瑚 · dusk | [`themes/dusk/theme-luxe-soft-coral.css`](./themes/dusk/theme-luxe-soft-coral.css) |
+| `luxe-sunset` | Sunset Bay / 暮湾 · shore | [`themes/shore/theme-luxe-sunset.css`](./themes/shore/theme-luxe-sunset.css) |
+| `nichi-field` | Field Bus / 田野 · shore | [`themes/shore/theme-nichi-field.css`](./themes/shore/theme-nichi-field.css) |
+| `nichi-sakura` | Sakura Lane / 樱巷 · shore | [`themes/shore/theme-nichi-sakura.css`](./themes/shore/theme-nichi-sakura.css) |
+| `nichi-sea` | Sea Bench / 海边 · shore | [`themes/shore/theme-nichi-sea.css`](./themes/shore/theme-nichi-sea.css) |
 
 ## Add another app
 
@@ -85,3 +97,10 @@ rsync -a --exclude storage --exclude .git --exclude node_modules --exclude .auto
 2. Do not commit `storage/`, `logs/`, `theme.json`, `.autogen/`, `node_modules/`, `.ui-build/`, or `.market.lock`.
 3. Document the app in both READMEs.
 4. Bump that app's `version`, and `catalog.version` when a row changes. `MINI_APP_PUBLISH=1 pnpm publish:market` packs, uploads, and queues the npmmirror sync.
+
+## Add another theme or bundle
+
+1. A theme on its own: drop `theme-<id>.css` in `themes/`. It lists under 未分类 / Ungrouped.
+2. A bundle: make `themes/<bundleId>/`, put `theme.manifest.json` in it, and drop its `theme-<id>.css` files beside the manifest. The pack refuses a folder without a manifest, a manifest `id` that is not the folder name, and an empty bundle.
+3. Keep the theme id unique across the whole tree. The pack stops on a reuse, and so does a machine reading the catalog.
+4. Move a theme between bundles by moving the file. Only `catalog.version` bumps — the themes package and its sum do not change.

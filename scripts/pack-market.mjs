@@ -4,12 +4,18 @@
  *
  * Edit tree:
  *   apps/<appId>/
- *   themes/theme-<id>.css
+ *   themes/theme-<id>.css                    ungrouped theme
+ *   themes/<packId>/theme.manifest.json      a bundle (灵感 / Inspiration)
+ *   themes/<packId>/theme-<id>.css           a theme inside that bundle
  *
  * Install units:
  *   @mohou-apps/<appId>     → package/app/
- *   @mohou-apps/themes      → package/themes/theme-*.css
- *   @mohou-apps/catalog     → package.json only (mohou.apps)
+ *   @mohou-apps/themes      → package/themes/theme-*.css, always flat
+ *   @mohou-apps/catalog     → package.json only (mohou.apps, mohou.themePacks)
+ *
+ * A bundle is a catalog heading, never an install unit. The pack folder exists only in
+ * this edit tree: the themes tarball stays a flat `theme-*.css` set, because install
+ * finds theme files by scanning one flat directory. `theme.manifest.json` is build input
  *
  * Run: node scripts/pack-market.mjs
  *      node scripts/pack-market.mjs --local
@@ -60,6 +66,10 @@ const skipNames = new Set([
   '.npmrc',
 ])
 
+/** One theme file name, and the id inside it. Install scans a flat directory for these. */
+const THEME_FILE = /^theme-[a-z0-9-]+\.css$/
+const PACK_ID = /^[a-z0-9-]+$/
+
 const catalogVersion = readVersionFile('catalog.version', '1.0.0')
 const themesVersion = readVersionFile('themes.version', '1.0.0')
 
@@ -79,14 +89,18 @@ for (const app of apps) {
   console.log(`app ${app.id}@${app.version} sum=${packed.sum.slice(0, 12)}… → ${path.basename(packed.row.tarballPath)}`)
 }
 
-const themes = listThemes()
+const { themes, packs: themePacks } = listThemes()
 let themesTarball
 if (themes.length > 0) {
   const packed = packThemes(themes)
   themesTarball = packed.tarballPath
   tarballPaths.add(packed.tarballPath)
   for (const row of packed.rows) rows.push(row)
-  console.log(`themes@${themesVersion} (${themes.length}) sum=${packed.sum.slice(0, 12)}… → ${path.basename(packed.tarballPath)}`)
+  console.log(`themes@${themesVersion} (${themes.length}, ${themePacks.length} bundle(s)) sum=${packed.sum.slice(0, 12)}… → ${path.basename(packed.tarballPath)}`)
+}
+if (themePacks.length > 0 && themes.length === 0) {
+  console.error('theme bundles declared with no theme to carry them')
+  process.exit(1)
 }
 
 if (rows.length === 0) {
@@ -99,7 +113,7 @@ rows.sort((left, right) => {
   return left.id.localeCompare(right.id)
 })
 
-const catalog = packCatalog(rows)
+const catalog = packCatalog(rows, themePacks)
 tarballPaths.add(catalog.tarballPath)
 console.log(`catalog@${catalogVersion} → ${path.basename(catalog.tarballPath)}`)
 
@@ -116,7 +130,7 @@ if (local) {
   })
   writeFileSync(
     path.join(marketDir, 'market-catalog.json'),
-    `${JSON.stringify({ version: catalogVersion, mohou: { apps: localRows } }, null, 2)}\n`,
+    `${JSON.stringify({ version: catalogVersion, mohou: catalogBody(localRows, themePacks) }, null, 2)}\n`,
   )
   for (const file of tarballPaths) {
     cpSync(file, path.join(marketDir, path.basename(file)))
@@ -134,25 +148,83 @@ function listApps() {
     .sort((left, right) => left.id.localeCompare(right.id))
 }
 
+/**
+ * Read the theme edit tree: flat files are ungrouped, one subfolder is one bundle.
+ * The scan is exactly one level deep, and a folder without a manifest is not a bundle.
+ */
 function listThemes() {
-  if (!existsSync(themesDir)) return []
-  return readdirSync(themesDir)
-    .filter(name => /^theme-[a-z0-9-]+\.css$/.test(name))
-    .sort()
-    .map((name) => {
-      const id = name.slice('theme-'.length, -'.css'.length)
-      const css = readFileSync(path.join(themesDir, name), 'utf8')
-      const names = headerNames(css, id)
-      const colors = themeColors(css)
-      return {
-        id,
-        fileName: name,
-        css,
-        name: names.name,
-        description: names.nameZh ?? names.name,
-        colors,
-      }
-    })
+  if (!existsSync(themesDir)) return { themes: [], packs: [] }
+  const themes = []
+  const packs = []
+  const entries = readdirSync(themesDir, { withFileTypes: true })
+  for (const entry of entries) {
+    if (entry.isDirectory() || entry.name.startsWith('.')) continue
+    if (!THEME_FILE.test(entry.name)) continue
+    themes.push(readTheme(path.join(themesDir, entry.name), entry.name))
+  }
+  for (const entry of entries) {
+    if (!entry.isDirectory() || entry.name.startsWith('.')) continue
+    const dir = path.join(themesDir, entry.name)
+    const pack = readThemePack(dir, entry.name)
+    const inside = readdirSync(dir).filter(name => THEME_FILE.test(name)).sort()
+    if (inside.length === 0) throw new Error(`themes/${entry.name}: a bundle folder needs at least one theme-<id>.css`)
+    packs.push(pack)
+    for (const name of inside) themes.push(readTheme(path.join(dir, name), name, pack.id))
+  }
+  themes.sort((left, right) => left.id.localeCompare(right.id))
+  packs.sort((left, right) => left.id.localeCompare(right.id))
+  // Install is one flat file and one lock per id, so a name reused across bundles cannot hold both.
+  const seen = new Set()
+  for (const theme of themes) {
+    if (seen.has(theme.id)) throw new Error(`theme id is duplicated: ${theme.id}`)
+    seen.add(theme.id)
+  }
+  return { themes, packs }
+}
+
+function readTheme(file, name, packId) {
+  const id = name.slice('theme-'.length, -'.css'.length)
+  const css = readFileSync(file, 'utf8')
+  const names = headerNames(css, id)
+  return {
+    id,
+    fileName: name,
+    css,
+    name: names.name,
+    description: names.nameZh ?? names.name,
+    colors: themeColors(css),
+    ...packId === undefined ? {} : { packId },
+  }
+}
+
+/** `theme.manifest.json`. Build input only: it is never copied into a package. */
+function readThemePack(dir, folder) {
+  const file = path.join(dir, 'theme.manifest.json')
+  if (!existsSync(file)) throw new Error(`themes/${folder}: theme.manifest.json is missing, so this is not a bundle folder`)
+  const raw = JSON.parse(readFileSync(file, 'utf8'))
+  const id = manifestText(raw.id, `themes/${folder}: id`)
+  if (!PACK_ID.test(id)) throw new Error(`themes/${folder}: id must match ${PACK_ID}`)
+  if (id !== folder) throw new Error(`themes/${folder}: id must equal the folder name (got ${id})`)
+  return {
+    id,
+    name: manifestText(raw.name, `themes/${folder}: name`),
+    ...manifestOptional(raw, 'nameZh', folder) === undefined ? {} : { nameZh: manifestOptional(raw, 'nameZh', folder) },
+    ...manifestOptional(raw, 'description', folder) === undefined ? {} : { description: manifestOptional(raw, 'description', folder) },
+    ...manifestOptional(raw, 'descriptionZh', folder) === undefined ? {} : { descriptionZh: manifestOptional(raw, 'descriptionZh', folder) },
+    ...manifestOptional(raw, 'author', folder) === undefined ? {} : { author: manifestOptional(raw, 'author', folder) },
+    ...raw.official === true ? { official: true } : {},
+  }
+}
+
+function manifestText(value, where) {
+  if (typeof value !== 'string' || value.length === 0) throw new Error(`${where} is missing`)
+  return value
+}
+
+function manifestOptional(raw, key, folder) {
+  const value = raw[key]
+  if (value === undefined) return undefined
+  return manifestText(value, `themes/${folder}: ${key}`)
 }
 
 function readApp(dirName) {
@@ -253,32 +325,52 @@ function packThemes(themes) {
     official: true,
     author: 'Mohou',
     ...theme.colors.length === 0 ? {} : { colors: theme.colors },
+    ...theme.packId === undefined ? {} : { themePackId: theme.packId },
     tarballPath,
   }))
   return { sum, tarballPath, rows }
 }
 
-function packCatalog(rows) {
+function packCatalog(rows, packs) {
   const stage = path.join(outDir, '.stage-catalog')
   rmSync(stage, { recursive: true, force: true })
   mkdirSync(path.join(stage, 'package'), { recursive: true })
   const apps = rows.map(({ tarballPath: _t, source: _s, ...row }) => row)
+  assertPackRefs(apps, packs)
   writeFileSync(path.join(stage, 'package', 'package.json'), `${JSON.stringify({
     name: '@mohou-apps/catalog',
     version: catalogVersion,
     private: false,
     description: 'Mohou market catalog',
     license: 'MIT',
-    mohou: { apps },
+    mohou: catalogBody(apps, packs),
   }, null, 2)}\n`)
   writeFileSync(path.join(outDir, 'catalog.json'), `${JSON.stringify({
     version: catalogVersion,
-    mohou: { apps },
+    mohou: catalogBody(apps, packs),
   }, null, 2)}\n`)
   const tarballPath = path.join(outDir, tarballFileName('@mohou-apps/catalog', catalogVersion))
   execFileSync('tar', ['-czf', tarballPath, '-C', stage, 'package'], { stdio: 'pipe' })
   rmSync(stage, { recursive: true, force: true })
   return { tarballPath }
+}
+
+/**
+ * One bundle is one heading, so an empty one is left out: Host drops a bundle with no
+ * visible row too, and a row that names nothing is a catalog error there.
+ */
+function catalogBody(apps, packs) {
+  const named = packs.filter(pack => apps.some(row => row.themePackId === pack.id))
+  return named.length === 0 ? { apps } : { apps, themePacks: named }
+}
+
+function assertPackRefs(apps, packs) {
+  const known = new Set(packs.map(pack => pack.id))
+  for (const row of apps) {
+    if (row.themePackId !== undefined && !known.has(row.themePackId)) {
+      throw new Error(`${row.id}: themePackId names no bundle (${row.themePackId})`)
+    }
+  }
 }
 
 function copyAppTree(from, to) {
