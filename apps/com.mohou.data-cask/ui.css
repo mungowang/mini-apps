@@ -3943,3 +3943,104 @@ button:active {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+
+/* home table — url cell */
+.view-url-link {
+  color: color-mix(in oklch, var(--foreground) 82%, transparent);
+  text-decoration: none;
+  border-bottom: 1px solid color-mix(in oklch, var(--foreground) 16%, transparent);
+  transition: color 120ms ease, border-color 120ms ease;
+}
+.view-url-link:hover {
+  color: var(--foreground);
+  border-bottom-color: color-mix(in oklch, var(--foreground) 42%, transparent);
+}
+
+
+.module-scenes-import {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  margin-top: 0;
+  padding: 12px 24px 28px;
+}
+.module-scenes-import-head {
+  margin-bottom: 16px;
+}
+.module-scenes-import .view-empty-module-grid {
+  margin-top: 4px;
+  gap: 14px;
+}
+.module-scenes-import .view-empty-module {
+  padding: 20px 18px 16px;
+}
+
+
+/* import scenes — pick cards (match import-mode-card language) */
+.import-scene-pick {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  padding: 16px 16px 14px;
+  border-radius: 18px;
+  border: 1px solid color-mix(in oklch, var(--border) 88%, transparent);
+  background: var(--card);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+}
+.import-scene-pick:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in oklch, var(--foreground) 14%, var(--border));
+  box-shadow: 0 14px 32px color-mix(in oklch, var(--foreground) 6%, transparent);
+}
+.import-scene-pick.is-on {
+  border-color: color-mix(in oklch, var(--foreground) 22%, var(--border));
+  box-shadow: 0 12px 28px color-mix(in oklch, var(--foreground) 7%, transparent);
+}
+.import-scene-pick:disabled {
+  opacity: 0.7;
+  cursor: default;
+  transform: none;
+}
+.import-scene-pick-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+.import-scene-pick-top strong {
+  font-size: 15px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+.import-scene-pick-top .import-mode-tag {
+  margin: 0;
+}
+.import-scene-pick-desc {
+  display: block;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--muted-foreground);
+}
+.import-scene-pick-meta {
+  display: block;
+  font-size: 11.5px;
+  letter-spacing: 0.04em;
+  color: color-mix(in oklch, var(--muted-foreground) 88%, transparent);
+}
+.import-scene-pick .import-mode-go {
+  margin-top: 4px;
+}
+.import-flow-h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}

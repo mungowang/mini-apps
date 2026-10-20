@@ -1,0 +1,326 @@
+{
+  "version": 1,
+  "kind": "caskpack",
+  "moduleId": "config-flags-basic",
+  "name": "配置账册",
+  "title": "配置账册",
+  "description": "项目 · 环境 · 变量与开关。本地台账，STG 可默认显密。",
+  "recommended": false,
+  "exportedAt": 0,
+  "schemas": [
+    {
+      "name": "项目",
+      "display": "{name}",
+      "fields": [
+        { "key": "name", "type": "string", "label": true, "search": true },
+        { "key": "code", "type": "string", "search": true },
+        { "key": "note", "type": "text" }
+      ]
+    },
+    {
+      "name": "环境",
+      "display": "{code}",
+      "fields": [
+        { "key": "name", "type": "string", "label": true, "search": true },
+        { "key": "code", "type": "string", "search": true },
+        { "key": "note", "type": "text" }
+      ]
+    },
+    {
+      "name": "配置项",
+      "display": "{key}",
+      "fields": [
+        { "key": "key", "type": "string", "label": true, "search": true },
+        { "key": "project", "type": "ref", "schemaName": "项目", "search": true },
+        { "key": "env", "type": "ref", "schemaName": "环境", "search": true },
+        { "key": "kind", "type": "string", "search": true },
+        { "key": "enabled", "type": "string", "search": true },
+        { "key": "value", "type": "string", "search": true },
+        { "key": "secretValue", "type": "secret" },
+        { "key": "owner", "type": "string", "search": true },
+        { "key": "note", "type": "text" }
+      ]
+    }
+  ],
+  "views": [
+    {
+      "name": "配置一览",
+      "description": "全部配置。按项目 / 环境 / kind 筛选。",
+      "illustration": "data",
+      "schemaName": "配置项",
+      "allowWrite": true,
+      "columns": [
+        { "key": "project.name", "as": "项目", "show": true, "search": true, "sort": true, "enum": true },
+        { "key": "env.code", "as": "环境", "show": true, "search": true, "sort": true, "enum": true },
+        { "key": "key", "as": "Key", "show": true, "search": true, "sort": true },
+        { "key": "$tags", "as": "标签", "show": true, "search": true, "sort": false, "enum": true },
+        { "key": "kind", "as": "类型", "show": true, "search": true, "sort": true, "enum": true },
+        { "key": "enabled", "as": "开关", "show": true, "search": true, "sort": true, "enum": true },
+        { "key": "value", "as": "值", "show": true, "search": true, "sort": false },
+        { "key": "secretValue", "as": "密钥值", "show": true, "search": false, "sort": false },
+        { "key": "owner", "as": "负责人", "show": true, "search": true, "sort": false, "enum": true },
+        { "key": "note", "as": "备注", "show": true, "search": true, "sort": false }
+      ],
+      "shortcuts": [
+        {
+          "id": "cfg-stg",
+          "name": "STG",
+          "filters": { "env.code": "STG" },
+          "sorts": [{ "key": "key", "dir": "asc" }]
+        },
+        {
+          "id": "cfg-prd",
+          "name": "PRD",
+          "filters": { "env.code": "PRD" },
+          "sorts": [{ "key": "key", "dir": "asc" }]
+        },
+        {
+          "id": "cfg-flag",
+          "name": "Flag",
+          "filters": { "kind": "flag" },
+          "sorts": [{ "key": "key", "dir": "asc" }]
+        },
+        {
+          "id": "cfg-secret",
+          "name": "Secret",
+          "filters": { "kind": "secret" },
+          "sorts": [{ "key": "key", "dir": "asc" }]
+        }
+      ]
+    },
+    {
+      "name": "Flag 开关",
+      "description": "kind = flag 的开关项。",
+      "illustration": "checklist",
+      "schemaName": "配置项",
+      "allowWrite": true,
+      "baseFilters": [{ "key": "kind", "op": "eq", "value": "flag" }],
+      "columns": [
+        { "key": "project.name", "as": "项目", "show": true, "search": true, "sort": true, "enum": true },
+        { "key": "env.code", "as": "环境", "show": true, "search": true, "sort": true, "enum": true },
+        { "key": "key", "as": "Key", "show": true, "search": true, "sort": true },
+        { "key": "enabled", "as": "开关", "show": true, "search": true, "sort": true, "enum": true },
+        { "key": "value", "as": "值", "show": true, "search": true, "sort": false },
+        { "key": "note", "as": "备注", "show": true, "search": true, "sort": false }
+      ],
+      "shortcuts": [
+        {
+          "id": "ff-on",
+          "name": "开启",
+          "filters": { "enabled": "on" },
+          "sorts": [{ "key": "key", "dir": "asc" }]
+        },
+        {
+          "id": "ff-off",
+          "name": "关闭",
+          "filters": { "enabled": "off" },
+          "sorts": [{ "key": "key", "dir": "asc" }]
+        }
+      ]
+    },
+    {
+      "name": "STG 全量",
+      "description": "Staging 配置；默认显示密钥便于联调。",
+      "illustration": "security",
+      "schemaName": "配置项",
+      "allowWrite": true,
+      "revealSecretsDefault": true,
+      "baseFilters": [{ "key": "env.code", "op": "eq", "value": "STG" }],
+      "columns": [
+        { "key": "project.name", "as": "项目", "show": true, "search": true, "sort": true, "enum": true },
+        { "key": "key", "as": "Key", "show": true, "search": true, "sort": true },
+        { "key": "kind", "as": "类型", "show": true, "search": true, "sort": true, "enum": true },
+        { "key": "enabled", "as": "开关", "show": true, "search": true, "sort": true, "enum": true },
+        { "key": "value", "as": "值", "show": true, "search": true, "sort": false },
+        { "key": "secretValue", "as": "密钥值", "show": true, "search": false, "sort": false },
+        { "key": "$tags", "as": "标签", "show": true, "search": true, "sort": false, "enum": true }
+      ],
+      "shortcuts": []
+    },
+    {
+      "name": "PRD 敏感",
+      "description": "生产环境 · 标签含 secret 或 critical。",
+      "illustration": "security",
+      "schemaName": "配置项",
+      "allowWrite": true,
+      "baseFilters": [
+        { "key": "env.code", "op": "eq", "value": "PRD" },
+        { "key": "$tag", "op": "hasTag", "value": "secret | critical" }
+      ],
+      "columns": [
+        { "key": "project.name", "as": "项目", "show": true, "search": true, "sort": true, "enum": true },
+        { "key": "key", "as": "Key", "show": true, "search": true, "sort": true },
+        { "key": "secretValue", "as": "密钥值", "show": true, "search": false, "sort": false },
+        { "key": "owner", "as": "负责人", "show": true, "search": true, "sort": false, "enum": true },
+        { "key": "note", "as": "备注", "show": true, "search": true, "sort": false }
+      ],
+      "shortcuts": []
+    },
+    {
+      "name": "已废弃",
+      "description": "标签含 deprecated。",
+      "illustration": "filing",
+      "schemaName": "配置项",
+      "allowWrite": true,
+      "baseFilters": [{ "key": "$tag", "op": "hasTag", "value": "deprecated" }],
+      "columns": [
+        { "key": "project.name", "as": "项目", "show": true, "search": true, "sort": true, "enum": true },
+        { "key": "env.code", "as": "环境", "show": true, "search": true, "sort": true, "enum": true },
+        { "key": "key", "as": "Key", "show": true, "search": true, "sort": true },
+        { "key": "note", "as": "备注", "show": true, "search": true, "sort": false }
+      ],
+      "shortcuts": []
+    }
+  ],
+  "samples": [
+    { "schemaName": "项目", "packId": "proj-lma", "data": { "name": "Logistics Mobile", "code": "lma", "note": "物流移动端" }, "tags": [] },
+    { "schemaName": "项目", "packId": "proj-cask", "data": { "name": "数据手账", "code": "data-cask", "note": "" }, "tags": [] },
+    { "schemaName": "环境", "packId": "env-dev", "data": { "name": "Development", "code": "DEV", "note": "" }, "tags": ["dev"] },
+    { "schemaName": "环境", "packId": "env-stg", "data": { "name": "Staging", "code": "STG", "note": "联调" }, "tags": ["stg"] },
+    { "schemaName": "环境", "packId": "env-prd", "data": { "name": "Production", "code": "PRD", "note": "" }, "tags": ["prd"] },
+    {
+      "schemaName": "配置项",
+      "packId": "cfg-ff-checkout-stg",
+      "data": {
+        "key": "FF_NEW_CHECKOUT",
+        "project": "proj-lma",
+        "env": "env-stg",
+        "kind": "flag",
+        "enabled": "on",
+        "value": "true",
+        "secretValue": "",
+        "owner": "mobile",
+        "note": "新结算流"
+      },
+      "tags": ["flag"]
+    },
+    {
+      "schemaName": "配置项",
+      "packId": "cfg-ff-checkout-prd",
+      "data": {
+        "key": "FF_NEW_CHECKOUT",
+        "project": "proj-lma",
+        "env": "env-prd",
+        "kind": "flag",
+        "enabled": "off",
+        "value": "false",
+        "secretValue": "",
+        "owner": "mobile",
+        "note": "生产未开"
+      },
+      "tags": ["flag"]
+    },
+    {
+      "schemaName": "配置项",
+      "packId": "cfg-api-stg",
+      "data": {
+        "key": "API_BASE_URL",
+        "project": "proj-lma",
+        "env": "env-stg",
+        "kind": "env",
+        "enabled": "n/a",
+        "value": "https://api.example.stg",
+        "secretValue": "",
+        "owner": "mobile",
+        "note": ""
+      },
+      "tags": ["env"]
+    },
+    {
+      "schemaName": "配置项",
+      "packId": "cfg-api-prd",
+      "data": {
+        "key": "API_BASE_URL",
+        "project": "proj-lma",
+        "env": "env-prd",
+        "kind": "env",
+        "enabled": "n/a",
+        "value": "https://api.example.com",
+        "secretValue": "",
+        "owner": "mobile",
+        "note": ""
+      },
+      "tags": ["env"]
+    },
+    {
+      "schemaName": "配置项",
+      "packId": "cfg-oauth-stg",
+      "data": {
+        "key": "OAUTH_CLIENT_SECRET",
+        "project": "proj-lma",
+        "env": "env-stg",
+        "kind": "secret",
+        "enabled": "n/a",
+        "value": "",
+        "secretValue": "stg-oauth-secret-demo",
+        "owner": "platform",
+        "note": "仅 STG"
+      },
+      "tags": ["secret"]
+    },
+    {
+      "schemaName": "配置项",
+      "packId": "cfg-oauth-prd",
+      "data": {
+        "key": "OAUTH_CLIENT_SECRET",
+        "project": "proj-lma",
+        "env": "env-prd",
+        "kind": "secret",
+        "enabled": "n/a",
+        "value": "",
+        "secretValue": "prd-oauth-secret-demo",
+        "owner": "platform",
+        "note": "轮换周期 90 天"
+      },
+      "tags": ["secret", "critical"]
+    },
+    {
+      "schemaName": "配置项",
+      "packId": "cfg-cask-theme",
+      "data": {
+        "key": "DEFAULT_THEME",
+        "project": "proj-cask",
+        "env": "env-dev",
+        "kind": "env",
+        "enabled": "n/a",
+        "value": "paper",
+        "secretValue": "",
+        "owner": "pwang",
+        "note": ""
+      },
+      "tags": ["env"]
+    },
+    {
+      "schemaName": "配置项",
+      "packId": "cfg-old-flag",
+      "data": {
+        "key": "FF_LEGACY_MAP",
+        "project": "proj-lma",
+        "env": "env-stg",
+        "kind": "flag",
+        "enabled": "off",
+        "value": "false",
+        "secretValue": "",
+        "owner": "mobile",
+        "note": "已由新地图替代"
+      },
+      "tags": ["flag", "deprecated"]
+    },
+    {
+      "schemaName": "配置项",
+      "packId": "cfg-sentry-prd",
+      "data": {
+        "key": "SENTRY_DSN",
+        "project": "proj-lma",
+        "env": "env-prd",
+        "kind": "secret",
+        "enabled": "n/a",
+        "value": "",
+        "secretValue": "https://example@sentry.example.com/1",
+        "owner": "mobile",
+        "note": ""
+      },
+      "tags": ["secret"]
+    }
+  ]
+}

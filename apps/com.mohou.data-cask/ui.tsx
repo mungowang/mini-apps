@@ -1,20 +1,23 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react"
 import { AnimatePresence, motion } from "motion/react"
 import { Autocomplete, Badge, Checkbox, DatePicker, DateTimePicker, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, FileDropzone, Icon, IlluEmpty, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Separator, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TimePicker, Toaster, toast, useApp } from "@mohou/ui"
-import type { CaskPack, DataRow, Field, ModuleInfo, SchemaRow, Sheet, ViewBaseFilter, ViewBaseFilterOp, ViewColumn, ViewDef, ViewShortcut, ViewSort } from "./shared/types.ts"
+import type { CaskPack, DataRow, Field, SchemaRow, Sheet, ViewBaseFilter, ViewBaseFilterOp, ViewColumn, ViewDef, ViewShortcut, ViewSort } from "./shared/types.ts"
 import { flattenViewFields, formatQuery, isTagsPath, labelOf, parseQuery, tagsPathLabel } from "./shared/types.ts"
 import type { TextParseResult, TextParserDef } from "./shared/parser-types.ts"
 import { VIEW_ILLUSTRATIONS, pickViewIllustration, viewIllustrationAsset } from "./shared/view-illu.ts"
 import { layoutRowActs, parseRowActPins, resolveRowActPins, ViewRowActBar, type RowActId } from "./ui/view-row-actions.tsx"
 import { ViewRailSwitch } from "./ui/view-rail-switch.tsx"
 import { FilterMultiSelect, joinMultiFilter, parseMultiFilter } from "./ui/filter-multi-select.tsx"
+import { ModuleScenesPanel, type ModuleInstallPreview } from "./ui/module-scenes-panel.tsx"
+import type { ModuleInfo } from "./shared/types.ts"
 
 type Nav = "home" | "data" | "import" | "views" | "settings"
 type Step = "home" | "file" | "text" | "parser" | "ai" | "targets" | "map" | "refs" | "preview" | "done"
 type ImportSource = "file" | "text"
-type ImportDeskMode = "landing" | "data" | "pack" | "export"
+type ImportDeskMode = "landing" | "data" | "pack" | "export" | "scenes"
 type PackStep = "source" | "preview" | "conflict" | "done"
 type ExportStep = "select" | "preview" | "done"
+type SceneStep = "source" | "preview" | "done"
 type Overview = {
   schemas: SchemaRow[]
   counts: Record<string, number>
@@ -350,7 +353,7 @@ export default function App() {
               onAdd={async () => { if (schemaId === "all") return; const created = await call<{ id: string }>("saveRecord", { schemaId, data: {}, tags: [] }); await refresh(); await openRow(created.id) }}
             />
           ))}
-          {nav === "import" && <ImportDesk schemas={schemas} views={overview?.views ?? []} counts={overview?.counts ?? {}} onDone={async () => { await refresh(); setNav("data") }} onBuild={() => setNav("data")} />}
+          {nav === "import" && <ImportDesk schemas={schemas} views={overview?.views ?? []} counts={overview?.counts ?? {}} onDone={async () => { await refresh(); setNav("data") }} onRefresh={async () => { await refresh() }} onBuild={() => setNav("data")} />}
           {nav === "views" && <ViewBuilder schemas={schemas} views={overview?.views ?? []} counts={overview?.counts ?? {}} focusViewId={editViewId} onGoData={() => setNav("data")} onGoImport={() => setNav("import")} onSaved={async () => { await refresh() }} />}
           {nav === "settings" && settingsReady && (
             <SettingsDesk
@@ -1160,6 +1163,8 @@ function HomeView({ overview, focusViewId, onOpen, onEditViews, onGoData, onGoIm
                             copy={cell.copy || cell.text}
                             label={colLabel}
                           />
+                        ) : cell.type === "url" ? (
+                          <ViewUrlCell text={cell.text} copy={cell.copy} label={colLabel} />
                         ) : (
                           <span className="inline-flex max-w-full items-center gap-2">
                             <span className="whitespace-nowrap">{cell.text || "—"}</span>
@@ -1280,20 +1285,6 @@ function HomeView({ overview, focusViewId, onOpen, onEditViews, onGoData, onGoIm
   )
 }
 
-type ModuleInstallPreview = {
-  moduleId: string
-  title: string
-  description: string
-  includeSamples: boolean
-  hasSamples: boolean
-  sampleCount: number
-  sampleTotal: number
-  schemas: { name: string; fieldCount: number; fields: string[]; exists: boolean; action: "create" | "reuse" }[]
-  views: { name: string; schemaName: string; description: string; exists: boolean; action: "create" | "skip"; baseFilterCount: number; allowWrite: boolean; revealSecretsDefault: boolean }[]
-  samples: { schemaName: string; count: number }[]
-  summary: { schemaCreate: number; schemaReuse: number; viewCreate: number; viewSkip: number; sampleRows: number }
-}
-
 function ViewEmptyStage({ kind, onPrimary, onSecondary, onTertiary, onRefresh, onInstalled }: {
   kind: "no-tables" | "no-views"
   onPrimary: () => void
@@ -1302,18 +1293,7 @@ function ViewEmptyStage({ kind, onPrimary, onSecondary, onTertiary, onRefresh, o
   onRefresh?: () => Promise<void>
   onInstalled?: (viewId?: string) => Promise<void> | void
 }) {
-  const { call, resolveAssetUrl } = useApp()
-  const [modules, setModules] = useState<ModuleInfo[]>([])
-  const [loadingModules, setLoadingModules] = useState(kind === "no-tables")
-  const [modulesError, setModulesError] = useState("")
-  const [includeSamples, setIncludeSamples] = useState<Record<string, boolean>>({})
-  const [installingId, setInstallingId] = useState("")
-  const [review, setReview] = useState<{
-    mod: ModuleInfo
-    preview: ModuleInstallPreview | null
-    loading: boolean
-    error: string
-  } | null>(null)
+  const { resolveAssetUrl } = useApp()
   const illu = kind === "no-tables"
     ? viewIllustrationAsset("files", "empty-tables")
     : viewIllustrationAsset("filter", "empty-views")
@@ -1321,109 +1301,6 @@ function ViewEmptyStage({ kind, onPrimary, onSecondary, onTertiary, onRefresh, o
   const lede = kind === "no-tables"
     ? "下方是内置的常见场景预置的数据表和视图模板，安装后可直接开始使用。也可以空白建表，或导入已有的 .caskpack。"
     : "勾选要展示与筛选的列，首页就会变成只读查数台。也支持快捷筛选、多级排序与插画。"
-
-  useEffect(() => {
-    if (kind !== "no-tables") return
-    let alive = true
-    setLoadingModules(true)
-    setModulesError("")
-    call<{ modules: ModuleInfo[]; debug?: Record<string, unknown> }>("listModules")
-      .then((res) => {
-        if (!alive) return
-        const list = Array.isArray(res?.modules) ? res.modules : Array.isArray(res) ? res as unknown as ModuleInfo[] : []
-        setModules(list)
-        // Default on when the pack ships samples — user can chip-toggle off
-        setIncludeSamples(Object.fromEntries(list.map((item) => [item.id, !!item.hasSamples])))
-        if (!list.length && res?.debug) {
-          setModulesError("未找到模块（appDir=" + String(res.debug.appDir ?? "?") + (res.debug.diskError ? "；disk: " + String(res.debug.diskError) : "") + "）")
-        }
-      })
-      .catch((err) => {
-        if (!alive) return
-        setModules([])
-        setModulesError(String(err instanceof Error ? err.message : err))
-      })
-      .finally(() => {
-        if (alive) setLoadingModules(false)
-      })
-    return () => { alive = false }
-  }, [kind])
-
-  async function openInstallReview(mod: ModuleInfo) {
-    if (installingId) return
-    const withSamples = !!includeSamples[mod.id] && mod.hasSamples
-    setReview({ mod, preview: null, loading: true, error: "" })
-    try {
-      const preview = await call<ModuleInstallPreview>("previewModule", {
-        id: mod.id,
-        includeSamples: withSamples,
-      })
-      setReview({ mod, preview, loading: false, error: "" })
-    } catch (err) {
-      setReview({
-        mod,
-        preview: null,
-        loading: false,
-        error: String(err instanceof Error ? err.message : err),
-      })
-    }
-  }
-
-  async function refreshInstallReview(nextSamples: boolean) {
-    if (!review || installingId) return
-    const mod = review.mod
-    setIncludeSamples((prev) => ({ ...prev, [mod.id]: nextSamples }))
-    setReview({ mod, preview: null, loading: true, error: "" })
-    try {
-      const preview = await call<ModuleInstallPreview>("previewModule", {
-        id: mod.id,
-        includeSamples: nextSamples && mod.hasSamples,
-      })
-      setReview({ mod, preview, loading: false, error: "" })
-    } catch (err) {
-      setReview({
-        mod,
-        preview: null,
-        loading: false,
-        error: String(err instanceof Error ? err.message : err),
-      })
-    }
-  }
-
-  async function confirmInstallModule() {
-    if (!review || installingId) return
-    const mod = review.mod
-    const withSamples = !!includeSamples[mod.id] && mod.hasSamples
-    setInstallingId(mod.id)
-    try {
-      const result = await call<{
-        primaryViewId?: string
-        created?: { schemas: number; views: number; samples: number }
-        title?: string
-      }>("installModule", {
-        id: mod.id,
-        includeSamples: withSamples,
-        conflict: "skip",
-      })
-      const created = result?.created
-      const bits = [
-        created?.schemas ? created.schemas + " 张表" : "",
-        created?.views ? created.views + " 个视图" : "",
-        created?.samples ? created.samples + " 条示例" : "",
-      ].filter(Boolean)
-      toast.add({
-        title: "已安装「" + (result?.title || mod.title) + "」",
-        description: bits.length ? bits.join(" · ") : "同名表已复用",
-        type: "success",
-      })
-      setReview(null)
-      await onInstalled?.(result?.primaryViewId || undefined)
-    } catch (err) {
-      toast.add({ title: "安装失败", description: String(err instanceof Error ? err.message : err), type: "error" })
-    } finally {
-      setInstallingId("")
-    }
-  }
 
   const caps = kind === "no-tables"
     ? [
@@ -1460,204 +1337,13 @@ function ViewEmptyStage({ kind, onPrimary, onSecondary, onTertiary, onRefresh, o
         </div>
 
         {kind === "no-tables" && (
-          <div className="view-empty-modules">
-            <p className="view-empty-modules-label">工作场景</p>
-            {loadingModules && <p className="view-empty-modules-hint">正在读取 modules…</p>}
-            {!loadingModules && modulesError && (
-              <p className="view-empty-modules-hint" style={{ color: "var(--destructive, #b91c1c)" }}>加载模块失败：{modulesError}</p>
-            )}
-            {!loadingModules && !modules.length && !modulesError && (
-              <p className="view-empty-modules-hint">还没有内置模块。把 .caskpack.json 放到应用的 modules/ 目录即可出现在这里。</p>
-            )}
-            <div className={"view-empty-module-grid" + (modules.length === 1 ? " is-one" : modules.length === 2 ? " is-two" : "")}>
-              {modules.map((mod) => {
-                const busy = installingId === mod.id
-                const blurb = (mod.description || "").split(/[。.!？?]/)[0]?.trim() || mod.title
-                const meta = [
-                  mod.schemaNames.length ? mod.schemaNames.length + " 张表" : "",
-                  mod.viewNames.length ? mod.viewNames.length + " 个视图" : "",
-                ].filter(Boolean).join(" · ")
-                const sampleOn = !!includeSamples[mod.id]
-                return (
-                  <div key={mod.id} className={"view-empty-module" + (mod.recommended ? " is-recommended" : "") + (mod.installed ? " is-installed" : "") + (busy ? " is-busy" : "")}>
-                    <div className="view-empty-module-copy">
-                      <div className="view-empty-module-title-row">
-                        <strong>{mod.title}</strong>
-                        {mod.recommended && !mod.installed && <span className="view-empty-module-tag">推荐</span>}
-                        {mod.installed && <span className="view-empty-module-tag is-soft">已装</span>}
-                      </div>
-                      <span>{blurb}</span>
-                      {meta && <span className="view-empty-module-meta">{meta}</span>}
-                    </div>
-                    <div className="view-empty-module-foot">
-                      {mod.hasSamples ? (
-                        <button
-                          type="button"
-                          className={"view-empty-module-chip" + (sampleOn ? " is-on" : "")}
-                          disabled={!!installingId}
-                          aria-pressed={sampleOn}
-                          onClick={() => setIncludeSamples((prev) => ({ ...prev, [mod.id]: !prev[mod.id] }))}
-                        >
-                          {sampleOn ? <Icon.Check size={12} strokeWidth={2.6} /> : <Icon.Sparkles size={12} strokeWidth={2.2} />}
-                          <span>示例数据</span>
-                        </button>
-                      ) : <span />}
-                      <button
-                        type="button"
-                        className="view-empty-module-go"
-                        disabled={!!installingId}
-                        onClick={() => void openInstallReview(mod)}
-                      >
-                        <span>{busy ? "安装中" : mod.installed ? "再次安装" : "安装场景"}</span>
-                        {!busy && <Icon.ArrowRight size={15} strokeWidth={2.2} />}
-                      </button>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        )}
-
-        {review && (
-          <div className="view-record-mask" onClick={() => !installingId && setReview(null)}>
-            <div className="view-record-dialog module-review-dialog" onClick={(event) => event.stopPropagation()}>
-              <div className="module-review-head">
-                <div className="min-w-0 flex-1">
-                  <p className="text-[11px] tracking-[0.16em] text-muted-foreground">安装预览</p>
-                  <h2 className="mt-1 text-lg font-semibold tracking-tight">{review.mod.title}</h2>
-                  {!!review.mod.description && (
-                    <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{review.mod.description}</p>
-                  )}
-                </div>
-                <button
-                  type="button"
-                  className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-muted-foreground hover:bg-secondary hover:text-foreground"
-                  aria-label="关闭"
-                  disabled={!!installingId}
-                  onClick={() => setReview(null)}
-                >
-                  <Icon.X size={16} />
-                </button>
-              </div>
-
-              {review.loading && (
-                <p className="mt-5 flex items-center gap-2 text-sm text-muted-foreground">
-                  <Icon.Loader2 size={15} className="animate-spin" />
-                  正在生成安装清单…
-                </p>
-              )}
-              {!!review.error && !review.loading && (
-                <p className="mt-5 text-sm text-destructive">{review.error}</p>
-              )}
-
-              {review.preview && !review.loading && (() => {
-                const p = review.preview!
-                const sum = p.summary
-                return (
-                  <div className="module-review-body mt-5">
-                    <div className="module-review-summary">
-                      <span>{sum.schemaCreate ? "新建 " + sum.schemaCreate + " 表" : "无新表"}</span>
-                      {sum.schemaReuse > 0 && <span>复用 {sum.schemaReuse} 表</span>}
-                      <span>{sum.viewCreate ? "新建 " + sum.viewCreate + " 视图" : "无新视图"}</span>
-                      {sum.viewSkip > 0 && <span>跳过 {sum.viewSkip} 视图</span>}
-                      <span>{sum.sampleRows ? sum.sampleRows + " 条示例" : "不含示例"}</span>
-                    </div>
-
-                    {review.mod.hasSamples && (
-                      <label className="module-review-samples-toggle">
-                        <Checkbox
-                          checked={!!includeSamples[review.mod.id]}
-                          disabled={!!installingId}
-                          onCheckedChange={(checked) => void refreshInstallReview(!!checked)}
-                        />
-                        <span className="min-w-0">
-                          <strong className="block text-sm font-medium">包含示例数据</strong>
-                          <span className="text-xs text-muted-foreground">
-                            包内共 {p.sampleTotal} 条 · {includeSamples[review.mod.id] ? "将写入本地" : "本次不写入"}
-                          </span>
-                        </span>
-                      </label>
-                    )}
-
-                    <div className="module-review-section">
-                      <p className="module-review-section-title">数据表</p>
-                      <ul className="module-review-list">
-                        {p.schemas.map((item) => (
-                          <li key={item.name}>
-                            <span className="module-review-name">{item.name}</span>
-                            <span className="module-review-meta">{item.fieldCount} 字段 · {item.fields.slice(0, 4).join(" · ")}{item.fields.length > 4 ? " …" : ""}</span>
-                            <span className={"module-review-badge" + (item.action === "reuse" ? " is-soft" : "")}>
-                              {item.action === "reuse" ? "已有 · 复用" : "新建"}
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-
-                    <div className="module-review-section">
-                      <p className="module-review-section-title">视图</p>
-                      <ul className="module-review-list">
-                        {p.views.map((item) => (
-                          <li key={item.name + item.schemaName}>
-                            <span className="module-review-name">{item.name}</span>
-                            <span className="module-review-meta">
-                              来自 {item.schemaName}
-                              {item.baseFilterCount ? " · 预置条件 " + item.baseFilterCount : ""}
-                              {item.allowWrite ? " · 可写" : ""}
-                              {item.revealSecretsDefault ? " · 默认显密" : ""}
-                            </span>
-                            <span className={"module-review-badge" + (item.action === "skip" ? " is-soft" : "")}>
-                              {item.action === "skip" ? "已有 · 跳过" : "新建"}
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-
-                    {p.includeSamples && p.samples.length > 0 && (
-                      <div className="module-review-section">
-                        <p className="module-review-section-title">示例数据</p>
-                        <ul className="module-review-list">
-                          {p.samples.map((item) => (
-                            <li key={item.schemaName}>
-                              <span className="module-review-name">{item.schemaName}</span>
-                              <span className="module-review-meta">{item.count} 条</span>
-                              <span className="module-review-badge">写入</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-
-                    <p className="module-review-note">
-                      冲突策略：同名表复用并合并缺失字段；同名视图跳过。安装不会覆盖你已有的行数据。
-                    </p>
-                  </div>
-                )
-              })()}
-
-              <div className="module-review-actions">
-                <button
-                  type="button"
-                  className="h-10 rounded-xl border border-border px-4 text-sm"
-                  disabled={!!installingId}
-                  onClick={() => setReview(null)}
-                >
-                  取消
-                </button>
-                <button
-                  type="button"
-                  className="inline-flex h-10 items-center gap-2 rounded-xl bg-foreground px-5 text-sm font-medium text-background disabled:opacity-50"
-                  disabled={!!installingId || review.loading || !!review.error || !review.preview}
-                  onClick={() => void confirmInstallModule()}
-                >
-                  {installingId ? <Icon.Loader2 size={15} className="animate-spin" /> : null}
-                  {installingId ? "安装中…" : "确认安装"}
-                </button>
-              </div>
-            </div>
-          </div>
+          <ModuleScenesPanel
+            variant="empty"
+            onInstalled={async (viewId) => {
+              await onRefresh?.()
+              await onInstalled?.(viewId)
+            }}
+          />
         )}
 
         <div className={"view-empty-caps" + (caps.length <= 2 ? " is-two" : "")}>
@@ -2975,6 +2661,42 @@ function SecretField({ value, onChange }: { value: string; onChange: (value: str
   )
 }
 
+function normalizeExternalUrl(raw: string) {
+  const text = raw.trim()
+  if (!text) return ""
+  if (/^[a-z][a-z0-9+.-]*:/i.test(text)) return text
+  return "https://" + text
+}
+
+/** Home table url cell — clickable link + copy. */
+function ViewUrlCell({ text, copy, label = "链接" }: { text: string; copy: string; label?: string }) {
+  const display = (text || copy || "").trim()
+  if (!display) return <span className="text-muted-foreground">—</span>
+  const href = normalizeExternalUrl(copy || text)
+  return (
+    <span className="inline-flex max-w-full items-center gap-1.5">
+      <a
+        className="view-url-link min-w-0 truncate"
+        href={href}
+        target="_blank"
+        rel="noreferrer noopener"
+        title={display}
+        onClick={(event) => event.stopPropagation()}
+      >
+        {display}
+      </a>
+      <button
+        type="button"
+        className="shrink-0 rounded-md p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-background hover:text-foreground group-hover:opacity-100"
+        aria-label={"复制单元格 " + label}
+        onClick={() => void copyText(copy || display, "已复制单元格", label)}
+      >
+        <Icon.Copy size={13} />
+      </button>
+    </span>
+  )
+}
+
 /** Home table tags cell — design A: quiet pills, max 2 + overflow. */
 function ViewTagsCell({ tags, copy, label = "标签" }: { tags: string[]; copy?: string; label?: string }) {
   const list = tags.map((tag) => tag.trim()).filter(Boolean)
@@ -3978,7 +3700,7 @@ function SettingsDesk({ schemas, views, onDefaultsChanged, onOpenImport, onReset
                   <div className="settings-row-t">数据手账</div>
                   <div className="settings-row-d">本地优先 · 无云同步</div>
                 </div>
-                <span className="text-xs text-muted-foreground">com.pwang.data-cask</span>
+                <span className="text-xs text-muted-foreground">com.mohou.data-cask</span>
               </div>
             </div>
           </>
@@ -4015,7 +3737,7 @@ function SettingsDesk({ schemas, views, onDefaultsChanged, onOpenImport, onReset
   )
 }
 
-function ImportDesk({ schemas, views, counts, onDone }: { schemas: SchemaRow[]; views: ViewDef[]; counts: Record<string, number>; onDone: () => void; onBuild: () => void }) {
+function ImportDesk({ schemas, views, counts, onDone, onRefresh }: { schemas: SchemaRow[]; views: ViewDef[]; counts: Record<string, number>; onDone: () => void; onRefresh?: () => Promise<void> | void; onBuild: () => void }) {
   const { call } = useApp()
   const [deskMode, setDeskMode] = useState<ImportDeskMode>("landing")
   const [source, setSource] = useState<ImportSource>("file")
@@ -4044,6 +3766,15 @@ function ImportDesk({ schemas, views, counts, onDone }: { schemas: SchemaRow[]; 
   const [dataFiles, setDataFiles] = useState<File[]>([])
   const [packConflict, setPackConflict] = useState<"skip" | "rename">("skip")
   const [packResult, setPackResult] = useState<{ created: { schemas: number; views: number; samples: number }; skipped: { schemas: number; views: number } } | null>(null)
+  const [sceneStep, setSceneStep] = useState<SceneStep>("source")
+  const [sceneModules, setSceneModules] = useState<ModuleInfo[]>([])
+  const [sceneLoading, setSceneLoading] = useState(false)
+  const [sceneError, setSceneError] = useState("")
+  const [sceneSelected, setSceneSelected] = useState<ModuleInfo | null>(null)
+  const [sceneIncludeSamples, setSceneIncludeSamples] = useState(true)
+  const [scenePreview, setScenePreview] = useState<ModuleInstallPreview | null>(null)
+  const [scenePreviewLoading, setScenePreviewLoading] = useState(false)
+  const [sceneResult, setSceneResult] = useState<{ created?: { schemas: number; views: number; samples: number }; title?: string } | null>(null)
   const [exportStep, setExportStep] = useState<ExportStep>("select")
   const [exportName, setExportName] = useState("数据手账包")
   const [exportSchemas, setExportSchemas] = useState<string[]>([])
@@ -4172,6 +3903,13 @@ function ImportDesk({ schemas, views, counts, onDone }: { schemas: SchemaRow[]; 
     setDataFiles([])
     setPackResult(null)
     setPackConflict("skip")
+    setSceneStep("source")
+    setSceneModules([])
+    setSceneSelected(null)
+    setScenePreview(null)
+    setSceneResult(null)
+    setSceneError("")
+    setSceneIncludeSamples(true)
     setExportStep("select")
     setExportPreview(null)
     setExportForced([])
@@ -4189,6 +3927,84 @@ function ImportDesk({ schemas, views, counts, onDone }: { schemas: SchemaRow[]; 
     setPack(null)
     setPackResult(null)
     setMessage("")
+  }
+
+  async function openScenesFlow() {
+    setDeskMode("scenes")
+    setSceneStep("source")
+    setSceneSelected(null)
+    setScenePreview(null)
+    setSceneResult(null)
+    setSceneError("")
+    setMessage("")
+    setSceneLoading(true)
+    try {
+      const res = await call<{ modules: ModuleInfo[] }>("listModules")
+      const list = Array.isArray(res?.modules) ? res.modules : []
+      setSceneModules(list)
+      setSceneIncludeSamples(true)
+    } catch (err) {
+      setSceneModules([])
+      setSceneError(String(err instanceof Error ? err.message : err))
+    } finally {
+      setSceneLoading(false)
+    }
+  }
+
+  async function loadScenePreview(mod: ModuleInfo, withSamples: boolean) {
+    setSceneSelected(mod)
+    setSceneIncludeSamples(withSamples && mod.hasSamples)
+    setScenePreview(null)
+    setScenePreviewLoading(true)
+    setMessage("")
+    try {
+      const preview = await call<ModuleInstallPreview>("previewModule", {
+        id: mod.id,
+        includeSamples: withSamples && mod.hasSamples,
+      })
+      setScenePreview(preview)
+      setSceneStep("preview")
+    } catch (err) {
+      setMessage(String(err instanceof Error ? err.message : err))
+    } finally {
+      setScenePreviewLoading(false)
+    }
+  }
+
+  async function runSceneInstall() {
+    if (!sceneSelected) return
+    setBusy(true)
+    setMessage("")
+    try {
+      const result = await call<{
+        primaryViewId?: string
+        created?: { schemas: number; views: number; samples: number }
+        title?: string
+      }>("installModule", {
+        id: sceneSelected.id,
+        includeSamples: sceneIncludeSamples && sceneSelected.hasSamples,
+        conflict: "skip",
+      })
+      setSceneResult({ created: result?.created, title: result?.title || sceneSelected.title })
+      setSceneStep("done")
+      toast.add({
+        title: "已安装「" + (result?.title || sceneSelected.title) + "」",
+        description: [
+          result?.created?.schemas ? result.created.schemas + " 张表" : "",
+          result?.created?.views ? result.created.views + " 个视图" : "",
+          result?.created?.samples ? result.created.samples + " 条示例" : "",
+        ].filter(Boolean).join(" · ") || "同名表已复用",
+        type: "success",
+      })
+      await onRefresh?.()
+      // refresh installed badges
+      const res = await call<{ modules: ModuleInfo[] }>("listModules").catch(() => null)
+      if (res?.modules) setSceneModules(res.modules)
+    } catch (err) {
+      setMessage(String(err instanceof Error ? err.message : err))
+    } finally {
+      setBusy(false)
+    }
   }
 
   function openExportFlow() {
@@ -4470,6 +4286,13 @@ function ImportDesk({ schemas, views, counts, onDone }: { schemas: SchemaRow[]; 
             <div className="import-mode-meta"><i>表</i><i>视图可选</i><i>样例可选</i><i>.caskpack</i></div>
             <span className="import-mode-go">选择包 →</span>
           </button>
+          <button type="button" className="import-mode-card" onClick={() => void openScenesFlow()}>
+            <span className="import-mode-tag">SCENE</span>
+            <strong>内置模板</strong>
+            <p>测试账号、网页书签、配置账册等场景。装过一个之后，仍可从这里继续装别的。</p>
+            <div className="import-mode-meta"><i>表</i><i>视图</i><i>示例可选</i><i>预览确认</i></div>
+            <span className="import-mode-go">浏览场景 →</span>
+          </button>
           <div className="import-export-row">
             <div>
               <b>导出我的包</b>
@@ -4478,6 +4301,254 @@ function ImportDesk({ schemas, views, counts, onDone }: { schemas: SchemaRow[]; 
             <button type="button" className="h-9 shrink-0 rounded-xl border border-border bg-card px-3 text-sm" disabled={!schemas.length} onClick={openExportFlow}>开始导出</button>
           </div>
         </div>
+      </div>
+    )
+  }
+
+  if (deskMode === "scenes") {
+    const scenePath: { id: SceneStep; title: string; desc: string }[] = [
+      { id: "source", title: "选场景", desc: "内置工作模板" },
+      { id: "preview", title: "预览清单", desc: "表 · 视图 · 示例" },
+      { id: "done", title: "完成", desc: "已写入本地" },
+    ]
+    const sceneReached = Math.max(0, scenePath.findIndex((item) => item.id === sceneStep))
+    const sceneTitles: Record<SceneStep, string> = {
+      source: "选择场景",
+      preview: "预览将安装的内容",
+      done: "安装完成",
+    }
+    return (
+      <div className="import-flow">
+        <aside className="import-flow-left">
+          <div className="import-flow-brand">
+            <p className="import-kicker">SCENE</p>
+            <button type="button" className="import-back" onClick={resetImport}>返回入口</button>
+          </div>
+          <h1 className="import-flow-title">内置模板</h1>
+          <p className="import-flow-lede">预置表、视图与示例。同名表复用合并字段，不会覆盖你已有的行。</p>
+          <div className="import-paths">
+            {scenePath.map((item, index) => {
+              const on = item.id === sceneStep
+              const done = index < sceneReached
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  className={"import-path " + (on ? "is-on" : "") + (done ? " is-done" : "")}
+                  disabled={index > sceneReached}
+                  onClick={() => index <= sceneReached && setSceneStep(item.id)}
+                >
+                  <span className="import-path-row">
+                    <span className="import-path-num">{done && !on ? "✓" : index + 1}</span>
+                    <span className="import-path-t">{item.title}</span>
+                  </span>
+                  <span className="import-path-d">{item.desc}</span>
+                </button>
+              )
+            })}
+          </div>
+        </aside>
+        <section className="import-flow-right">
+          <div className="import-flow-top">
+            <h2>{sceneTitles[sceneStep]}</h2>
+            <span className="import-pill">步骤 {sceneReached + 1} / {scenePath.length}</span>
+          </div>
+          <div className="import-flow-body">
+            {sceneStep === "source" && (
+              <>
+                <p className="import-hint">选一个场景进入预览。装过的仍可再次安装（同名表复用）。</p>
+                {sceneLoading && <p className="text-sm text-muted-foreground">正在读取模板…</p>}
+                {!!sceneError && <p className="text-sm text-destructive">{sceneError}</p>}
+                {!sceneLoading && !sceneModules.length && !sceneError && (
+                  <p className="text-sm text-muted-foreground">没有可用的内置模板。</p>
+                )}
+                <div className="mt-2 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                  {sceneModules.map((mod) => {
+                    const meta = [
+                      mod.schemaNames.length ? mod.schemaNames.length + " 张表" : "",
+                      mod.viewNames.length ? mod.viewNames.length + " 个视图" : "",
+                      mod.hasSamples ? mod.sampleCount + " 条示例" : "",
+                    ].filter(Boolean).join(" · ")
+                    const on = sceneSelected?.id === mod.id
+                    return (
+                      <button
+                        key={mod.id}
+                        type="button"
+                        className={"import-scene-pick " + (on ? "is-on" : "") + (mod.installed ? " is-installed" : "")}
+                        disabled={busy || scenePreviewLoading}
+                        onClick={() => void loadScenePreview(mod, sceneIncludeSamples && mod.hasSamples)}
+                      >
+                        <span className="import-scene-pick-top">
+                          <strong>{mod.title}</strong>
+                          {mod.recommended && !mod.installed && <i className="import-mode-tag">推荐</i>}
+                          {mod.installed && <i className="import-mode-tag">已装</i>}
+                        </span>
+                        <span className="import-scene-pick-desc">{(mod.description || "").split(/[。.!？?]/)[0]?.trim() || mod.title}</span>
+                        {meta && <span className="import-scene-pick-meta">{meta}</span>}
+                        <span className="import-mode-go">{scenePreviewLoading && sceneSelected?.id === mod.id ? "生成预览…" : "预览 →"}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+                {message && <p className="mt-3 text-sm text-destructive">{message}</p>}
+              </>
+            )}
+
+            {sceneStep === "preview" && sceneSelected && (
+              <>
+                {scenePreviewLoading && (
+                  <p className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Icon.Loader2 size={15} className="animate-spin" />
+                    正在生成安装清单…
+                  </p>
+                )}
+                {scenePreview && !scenePreviewLoading && (
+                  <div className="module-review-body !mt-0">
+                    <div className="mb-4">
+                      <h3 className="text-base font-semibold tracking-tight">{sceneSelected.title}</h3>
+                      {!!sceneSelected.description && (
+                        <p className="mt-1 text-sm text-muted-foreground">{sceneSelected.description}</p>
+                      )}
+                    </div>
+                    <div className="module-review-summary">
+                      <span>{scenePreview.summary.schemaCreate ? "新建 " + scenePreview.summary.schemaCreate + " 表" : "无新表"}</span>
+                      {scenePreview.summary.schemaReuse > 0 && <span>复用 {scenePreview.summary.schemaReuse} 表</span>}
+                      <span>{scenePreview.summary.viewCreate ? "新建 " + scenePreview.summary.viewCreate + " 视图" : "无新视图"}</span>
+                      {scenePreview.summary.viewSkip > 0 && <span>跳过 {scenePreview.summary.viewSkip} 视图</span>}
+                      <span>{scenePreview.summary.sampleRows ? scenePreview.summary.sampleRows + " 条示例" : "不含示例"}</span>
+                    </div>
+
+                    {sceneSelected.hasSamples && (
+                      <label className="module-review-samples-toggle">
+                        <Checkbox
+                          checked={sceneIncludeSamples}
+                          disabled={busy || scenePreviewLoading}
+                          onCheckedChange={(checked) => {
+                            const next = !!checked
+                            setSceneIncludeSamples(next)
+                            void loadScenePreview(sceneSelected, next)
+                          }}
+                        />
+                        <span className="min-w-0">
+                          <strong className="block text-sm font-medium">包含示例数据</strong>
+                          <span className="text-xs text-muted-foreground">
+                            包内共 {scenePreview.sampleTotal} 条 · {sceneIncludeSamples ? "将写入本地" : "本次不写入"}
+                          </span>
+                        </span>
+                      </label>
+                    )}
+
+                    <div className="module-review-section">
+                      <p className="module-review-section-title">数据表</p>
+                      <ul className="module-review-list">
+                        {scenePreview.schemas.map((item) => (
+                          <li key={item.name}>
+                            <span className="module-review-name">{item.name}</span>
+                            <span className="module-review-meta">{item.fieldCount} 字段 · {item.fields.slice(0, 4).join(" · ")}{item.fields.length > 4 ? " …" : ""}</span>
+                            <span className={"module-review-badge" + (item.action === "reuse" ? " is-soft" : "")}>
+                              {item.action === "reuse" ? "已有 · 复用" : "新建"}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    <div className="module-review-section">
+                      <p className="module-review-section-title">视图</p>
+                      <ul className="module-review-list">
+                        {scenePreview.views.map((item) => (
+                          <li key={item.name + item.schemaName}>
+                            <span className="module-review-name">{item.name}</span>
+                            <span className="module-review-meta">
+                              来自 {item.schemaName}
+                              {item.baseFilterCount ? " · 预置条件 " + item.baseFilterCount : ""}
+                              {item.allowWrite ? " · 可写" : ""}
+                              {item.revealSecretsDefault ? " · 默认显密" : ""}
+                            </span>
+                            <span className={"module-review-badge" + (item.action === "skip" ? " is-soft" : "")}>
+                              {item.action === "skip" ? "已有 · 跳过" : "新建"}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    {scenePreview.includeSamples && scenePreview.samples.length > 0 && (
+                      <div className="module-review-section">
+                        <p className="module-review-section-title">示例数据</p>
+                        <ul className="module-review-list">
+                          {scenePreview.samples.map((item) => (
+                            <li key={item.schemaName}>
+                              <span className="module-review-name">{item.schemaName}</span>
+                              <span className="module-review-meta">{item.count} 条</span>
+                              <span className="module-review-badge">写入</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    <p className="module-review-note">
+                      冲突策略：同名表复用并合并缺失字段；同名视图跳过。安装不会覆盖你已有的行数据。
+                    </p>
+                  </div>
+                )}
+                {message && <p className="mt-3 text-sm text-destructive">{message}</p>}
+              </>
+            )}
+
+            {sceneStep === "done" && sceneResult && (
+              <div className="import-done">
+                <h3>已安装「{sceneResult.title}」</h3>
+                <p>可继续安装其他场景，或去首页 / 数据查看。</p>
+                <div className="import-done-stats">
+                  <div><b>{sceneResult.created?.schemas ?? 0}</b><span>新建表</span></div>
+                  <div><b>{sceneResult.created?.views ?? 0}</b><span>新建视图</span></div>
+                  <div><b>{sceneResult.created?.samples ?? 0}</b><span>示例行</span></div>
+                </div>
+              </div>
+            )}
+          </div>
+          <div className="import-flow-actions">
+            <button
+              type="button"
+              className="h-10 rounded-xl px-3 text-sm text-muted-foreground hover:bg-secondary"
+              onClick={() => {
+                if (sceneStep === "source") resetImport()
+                else if (sceneStep === "preview") {
+                  setSceneStep("source")
+                  setScenePreview(null)
+                  setMessage("")
+                } else {
+                  setSceneStep("source")
+                  setSceneSelected(null)
+                  setScenePreview(null)
+                  setSceneResult(null)
+                  setMessage("")
+                }
+              }}
+            >
+              {sceneStep === "source" ? "返回入口" : sceneStep === "done" ? "再装一个" : "上一步"}
+            </button>
+            <div className="flex gap-2">
+              {sceneStep === "preview" && (
+                <button
+                  type="button"
+                  className="h-10 rounded-xl bg-primary px-5 text-sm font-medium text-primary-foreground disabled:opacity-40"
+                  disabled={busy || !scenePreview || scenePreviewLoading}
+                  onClick={() => void runSceneInstall()}
+                >
+                  {busy ? "安装中…" : "确认安装"}
+                </button>
+              )}
+              {sceneStep === "done" && (
+                <button type="button" className="h-10 rounded-xl bg-primary px-5 text-sm font-medium text-primary-foreground" onClick={onDone}>
+                  去数据里查看
+                </button>
+              )}
+            </div>
+          </div>
+        </section>
       </div>
     )
   }

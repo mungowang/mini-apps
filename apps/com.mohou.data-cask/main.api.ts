@@ -10,6 +10,8 @@ import { flattenViewFields, isTagsPath, labelOf, parseQuery, resolveViewPath, ta
 import { resolveViewIllustration } from "./shared/view-illu.ts"
 // Bundled fallback so empty-state modules work even if runtime modules/ is missing / unreadable
 import qaAccountsBasicPack from "./modules/qa-accounts-basic.caskpack.json" with { type: "json" }
+import webBookmarksBasicPack from "./modules/web-bookmarks-basic.caskpack.json" with { type: "json" }
+import configFlagsBasicPack from "./modules/config-flags-basic.caskpack.json" with { type: "json" }
 
 type Storage = {
   query(sql: string, params?: unknown[]): Promise<Record<string, unknown>[]>
@@ -288,7 +290,11 @@ function isCaskPack(value: unknown): value is CaskPack {
 }
 
 function builtinPacks(): CaskPack[] {
-  const packs = [qaAccountsBasicPack as unknown as CaskPack]
+  const packs = [
+    qaAccountsBasicPack as unknown as CaskPack,
+    webBookmarksBasicPack as unknown as CaskPack,
+    configFlagsBasicPack as unknown as CaskPack,
+  ]
   return packs.filter((pack) => isCaskPack(pack) && pack.schemas.length > 0)
 }
 

@@ -82,7 +82,7 @@ rsync -a --exclude storage --exclude .git --exclude node_modules --exclude .auto
 |---|---|---|
 | `com.mohou.kedu` | 刻度清单 | [`apps/com.mohou.kedu`](./apps/com.mohou.kedu) |
 | `com.mohou.llm-ocr` | AI 识图 | [`apps/com.mohou.llm-ocr`](./apps/com.mohou.llm-ocr) |
-| `com.pwang.data-cask` | 数据手账 | [`apps/com.pwang.data-cask`](./apps/com.pwang.data-cask) |
+| `com.mohou.data-cask` | 数据手账 | [`apps/com.mohou.data-cask`](./apps/com.mohou.data-cask) |
 | `nichi-moss-rust` | Moss Rust / 苔锈 | [`themes/theme-nichi-moss-rust.css`](./themes/theme-nichi-moss-rust.css) |
 | `nichi-reed-field` | Reed Field / 荻原 | [`themes/theme-nichi-reed-field.css`](./themes/theme-nichi-reed-field.css) |
 | `nichi-lamp` | Corner Lamp / 晚灯 · autumn | [`themes/autumn/theme-nichi-lamp.css`](./themes/autumn/theme-nichi-lamp.css) |

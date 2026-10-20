@@ -1,0 +1,257 @@
+{
+  "version": 1,
+  "kind": "caskpack",
+  "moduleId": "web-bookmarks-basic",
+  "name": "网页书签",
+  "title": "网页书签",
+  "description": "分类 · 作用域 · 链接。控制台、文档、内部页一张图找齐。",
+  "recommended": false,
+  "exportedAt": 0,
+  "schemas": [
+    {
+      "name": "分类",
+      "display": "{name}",
+      "fields": [
+        { "key": "name", "type": "string", "label": true, "search": true },
+        { "key": "code", "type": "string", "search": true },
+        { "key": "note", "type": "text" }
+      ]
+    },
+    {
+      "name": "作用域",
+      "display": "{code}",
+      "fields": [
+        { "key": "name", "type": "string", "label": true, "search": true },
+        { "key": "code", "type": "string", "search": true },
+        { "key": "note", "type": "text" }
+      ]
+    },
+    {
+      "name": "书签",
+      "display": "{title}",
+      "fields": [
+        { "key": "title", "type": "string", "label": true, "search": true },
+        { "key": "url", "type": "url", "search": true },
+        { "key": "category", "type": "ref", "schemaName": "分类", "search": true },
+        { "key": "scope", "type": "ref", "schemaName": "作用域", "search": true },
+        { "key": "owner", "type": "string", "search": true },
+        { "key": "secretNote", "type": "secret" },
+        { "key": "note", "type": "text" }
+      ]
+    }
+  ],
+  "views": [
+    {
+      "name": "书签一览",
+      "description": "全部入口。按分类 / 作用域 / 标签筛选后复制链接。",
+      "illustration": "collection",
+      "schemaName": "书签",
+      "allowWrite": true,
+      "columns": [
+        { "key": "category.name", "as": "分类", "show": true, "search": true, "sort": true, "enum": true },
+        { "key": "scope.code", "as": "作用域", "show": true, "search": true, "sort": true, "enum": true },
+        { "key": "title", "as": "标题", "show": true, "search": true, "sort": true },
+        { "key": "$tags", "as": "标签", "show": true, "search": true, "sort": false, "enum": true },
+        { "key": "url", "as": "链接", "show": true, "search": true, "sort": false, "enum": false },
+        { "key": "owner", "as": "维护人", "show": true, "search": true, "sort": false, "enum": true },
+        { "key": "note", "as": "备注", "show": true, "search": true, "sort": false, "enum": false },
+        { "key": "secretNote", "as": "访问说明", "show": false, "search": false, "sort": false, "enum": false }
+      ],
+      "shortcuts": [
+        {
+          "id": "bm-pin",
+          "name": "钉选",
+          "filters": { "$tags": "pin" },
+          "sorts": [{ "key": "title", "dir": "asc" }]
+        },
+        {
+          "id": "bm-internal",
+          "name": "内部",
+          "filters": { "$tags": "internal" },
+          "sorts": [{ "key": "title", "dir": "asc" }]
+        },
+        {
+          "id": "bm-stg",
+          "name": "STG",
+          "filters": { "scope.code": "STG" },
+          "sorts": [{ "key": "title", "dir": "asc" }]
+        }
+      ]
+    },
+    {
+      "name": "常用钉选",
+      "description": "标签含 pin 的入口。",
+      "illustration": "notes",
+      "schemaName": "书签",
+      "allowWrite": true,
+      "baseFilters": [{ "key": "$tag", "op": "hasTag", "value": "pin" }],
+      "columns": [
+        { "key": "title", "as": "标题", "show": true, "search": true, "sort": true },
+        { "key": "url", "as": "链接", "show": true, "search": true, "sort": false },
+        { "key": "category.name", "as": "分类", "show": true, "search": true, "sort": true, "enum": true },
+        { "key": "scope.code", "as": "作用域", "show": true, "search": true, "sort": true, "enum": true },
+        { "key": "$tags", "as": "标签", "show": true, "search": true, "sort": false, "enum": true }
+      ],
+      "shortcuts": []
+    },
+    {
+      "name": "控制台",
+      "description": "分类 = 控制台。",
+      "illustration": "data",
+      "schemaName": "书签",
+      "allowWrite": true,
+      "baseFilters": [{ "key": "category.code", "op": "eq", "value": "console" }],
+      "columns": [
+        { "key": "title", "as": "标题", "show": true, "search": true, "sort": true },
+        { "key": "url", "as": "链接", "show": true, "search": true, "sort": false },
+        { "key": "scope.code", "as": "作用域", "show": true, "search": true, "sort": true, "enum": true },
+        { "key": "$tags", "as": "标签", "show": true, "search": true, "sort": false, "enum": true },
+        { "key": "note", "as": "备注", "show": true, "search": true, "sort": false }
+      ],
+      "shortcuts": [
+        {
+          "id": "bm-console-stg",
+          "name": "STG",
+          "filters": { "scope.code": "STG" },
+          "sorts": [{ "key": "title", "dir": "asc" }]
+        }
+      ]
+    },
+    {
+      "name": "STG 入口",
+      "description": "作用域 = STG 的链接。",
+      "illustration": "filter",
+      "schemaName": "书签",
+      "allowWrite": true,
+      "baseFilters": [{ "key": "scope.code", "op": "eq", "value": "STG" }],
+      "columns": [
+        { "key": "title", "as": "标题", "show": true, "search": true, "sort": true },
+        { "key": "url", "as": "链接", "show": true, "search": true, "sort": false },
+        { "key": "category.name", "as": "分类", "show": true, "search": true, "sort": true, "enum": true },
+        { "key": "$tags", "as": "标签", "show": true, "search": true, "sort": false, "enum": true }
+      ],
+      "shortcuts": []
+    }
+  ],
+  "samples": [
+    { "schemaName": "分类", "packId": "cat-ops", "data": { "name": "运维", "code": "ops", "note": "监控与基础设施" }, "tags": [] },
+    { "schemaName": "分类", "packId": "cat-docs", "data": { "name": "文档", "code": "docs", "note": "" }, "tags": [] },
+    { "schemaName": "分类", "packId": "cat-console", "data": { "name": "控制台", "code": "console", "note": "业务后台" }, "tags": [] },
+    { "schemaName": "分类", "packId": "cat-design", "data": { "name": "设计", "code": "design", "note": "" }, "tags": [] },
+    { "schemaName": "作用域", "packId": "sc-all", "data": { "name": "通用", "code": "ALL", "note": "不限环境" }, "tags": [] },
+    { "schemaName": "作用域", "packId": "sc-stg", "data": { "name": "Staging", "code": "STG", "note": "" }, "tags": ["stg"] },
+    { "schemaName": "作用域", "packId": "sc-prd", "data": { "name": "Production", "code": "PRD", "note": "" }, "tags": ["prd"] },
+    {
+      "schemaName": "书签",
+      "packId": "bm-grafana",
+      "data": {
+        "title": "Grafana STG",
+        "url": "https://grafana.example.stg/d/home",
+        "category": "cat-ops",
+        "scope": "sc-stg",
+        "owner": "sre",
+        "secretNote": "",
+        "note": "物流看板"
+      },
+      "tags": ["pin", "internal"]
+    },
+    {
+      "schemaName": "书签",
+      "packId": "bm-figma",
+      "data": {
+        "title": "设计主文件",
+        "url": "https://www.figma.com/file/example",
+        "category": "cat-design",
+        "scope": "sc-all",
+        "owner": "design",
+        "secretNote": "",
+        "note": ""
+      },
+      "tags": ["pin"]
+    },
+    {
+      "schemaName": "书签",
+      "packId": "bm-openapi",
+      "data": {
+        "title": "OpenAPI · Logistics",
+        "url": "https://docs.example.com/logistics/openapi",
+        "category": "cat-docs",
+        "scope": "sc-all",
+        "owner": "api",
+        "secretNote": "",
+        "note": ""
+      },
+      "tags": ["internal"]
+    },
+    {
+      "schemaName": "书签",
+      "packId": "bm-admin-stg",
+      "data": {
+        "title": "业务后台 STG",
+        "url": "https://admin.example.stg/",
+        "category": "cat-console",
+        "scope": "sc-stg",
+        "owner": "qa",
+        "secretNote": "需公司 VPN",
+        "note": ""
+      },
+      "tags": ["pin", "internal"]
+    },
+    {
+      "schemaName": "书签",
+      "packId": "bm-admin-prd",
+      "data": {
+        "title": "业务后台 PRD",
+        "url": "https://admin.example.com/",
+        "category": "cat-console",
+        "scope": "sc-prd",
+        "owner": "ops",
+        "secretNote": "",
+        "note": "只读账号见测试账号库"
+      },
+      "tags": ["internal"]
+    },
+    {
+      "schemaName": "书签",
+      "packId": "bm-confluence",
+      "data": {
+        "title": "团队 Confluence",
+        "url": "https://confluence.example.com/display/LOG",
+        "category": "cat-docs",
+        "scope": "sc-all",
+        "owner": "",
+        "secretNote": "",
+        "note": ""
+      },
+      "tags": ["internal"]
+    },
+    {
+      "schemaName": "书签",
+      "packId": "bm-temp",
+      "data": {
+        "title": "活动落地页（临时）",
+        "url": "https://campaign.example.com/spring",
+        "category": "cat-docs",
+        "scope": "sc-all",
+        "owner": "growth",
+        "secretNote": "",
+        "note": "活动结束后可删"
+      },
+      "tags": ["temp", "external"]
+    },
+    {
+      "schemaName": "书签",
+      "packId": "bm-k8s",
+      "data": {
+        "title": "K8s Dashboard STG",
+        "url": "https://k8s.example.stg/",
+        "category": "cat-ops",
+        "scope": "sc-stg",
+        "owner": "sre",
+        "secretNote": "",
+        "note": ""
+      },
+      "tags": ["internal"]
+    }
+  ]
+}
