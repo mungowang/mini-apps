@@ -1258,7 +1258,8 @@ export default function Ui() {
           <div className="h-px bg-border" />
         </header>
 
-        <div ref={scroller} className={"min-h-0 flex-1 overflow-auto" + (!selectMode ? " pb-32" : "")}>
+        <div ref={scroller} data-kedu="scroller" className={"min-h-0 flex-1 overflow-auto" + (!selectMode ? " pb-32" : "")}>
+
           {lens === "once" ? (
             <OnceList onClearFilters={clearFilters} />
           ) : (

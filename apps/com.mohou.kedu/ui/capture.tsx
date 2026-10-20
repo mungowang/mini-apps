@@ -1,9 +1,47 @@
 import * as React from "react";
 import { motion } from "motion/react";
-import { toast } from "@mohou/ui";
+import { Kbd, KbdGroup, toast } from "@mohou/ui";
 
 import { onToday, parseKeduPaste, scheduleOf } from "../shared/model";
 import { useStore } from "./store";
+
+/** Shortcut strip for capture — Kbd keys + short labels. */
+function CaptureHint(props: { compact?: boolean; className?: string }) {
+  const compact = Boolean(props.compact);
+  const kbd = compact ? "h-4 min-w-4 px-1 text-[10px] leading-none" : undefined;
+  return (
+    <div
+      className={
+        "inline-flex flex-wrap items-center gap-x-1.5 gap-y-1 text-muted-foreground " +
+        (compact ? "text-[11px] leading-none" : "text-sm") +
+        (props.className ? " " + props.className : "")
+      }
+    >
+      <span className="inline-flex items-center gap-1">
+        <Kbd className={kbd}>Enter</Kbd>
+        <span>换行</span>
+      </span>
+      <span className="opacity-35" aria-hidden>
+        ·
+      </span>
+      <span className="inline-flex items-center gap-1">
+        <KbdGroup className="gap-0.5">
+          <Kbd className={kbd}>Shift</Kbd>
+          <Kbd className={kbd}>Enter</Kbd>
+        </KbdGroup>
+        <span>添加</span>
+      </span>
+      {!compact ? (
+        <>
+          <span className="opacity-35" aria-hidden>
+            ·
+          </span>
+          <span className="text-muted-foreground/80">例如 整理纪要 @周五 !2 #工作</span>
+        </>
+      ) : null}
+    </div>
+  );
+}
 
 type Kind = "due" | "tag" | "prio";
 type Assist = { kind: Kind; start: number; end: number; query: string };
@@ -114,13 +152,27 @@ export function Capture(props: { inputRef: React.RefObject<HTMLTextAreaElement |
   }
 
   /** Grow/shrink with content. Collapse to 0 first so blur (xl→sm) does not keep a tall box. */
-  function fitHeight(el: HTMLTextAreaElement | null) {
+  function fitHeight(el: HTMLTextAreaElement | null, mode?: "idle" | "active") {
     if (!el) return;
     el.style.overflowY = "hidden";
+    // Idle dock empty: fixed single-line height so the placeholder sits centered in the pill.
+    const idleEmpty =
+      props.dock &&
+      !el.value.trim() &&
+      (mode === "idle" || (mode !== "active" && document.activeElement !== el));
+    if (idleEmpty) {
+      el.style.height = "20px";
+      return;
+    }
     el.style.height = "0px";
     // Force layout so scrollHeight matches the current font metrics.
     void el.offsetHeight;
-    el.style.height = String(el.scrollHeight) + "px";
+    // Focused dock: floor matches min-h-11 so empty placeholder and one-line text share height.
+    // (Inline height alone can undercut min-height on some engines.)
+    const active =
+      mode === "active" || (mode !== "idle" && document.activeElement === el);
+    const floor = props.dock && active ? 44 : 0;
+    el.style.height = String(Math.max(el.scrollHeight, floor)) + "px";
   }
 
   function applyToken(token: string) {
@@ -196,16 +248,17 @@ export function Capture(props: { inputRef: React.RefObject<HTMLTextAreaElement |
   );
   const boxRef = React.useRef<HTMLDivElement>(null);
   const lifted = Boolean(props.dock && focused);
+  // Always bottom-anchored + translateY (avoids top-pin overflow scrollbar jump).
   const [liftY, setLiftY] = React.useState(0);
-  // Focused: one size for placeholder + content (between old sm and 2xl). Empty only keeps a one-line min height.
+  const scrollTopRef = React.useRef(0);
   const empty = !raw.trim();
 
-  function measureLift(extra: number): number {
+  function measureLiftY(): number {
     const el = boxRef.current;
     const parent = el ? (el.offsetParent as HTMLElement | null) : null;
     if (!el || !parent) return 0;
     const parentH = parent.clientHeight;
-    const cardH = el.offsetHeight + extra;
+    const cardH = el.offsetHeight;
     const restingTop = parentH - cardH;
     const minTop = 112;
     let targetTop = Math.round(parentH * 0.4 - cardH / 2);
@@ -215,31 +268,34 @@ export function Capture(props: { inputRef: React.RefObject<HTMLTextAreaElement |
     return Math.min(0, targetTop - restingTop);
   }
 
+  function scrollerEl(): HTMLElement | null {
+    const root = boxRef.current ? (boxRef.current.offsetParent as HTMLElement | null) : null;
+    return root ? (root.querySelector('[data-kedu="scroller"]') as HTMLElement | null) : null;
+  }
+
+  function holdScroller() {
+    const el = scrollerEl();
+    if (el) el.scrollTop = scrollTopRef.current;
+  }
+
+  // Fit textarea height when focus/content changes — no setState here.
   React.useLayoutEffect(
     function () {
-      fitHeight(props.inputRef.current);
-      if (!lifted) {
-        setLiftY(0);
-        return undefined;
-      }
-      function measure() {
-        fitHeight(props.inputRef.current);
-        setLiftY(measureLift(0));
-      }
-      measure();
-      const frame = window.requestAnimationFrame(measure);
-      // Empty big-type still eases font size; one late measure is enough.
-      const late = window.setTimeout(measure, 220);
-      return function () {
-        window.cancelAnimationFrame(frame);
-        window.clearTimeout(late);
-      };
+      fitHeight(props.inputRef.current, focused ? "active" : "idle");
     },
-    [raw, focused, lifted, props.dock, props.inputRef]
+    [focused, raw, props.inputRef]
   );
 
   const field = (
-    <div className={props.dock ? (focused ? "" : "kedu-edge rounded-xl border px-3 py-2") : "contents"}>
+    <div
+      className={
+        props.dock
+          ? focused
+            ? ""
+            : "kedu-edge flex min-h-10 items-center rounded-xl border px-3 py-2"
+          : "contents"
+      }
+    >
       <textarea
         ref={props.inputRef}
         data-kedu="capture"
@@ -250,10 +306,25 @@ export function Capture(props: { inputRef: React.RefObject<HTMLTextAreaElement |
         placeholder={focused && props.dock ? "写下一件要做的事" : "添加一件事，Shift+Enter 添加"}
         aria-label="添加一件事"
         onFocus={function () {
+          const el = scrollerEl();
+          if (el) scrollTopRef.current = el.scrollTop;
+          holdScroller();
           setFocused(true);
+          // Measure lift after the expanded chrome class applies; freeze list scroll during motion.
           window.requestAnimationFrame(function () {
-            fitHeight(props.inputRef.current);
-            if (props.dock) setLiftY(measureLift(0));
+            fitHeight(props.inputRef.current, "active");
+            holdScroller();
+            setLiftY(measureLiftY());
+            holdScroller();
+            window.setTimeout(function () {
+              fitHeight(props.inputRef.current, "active");
+              holdScroller();
+              setLiftY(measureLiftY());
+              holdScroller();
+            }, 300);
+            window.setTimeout(holdScroller, 80);
+            window.setTimeout(holdScroller, 160);
+            window.setTimeout(holdScroller, 400);
           });
         }}
         onBlur={function () {
@@ -261,10 +332,10 @@ export function Capture(props: { inputRef: React.RefObject<HTMLTextAreaElement |
           setLiftY(0);
           // Font-size transition is 200ms; refit after class flips and again when type settles.
           window.requestAnimationFrame(function () {
-            fitHeight(props.inputRef.current);
+            fitHeight(props.inputRef.current, "idle");
           });
           window.setTimeout(function () {
-            fitHeight(props.inputRef.current);
+            fitHeight(props.inputRef.current, "idle");
           }, 220);
         }}
         onChange={function (e) {
@@ -333,8 +404,10 @@ export function Capture(props: { inputRef: React.RefObject<HTMLTextAreaElement |
         className={
           "box-border block w-full max-w-full resize-none overflow-hidden whitespace-pre-wrap break-words bg-transparent text-foreground outline-none transition-[font-size] duration-200 placeholder:text-muted-foreground [field-sizing:content] " +
           (focused
-            ? "py-1 text-xl font-medium leading-snug" + (empty ? " min-h-11" : "")
-            : "py-0.5 text-sm leading-snug" + (empty ? " min-h-8" : ""))
+            ? // Same min height empty or single-line — avoids the card shrinking a few px when typing starts.
+              "min-h-11 py-1 text-xl font-medium leading-snug"
+            : // Idle: py-0 + fixed line box so placeholder is vertically centered in the pill.
+              "py-0 text-sm leading-5" + (empty ? " h-5" : ""))
         }
       />
 
@@ -394,12 +467,11 @@ export function Capture(props: { inputRef: React.RefObject<HTMLTextAreaElement |
         </div>
       ) : null}
 
-      {focused && !raw.trim() ? (
-        <p className={props.dock ? "pt-4 text-sm text-muted-foreground" : "pt-1 text-xs text-muted-foreground"}>
-          {props.dock
-            ? "Enter 换行 · Shift+Enter 添加 · 例如 整理纪要 @周五 !2 #工作"
-            : "Enter 换行 · Shift+Enter 添加 · 例如：整理纪要 @周五 !2 #工作"}
-        </p>
+      {/* Non-dock: keep a single bottom hint while focused + empty. */}
+      {!props.dock && empty && focused ? (
+        <div className="pt-1.5">
+          <CaptureHint />
+        </div>
       ) : null}
     </div>
   );
@@ -425,6 +497,11 @@ export function Capture(props: { inputRef: React.RefObject<HTMLTextAreaElement |
         initial={false}
         animate={props.dock ? { y: lifted ? liftY : 0 } : { y: 0 }}
         transition={reduceMotion ? { duration: 0 } : { duration: 0.72, ease: [0.16, 1, 0.3, 1] }}
+        onPointerDown={function () {
+          // Snapshot before focus/scrollIntoView runs.
+          const el = scrollerEl();
+          if (el) scrollTopRef.current = el.scrollTop;
+        }}
         className={
           props.dock
             ? "kedu-quick-card absolute inset-x-0 bottom-0 z-30 bg-background " +
@@ -433,9 +510,30 @@ export function Capture(props: { inputRef: React.RefObject<HTMLTextAreaElement |
         }
       >
         {props.dock ? (
-          <p className={lifted ? "pb-4 text-[11px] tracking-[0.42em] text-muted-foreground" : "pb-1.5 text-xs text-muted-foreground"}>
-            快记
-          </p>
+          <div className={lifted ? "pb-4" : "pb-1.5"}>
+            <div className="flex h-5 items-center gap-2.5">
+              <p
+                className={
+                  // Slightly larger + medium; flex items-center handles vertical align with Kbd.
+                  "shrink-0 leading-none text-muted-foreground " +
+                  (lifted ? "text-[12px] font-medium tracking-[0.38em]" : "text-xs")
+                }
+              >
+                快记
+              </p>
+              {/* Focused: shortcuts always beside 快记 (same row empty or typing — no jump). */}
+              {lifted ? (
+                <>
+                  <div className="flex h-5 shrink-0 items-center">
+                    <CaptureHint compact />
+                  </div>
+                  <span className="min-w-0 flex-1 truncate text-[11px] leading-none text-muted-foreground/75">
+                    · 例如 整理纪要 @周五 !2 #工作
+                  </span>
+                </>
+              ) : null}
+            </div>
+          </div>
         ) : null}
         {field}
       </motion.div>

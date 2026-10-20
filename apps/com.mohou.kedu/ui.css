@@ -199,7 +199,9 @@
 }
 
 .kedu-quick-card {
+  /* padding eases the expanded chrome; lift uses motion translateY with bottom:0. */
   transition: padding 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+  transform-origin: center bottom;
 }
 
 [data-kedu="quick"][data-active="1"] {
@@ -294,6 +296,13 @@
 
 .kedu-main {
   flex: 1 1 0px;
+  /* Clip the lifting dock so padding expand / translate never spills a host scrollbar. */
+  overflow: hidden;
+}
+
+/* Focus scrollIntoView on the dock must not nudge the list. */
+[data-kedu="scroller"] {
+  overflow-anchor: none;
 }
 
 .kedu-preview {
