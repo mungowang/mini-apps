@@ -1,13 +1,15 @@
 import { Buffer } from "node:buffer"
-import { mkdir, writeFile } from "node:fs/promises"
-import { join } from "node:path"
+import { mkdir, readdir, readFile, writeFile } from "node:fs/promises"
+import { basename, join } from "node:path"
 import { defineApp } from "@mohou/contract"
 import { parseWorkbook } from "./api/parse-file.ts"
 import { runTextParser } from "./api/text-parse.ts"
 import { allRecords, allSchemas, id, mapRecord, mapSchema, nextRecordSort, nextSchemaSort, now, refsTo } from "./api/store.ts"
 import { BUILTIN_TEXT_PARSERS, type TextParserDef } from "./shared/parser-types.ts"
-import { flattenViewFields, labelOf, parseQuery, resolveViewPath, type CaskPack, type CaskPackField, type DataRow, type Field, type SchemaRow, type ViewColumn, type ViewDef, type ViewShortcut } from "./shared/types.ts"
+import { flattenViewFields, labelOf, parseQuery, resolveViewPath, type CaskPack, type CaskPackField, type DataRow, type Field, type ModuleInfo, type SchemaRow, type ViewColumn, type ViewDef, type ViewShortcut } from "./shared/types.ts"
 import { resolveViewIllustration } from "./shared/view-illu.ts"
+// Bundled fallback so empty-state modules work even if runtime modules/ is missing / unreadable
+import qaAccountsBasicPack from "./modules/qa-accounts-basic.caskpack.json" with { type: "json" }
 
 type Storage = {
   query(sql: string, params?: unknown[]): Promise<Record<string, unknown>[]>
@@ -53,6 +55,7 @@ function parseViewColumns(raw: unknown): ViewColumn[] {
     show: !!item?.show,
     search: !!item?.search,
     sort: item?.sort === undefined ? !!item?.show : !!item?.sort,
+    enum: !!item?.search && !!item?.enum,
   })).filter((item) => item.key)
 }
 
@@ -119,6 +122,8 @@ async function ensureTextParsers(storage: Storage) {
   }
 }
 
+const VIEW_SELECT = "id, name, description, illustration, schema_id, columns, shortcuts, allow_write, created_at, updated_at"
+
 function mapView(row: Record<string, unknown>): ViewDef {
   const id = String(row.id)
   return {
@@ -129,6 +134,7 @@ function mapView(row: Record<string, unknown>): ViewDef {
     schemaId: String(row.schema_id),
     columns: parseViewColumns(row.columns),
     shortcuts: parseViewShortcuts(row.shortcuts),
+    allowWrite: Number(row.allow_write ?? 0) === 1,
     createdAt: Number(row.created_at),
     updatedAt: Number(row.updated_at),
   }
@@ -150,6 +156,7 @@ function cleanViewColumns(columns: ViewColumn[], schema: SchemaRow, schemas: Sch
       show: !!item.show,
       search: secret ? false : !!item.search,
       sort: secret ? false : !!item.sort && !!item.show,
+      enum: secret ? false : !!item.search && !!item.enum,
     })
   }
   if (!next.some((item) => item.show)) {
@@ -176,6 +183,329 @@ function labelIndex(schemas: SchemaRow[], records: DataRow[]) {
   return Object.fromEntries(records.map((row) => [row.id, visit(row.id, new Set())]))
 }
 
+function modulesDir(appDir: string) {
+  return join(appDir, "modules")
+}
+
+const BUILTIN_PREFIX = "builtin:"
+
+function isCaskPack(value: unknown): value is CaskPack {
+  if (!value || typeof value !== "object") return false
+  const pack = value as CaskPack
+  return pack.kind === "caskpack" && Number(pack.version) === 1 && Array.isArray(pack.schemas)
+}
+
+function builtinPacks(): CaskPack[] {
+  const packs = [qaAccountsBasicPack as unknown as CaskPack]
+  return packs.filter((pack) => isCaskPack(pack) && pack.schemas.length > 0)
+}
+
+function moduleInfoFromPack(pack: CaskPack, fileName: string, path: string, existingNames: Set<string>): ModuleInfo {
+  const stem = fileName.replace(/\.caskpack\.json$/i, "").replace(/\.json$/i, "")
+  const id = String(pack.moduleId ?? "").trim() || stem
+  const title = String(pack.title ?? pack.name ?? id).trim() || id
+  const description = String(pack.description ?? "").trim()
+  const samples = Array.isArray(pack.samples) ? pack.samples : []
+  const schemaNames = (pack.schemas ?? []).map((item) => String(item.name ?? "").trim()).filter(Boolean)
+  const viewNames = (pack.views ?? []).map((item) => String(item.name ?? "").trim()).filter(Boolean)
+  const installed = schemaNames.length > 0 && schemaNames.every((name) => existingNames.has(name))
+  return {
+    id,
+    title,
+    description,
+    path,
+    fileName,
+    recommended: !!pack.recommended,
+    hasSamples: samples.length > 0,
+    sampleCount: samples.length,
+    schemaNames,
+    viewNames,
+    installed,
+  }
+}
+
+async function readModulePackFile(filePath: string): Promise<CaskPack> {
+  const raw = await readFile(filePath, "utf8")
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(raw)
+  } catch {
+    throw new Error("模块包不是有效 JSON：" + basename(filePath))
+  }
+  if (!isCaskPack(parsed)) throw new Error("不是有效的 caskpack：" + basename(filePath))
+  if (!parsed.schemas.length) throw new Error("包里没有表定义：" + basename(filePath))
+  return parsed
+}
+
+async function resolveModulePack(appDir: string, mod: ModuleInfo): Promise<CaskPack> {
+  if (mod.path.startsWith(BUILTIN_PREFIX)) {
+    const id = mod.path.slice(BUILTIN_PREFIX.length) || mod.id
+    const pack = builtinPacks().find((item) => String(item.moduleId ?? item.name ?? "").trim() === id || id === mod.id)
+    if (!pack) throw new Error("找不到内置模块：" + id)
+    return pack
+  }
+  const root = modulesDir(appDir)
+  const allowed = join(root, mod.fileName)
+  if (mod.path !== allowed && basename(mod.path) !== mod.fileName) {
+    // still allow exact listed path under modules/
+    if (!mod.path.startsWith(root)) throw new Error("只能安装应用 modules 目录或内置模块")
+  }
+  return readModulePackFile(mod.path.startsWith(root) ? mod.path : allowed)
+}
+
+async function listModulePacks(appDir: string, storage: Storage): Promise<{ modules: ModuleInfo[]; debug: Record<string, unknown> }> {
+  const existing = await allSchemas(storage)
+  const existingNames = new Set(existing.map((item) => item.name))
+  const byId = new Map<string, ModuleInfo>()
+
+  // 1) Bundled builtins — always available
+  for (const pack of builtinPacks()) {
+    const id = String(pack.moduleId ?? pack.name ?? "module").trim() || "module"
+    const info = moduleInfoFromPack(pack, id + ".caskpack.json", BUILTIN_PREFIX + id, existingNames)
+    byId.set(info.id, info)
+  }
+
+  // 2) Disk modules/ — add or override by id (drop-in extension)
+  const dir = modulesDir(appDir)
+  let diskError = ""
+  let diskFiles: string[] = []
+  try {
+    diskFiles = await readdir(dir)
+  } catch (err) {
+    diskError = String(err instanceof Error ? err.message : err)
+  }
+  for (const fileName of diskFiles) {
+    if (!fileName.endsWith(".caskpack.json") || fileName.startsWith(".")) continue
+    const filePath = join(dir, fileName)
+    try {
+      const pack = await readModulePackFile(filePath)
+      const info = moduleInfoFromPack(pack, fileName, filePath, existingNames)
+      byId.set(info.id, info)
+    } catch {
+      // skip bad files
+    }
+  }
+
+  const modules = [...byId.values()].sort((a, b) => {
+    if (a.recommended !== b.recommended) return a.recommended ? -1 : 1
+    return a.title.localeCompare(b.title, "zh-CN") || a.id.localeCompare(b.id)
+  })
+  return {
+    modules,
+    debug: {
+      appDir,
+      modulesDir: dir,
+      diskError: diskError || undefined,
+      diskFiles,
+      builtinCount: builtinPacks().length,
+      total: modules.length,
+    },
+  }
+}
+
+async function runImportCaskPack(storage: Storage, pack: CaskPack, conflict: "skip" | "rename") {
+  if (!pack || pack.kind !== "caskpack" || pack.version !== 1) throw new Error("不是有效的 caskpack")
+  if (!Array.isArray(pack.schemas) || !pack.schemas.length) throw new Error("包里没有表定义")
+  const existing = await allSchemas(storage)
+  const nameTaken = new Set(existing.map((item) => item.name))
+  const createdSchemas: { name: string; id: string; skipped: boolean }[] = []
+  const nameToId: Record<string, string> = Object.fromEntries(existing.map((item) => [item.name, item.id]))
+  const stamp = now()
+
+  const pendingFields: { schemaId: string; fields: CaskPackField[]; display?: string; mergeOnly?: boolean }[] = []
+  for (const item of pack.schemas) {
+    const baseName = String(item.name ?? "").trim()
+    if (!baseName) continue
+    let name = baseName
+    if (nameTaken.has(name)) {
+      if (conflict === "skip") {
+        const existingId = nameToId[name]
+        createdSchemas.push({ name: baseName, id: existingId, skipped: true })
+        // Still merge missing fields / refresh display from pack onto the reused table
+        pendingFields.push({ schemaId: existingId, fields: item.fields ?? [], display: item.display, mergeOnly: true })
+        continue
+      }
+      let n = 2
+      while (nameTaken.has(name + " " + n)) n++
+      name = name + " " + n
+    }
+    const schemaId = id("s")
+    const bare = (item.fields ?? []).map((field) => {
+      const f: Field = { key: String(field.key ?? "").trim(), type: field.type }
+      if (!f.key) throw new Error("包内字段名无效")
+      if (field.type === "ref") f.type = "string"
+      if (field.label) f.label = true
+      if (field.search && f.type !== "secret") f.search = true
+      return f
+    }).filter((field) => field.key)
+    if (!bare.length) throw new Error("表 " + baseName + " 没有字段")
+    if (!bare.some((field) => field.label)) bare[0].label = true
+    const sortOrder = await nextSchemaSort(storage)
+    await storage.run(
+      "INSERT INTO schemas (id, name, fields, display, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      [schemaId, name, JSON.stringify(bare), "", sortOrder, stamp, stamp],
+    )
+    nameTaken.add(name)
+    nameToId[baseName] = schemaId
+    nameToId[name] = schemaId
+    createdSchemas.push({ name, id: schemaId, skipped: false })
+    pendingFields.push({ schemaId, fields: item.fields ?? [], display: item.display })
+  }
+
+  for (const pending of pendingFields) {
+    const packFields: Field[] = []
+    const keys = new Set<string>()
+    for (const field of pending.fields) {
+      const key = String(field.key ?? "").trim()
+      if (!key || keys.has(key)) continue
+      keys.add(key)
+      const next: Field = { key, type: field.type }
+      if (field.type === "ref") {
+        const targetName = String(field.schemaName ?? "").trim()
+        const targetId = nameToId[targetName]
+        if (!targetId || targetId === pending.schemaId) {
+          next.type = "string"
+        } else {
+          next.schema = targetId
+        }
+      }
+      if (field.label) next.label = true
+      if (field.search && next.type !== "secret") next.search = true
+      packFields.push(next)
+    }
+    if (!packFields.length) continue
+    let fields = packFields
+    let display = String(pending.display ?? "").trim()
+    if (pending.mergeOnly) {
+      const live = (await allSchemas(storage)).find((item) => item.id === pending.schemaId)
+      if (!live) continue
+      const have = new Set(live.fields.map((item) => item.key))
+      const merged = live.fields.slice()
+      for (const field of packFields) {
+        if (have.has(field.key)) continue
+        merged.push(field)
+        have.add(field.key)
+      }
+      fields = merged
+      if (!fields.some((field) => field.label) && fields[0]) fields[0].label = true
+      // Keep existing display if pack omits one; otherwise prefer pack display for nested templates
+      display = display || String(live.display ?? "").trim()
+    } else {
+      if (!fields.some((field) => field.label)) fields[0].label = true
+    }
+    await storage.run("UPDATE schemas SET fields = ?, display = ?, updated_at = ? WHERE id = ?", [JSON.stringify(fields), display, stamp, pending.schemaId])
+  }
+
+  const createdViews: { name: string; id: string; skipped: boolean }[] = []
+  for (const view of pack.views ?? []) {
+    const viewName = String(view.name ?? "").trim()
+    const schemaName = String(view.schemaName ?? "").trim()
+    const schemaId = nameToId[schemaName]
+    if (!viewName || !schemaId) continue
+    const exists = (await storage.query("SELECT id FROM views WHERE name = ? AND schema_id = ?", [viewName, schemaId]))[0]
+    if (exists) {
+      if (conflict === "skip") {
+        createdViews.push({ name: viewName, id: String(exists.id), skipped: true })
+        continue
+      }
+    }
+    let finalName = viewName
+    if (exists && conflict === "rename") {
+      let n = 2
+      while ((await storage.query("SELECT id FROM views WHERE name = ? AND schema_id = ?", [viewName + " " + n, schemaId]))[0]) n++
+      finalName = viewName + " " + n
+    }
+    const schemasNow = await allSchemas(storage)
+    const schema = schemasNow.find((item) => item.id === schemaId)
+    if (!schema) continue
+    let columns: ViewColumn[] = []
+    try {
+      columns = cleanViewColumns(view.columns ?? [], schema, schemasNow)
+    } catch {
+      columns = schema.fields.filter((field) => field.type !== "secret").slice(0, 6).map((field) => ({
+        key: field.key, as: "", show: true, search: true, sort: true,
+      }))
+    }
+    if (!columns.some((item) => item.show)) continue
+    const viewId = id("v")
+    const illustration = resolveViewIllustration(String(view.illustration ?? ""), viewId)
+    const shortcuts = parseViewShortcuts(view.shortcuts ?? []).map((item) => ({
+      id: id("s"),
+      name: item.name,
+      filters: item.filters,
+      sorts: item.sorts ?? [],
+    }))
+    await storage.run(
+      "INSERT INTO views (id, name, description, illustration, schema_id, columns, shortcuts, allow_write, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      [viewId, finalName, String(view.description ?? "").trim(), illustration, schemaId, JSON.stringify(columns), JSON.stringify(shortcuts), 0, stamp, stamp],
+    )
+    createdViews.push({ name: finalName, id: viewId, skipped: false })
+  }
+
+  let sampleCount = 0
+  const packIdToNewId: Record<string, string> = {}
+  const pendingSamples: { newId: string; schemaId: string; data: Record<string, string>; tags: string[]; schema: SchemaRow }[] = []
+  const schemasNow = await allSchemas(storage)
+  const schemaById = Object.fromEntries(schemasNow.map((item) => [item.id, item]))
+  for (const sample of pack.samples ?? []) {
+    const schemaId = nameToId[String(sample.schemaName ?? "").trim()]
+    if (!schemaId) continue
+    const schema = schemaById[schemaId]
+    if (!schema) continue
+    const packId = String(sample.packId ?? "").trim() || id("pack")
+    const newId = id("r")
+    packIdToNewId[packId] = newId
+    const raw = sample.data && typeof sample.data === "object" ? { ...sample.data } : {}
+    const data: Record<string, string> = {}
+    for (const field of schema.fields) {
+      if (field.type === "ref") data[field.key] = ""
+      else data[field.key] = String(raw[field.key] ?? "")
+    }
+    const tags = Array.isArray(sample.tags) ? sample.tags.map(String) : []
+    const sortOrder = await nextRecordSort(storage, schemaId)
+    await storage.run(
+      "INSERT INTO records (id, schema_id, data, tags, opened_at, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, 0, ?, ?, ?)",
+      [newId, schemaId, JSON.stringify(data), JSON.stringify(tags), sortOrder, stamp, stamp],
+    )
+    pendingSamples.push({ newId, schemaId, data: raw, tags, schema })
+    sampleCount++
+  }
+  for (const item of pendingSamples) {
+    let changed = false
+    const data: Record<string, string> = {}
+    for (const field of item.schema.fields) {
+      if (field.type === "ref") {
+        const packRef = String(item.data[field.key] ?? "").trim()
+        const mapped = packRef ? packIdToNewId[packRef] ?? "" : ""
+        data[field.key] = mapped
+        if (mapped) changed = true
+      } else {
+        data[field.key] = String(item.data[field.key] ?? "")
+      }
+    }
+    if (changed) {
+      await storage.run("UPDATE records SET data = ?, updated_at = ? WHERE id = ?", [JSON.stringify(data), stamp, item.newId])
+    }
+  }
+
+  const primaryView = createdViews.find((item) => !item.skipped) ?? createdViews[0]
+  return {
+    schemas: createdSchemas,
+    views: createdViews,
+    samples: sampleCount,
+    primaryViewId: primaryView?.id ?? "",
+    created: {
+      schemas: createdSchemas.filter((item) => !item.skipped).length,
+      views: createdViews.filter((item) => !item.skipped).length,
+      samples: sampleCount,
+    },
+    skipped: {
+      schemas: createdSchemas.filter((item) => item.skipped).length,
+      views: createdViews.filter((item) => item.skipped).length,
+    },
+  }
+}
+
 export default defineApp({
   name: "数据手账",
   description: "本地的表和行。建表、查阅、从 CSV 或 Excel 导入。",
@@ -188,7 +518,7 @@ export default defineApp({
       const labels = labelIndex(schemas, records)
       const saved = await ctx.storage.query("SELECT id, name, q, created_at FROM saved_queries ORDER BY created_at DESC")
       const history = await ctx.storage.query("SELECT id, q, used_at FROM query_history ORDER BY used_at DESC LIMIT 20")
-      const views = (await ctx.storage.query("SELECT id, name, description, illustration, schema_id, columns, shortcuts, created_at, updated_at FROM views ORDER BY created_at DESC")).map(mapView)
+      const views = (await ctx.storage.query("SELECT " + VIEW_SELECT + " FROM views ORDER BY created_at DESC")).map(mapView)
       return {
         schemas,
         counts: Object.fromEntries(schemas.map((schema) => [schema.id, records.filter((row) => row.schemaId === schema.id).length])),
@@ -202,10 +532,11 @@ export default defineApp({
       }
     },
 
-    async saveView(ctx, args?: { id?: string; name?: string; description?: string; illustration?: string; schemaId?: string; columns?: ViewColumn[] }) {
+    async saveView(ctx, args?: { id?: string; name?: string; description?: string; illustration?: string; schemaId?: string; columns?: ViewColumn[]; allowWrite?: boolean }) {
       const name = String(args?.name ?? "").trim()
       const description = String(args?.description ?? "").trim()
       const schemaId = String(args?.schemaId ?? "")
+      const allowWrite = args?.allowWrite === true ? 1 : 0
       if (!name) throw new Error("视图名不能为空")
       const schemas = await allSchemas(ctx.storage)
       const schema = schemas.find((item) => item.id === schemaId)
@@ -216,12 +547,12 @@ export default defineApp({
       const existing = args?.id ? (await ctx.storage.query("SELECT id FROM views WHERE id = ?", [args.id]))[0] : undefined
       if (existing) {
         const illustration = resolveViewIllustration(String(args?.illustration ?? ""), String(existing.id))
-        await ctx.storage.run("UPDATE views SET name = ?, description = ?, illustration = ?, schema_id = ?, columns = ?, updated_at = ? WHERE id = ?", [name, description, illustration, schemaId, JSON.stringify(columns), stamp, existing.id])
+        await ctx.storage.run("UPDATE views SET name = ?, description = ?, illustration = ?, schema_id = ?, columns = ?, allow_write = ?, updated_at = ? WHERE id = ?", [name, description, illustration, schemaId, JSON.stringify(columns), allowWrite, stamp, existing.id])
         return { id: String(existing.id) }
       }
       const viewId = id("v")
       const illustration = resolveViewIllustration(String(args?.illustration ?? ""), viewId)
-      await ctx.storage.run("INSERT INTO views (id, name, description, illustration, schema_id, columns, shortcuts, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", [viewId, name, description, illustration, schemaId, JSON.stringify(columns), "[]", stamp, stamp])
+      await ctx.storage.run("INSERT INTO views (id, name, description, illustration, schema_id, columns, shortcuts, allow_write, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", [viewId, name, description, illustration, schemaId, JSON.stringify(columns), "[]", allowWrite, stamp, stamp])
       return { id: viewId }
     },
 
@@ -263,12 +594,16 @@ export default defineApp({
     async deleteView(ctx, args?: { id?: string }) {
       const viewId = String(args?.id ?? "")
       await ctx.storage.run("DELETE FROM views WHERE id = ?", [viewId])
+      const kv = ctx.storage.kv()
+      const pinned = String((await kv.get("settings.defaultViewId")) ?? "")
+      // Deleted pin → fall back to first view (empty setting)
+      if (pinned && pinned === viewId) await kv.delete("settings.defaultViewId")
       return { ok: true }
     },
 
     async viewRows(ctx, args?: { viewId?: string; filters?: Record<string, string> }) {
       const viewId = String(args?.viewId ?? "")
-      const row = (await ctx.storage.query("SELECT id, name, description, illustration, schema_id, columns, shortcuts, created_at, updated_at FROM views WHERE id = ?", [viewId]))[0]
+      const row = (await ctx.storage.query("SELECT " + VIEW_SELECT + " FROM views WHERE id = ?", [viewId]))[0]
       if (!row) throw new Error("找不到这个视图")
       const view = mapView(row)
       const { schemas, records } = await load(ctx.storage)
@@ -291,13 +626,27 @@ export default defineApp({
           return hay.toLowerCase().includes(needle)
         })
       })
+      const baseRows = records.filter((item) => item.schemaId === view.schemaId)
       return {
         view,
         schema,
         headers: shown.map((item) => ({ key: item.key, label: item.as || item.key })),
         filters: searchable.map((item) => {
           const field = byPath.get(item.key)
-          return { key: item.key, label: item.as || item.key, type: field?.type ?? "string", schema: field?.schema }
+          const options = item.enum
+            ? [...new Set(baseRows.map((row) => {
+                const resolved = resolveViewPath(row, item.key, schemas, records, labels)
+                return String(resolved.text || resolved.copy || "").trim()
+              }).filter(Boolean))].sort((a, b) => a.localeCompare(b, "zh-CN"))
+            : undefined
+          return {
+            key: item.key,
+            label: item.as || item.key,
+            type: field?.type ?? "string",
+            schema: field?.schema,
+            enum: !!item.enum,
+            options,
+          }
         }),
         rows: matched.map((item) => ({
           id: item.id,
@@ -391,7 +740,7 @@ export default defineApp({
       const row = records.find((item) => item.id === recordId)
       if (!row) throw new Error("找不到这行")
       const labels = labelIndex(schemas, records)
-      return { row, hits: refsTo(records, schemas, recordId, (ref) => labels[ref]), schemas }
+      return { row, hits: refsTo(records, schemas, recordId, labels), schemas }
     },
 
     async saveSchema(ctx, args?: { id?: string; name?: string; fields?: Field[]; display?: string; renames?: { from: string; to: string }[] }) {
@@ -452,10 +801,18 @@ export default defineApp({
       if (records.some((row) => row.schemaId === schemaId && refsTo(records, schemas, row.id).length)) {
         throw new Error("里面还有被引用的行，先处理那些引用")
       }
+      const doomedViews = (await ctx.storage.query("SELECT id FROM views WHERE schema_id = ?", [schemaId])).map((row) => String(row.id))
       await ctx.storage.transaction(async (tx) => {
+        await tx.run("DELETE FROM views WHERE schema_id = ?", [schemaId])
         await tx.run("DELETE FROM records WHERE schema_id = ?", [schemaId])
         await tx.run("DELETE FROM schemas WHERE id = ?", [schemaId])
       })
+      const kv = ctx.storage.kv()
+      const pinnedSchema = String((await kv.get("settings.defaultSchemaId")) ?? "all")
+      const pinnedView = String((await kv.get("settings.defaultViewId")) ?? "")
+      // Deleted pin → All tables / first view
+      if (pinnedSchema === schemaId) await kv.set("settings.defaultSchemaId", "all")
+      if (pinnedView && doomedViews.includes(pinnedView)) await kv.delete("settings.defaultViewId")
       return { ok: true }
     },
 
@@ -723,7 +1080,7 @@ export default defineApp({
     }) {
       const schemas = await allSchemas(ctx.storage)
       const records = await allRecords(ctx.storage)
-      const views = (await ctx.storage.query("SELECT id, name, description, illustration, schema_id, columns, shortcuts, created_at, updated_at FROM views ORDER BY created_at DESC")).map(mapView)
+      const views = (await ctx.storage.query("SELECT " + VIEW_SELECT + " FROM views ORDER BY created_at DESC")).map(mapView)
       const byId = Object.fromEntries(schemas.map((item) => [item.id, item]))
 
       // Resolve schema selection + ref dependencies (closure)
@@ -923,19 +1280,35 @@ export default defineApp({
     async getSettings(ctx) {
       const kv = ctx.storage.kv()
       const startupNav = String((await kv.get("settings.startupNav")) ?? "home")
+      let defaultSchemaId = String((await kv.get("settings.defaultSchemaId")) ?? "all") || "all"
+      let defaultViewId = String((await kv.get("settings.defaultViewId")) ?? "")
       const backupDir = String((await kv.get("settings.backupDir")) ?? "")
       const lastBackupPath = String((await kv.get("settings.lastBackupPath")) ?? "")
       const lastBackupAt = Number((await kv.get("settings.lastBackupAt")) ?? 0) || 0
       const allowed = new Set(["home", "data", "views", "import", "settings"])
+      const schemas = await allSchemas(ctx.storage)
+      const viewRows = await ctx.storage.query("SELECT id FROM views ORDER BY created_at DESC")
+      // Heal stale pins: missing table → All; missing view → first view (empty = auto)
+      if (defaultSchemaId !== "all" && !schemas.some((item) => item.id === defaultSchemaId)) {
+        defaultSchemaId = "all"
+        await kv.set("settings.defaultSchemaId", "all")
+      }
+      if (defaultViewId && !viewRows.some((row) => String(row.id) === defaultViewId)) {
+        defaultViewId = ""
+        await kv.delete("settings.defaultViewId")
+      }
       return {
         startupNav: allowed.has(startupNav) ? startupNav : "home",
+        defaultSchemaId,
+        defaultViewId,
         backupDir,
         lastBackupPath,
         lastBackupAt,
+        rowActionPins: String((await kv.get("settings.rowActionPins")) ?? "edit,copy"),
       }
     },
 
-    async saveSettings(ctx, args?: { startupNav?: string; backupDir?: string | null }) {
+    async saveSettings(ctx, args?: { startupNav?: string; defaultSchemaId?: string; defaultViewId?: string | null; backupDir?: string | null; rowActionPins?: string }) {
       const kv = ctx.storage.kv()
       if (args?.startupNav != null) {
         const nav = String(args.startupNav)
@@ -943,14 +1316,41 @@ export default defineApp({
         if (!allowed.has(nav)) throw new Error("不支持的启动页")
         await kv.set("settings.startupNav", nav)
       }
+      if (args?.defaultSchemaId != null) {
+        const sid = String(args.defaultSchemaId).trim() || "all"
+        if (sid !== "all") {
+          const schemas = await allSchemas(ctx.storage)
+          if (!schemas.some((item) => item.id === sid)) throw new Error("找不到这张表")
+        }
+        await kv.set("settings.defaultSchemaId", sid)
+      }
+      if (args && Object.prototype.hasOwnProperty.call(args, "defaultViewId")) {
+        const vid = args.defaultViewId == null ? "" : String(args.defaultViewId).trim()
+        if (vid) {
+          const row = (await ctx.storage.query("SELECT id FROM views WHERE id = ?", [vid]))[0]
+          if (!row) throw new Error("找不到这个视图")
+        }
+        if (vid) await kv.set("settings.defaultViewId", vid)
+        else await kv.delete("settings.defaultViewId")
+      }
       if (args && Object.prototype.hasOwnProperty.call(args, "backupDir")) {
         const dir = args.backupDir == null ? "" : String(args.backupDir).trim()
         if (dir) await kv.set("settings.backupDir", dir)
         else await kv.delete("settings.backupDir")
       }
+      if (args?.rowActionPins != null) {
+        const allowed = new Set(["edit", "clone", "delete", "copy", "open"])
+        const parts = String(args.rowActionPins).split(",").map((item) => item.trim())
+        const left = allowed.has(parts[0] ?? "") ? parts[0] : "edit"
+        let right = allowed.has(parts[1] ?? "") ? parts[1] : "copy"
+        if (right === left) right = left === "copy" ? "open" : "copy"
+        await kv.set("settings.rowActionPins", left + "," + right)
+      }
       const startupNav = String((await kv.get("settings.startupNav")) ?? "home")
+      const defaultSchemaId = String((await kv.get("settings.defaultSchemaId")) ?? "all")
+      const defaultViewId = String((await kv.get("settings.defaultViewId")) ?? "")
       const backupDir = String((await kv.get("settings.backupDir")) ?? "")
-      return { startupNav, backupDir }
+      return { startupNav, defaultSchemaId, defaultViewId, backupDir }
     },
 
     async pickBackupDirectory(ctx) {
@@ -968,7 +1368,7 @@ export default defineApp({
       if (!backupDir) throw new Error("请先选择备份目录")
       const schemas = await allSchemas(ctx.storage)
       const records = await allRecords(ctx.storage)
-      const viewRows = (await ctx.storage.query("SELECT id, name, description, illustration, schema_id, columns, shortcuts, created_at, updated_at FROM views ORDER BY created_at DESC")).map(mapView)
+      const viewRows = (await ctx.storage.query("SELECT " + VIEW_SELECT + " FROM views ORDER BY created_at DESC")).map(mapView)
       const idToName = Object.fromEntries(schemas.map((item) => [item.id, item.name]))
       const packName = String(args?.name ?? "").trim() || "数据手账备份"
       const packSchemas = schemas.map((schema) => ({
@@ -1045,193 +1445,36 @@ export default defineApp({
       return { ok: true }
     },
 
-    async importCaskPack(ctx, args?: { pack?: CaskPack; conflict?: "skip" | "rename" }) {
-      const pack = args?.pack
-      if (!pack || pack.kind !== "caskpack" || pack.version !== 1) throw new Error("不是有效的 caskpack")
-      if (!Array.isArray(pack.schemas) || !pack.schemas.length) throw new Error("包里没有表定义")
+    async listModules(ctx) {
+      return listModulePacks(ctx.appDir, ctx.storage)
+    },
+
+    async installModule(ctx, args?: { id?: string; path?: string; includeSamples?: boolean; conflict?: "skip" | "rename" }) {
+      const { modules } = await listModulePacks(ctx.appDir, ctx.storage)
+      const wantId = String(args?.id ?? "").trim()
+      const wantPath = String(args?.path ?? "").trim()
+      const mod = modules.find((item) => (wantPath && item.path === wantPath) || (wantId && item.id === wantId))
+      if (!mod) throw new Error(wantId || wantPath ? "找不到该模块" : "请指定模块 id")
+      const pack = await resolveModulePack(ctx.appDir, mod)
+      const includeSamples = !!args?.includeSamples && Array.isArray(pack.samples) && pack.samples.length > 0
+      const toImport: CaskPack = {
+        ...pack,
+        samples: includeSamples ? pack.samples : [],
+      }
       const conflict = args?.conflict === "rename" ? "rename" : "skip"
-      const existing = await allSchemas(ctx.storage)
-      const nameTaken = new Set(existing.map((item) => item.name))
-      const createdSchemas: { name: string; id: string; skipped: boolean }[] = []
-      const nameToId: Record<string, string> = Object.fromEntries(existing.map((item) => [item.name, item.id]))
-      const stamp = now()
-
-      // First pass: create tables (order as in pack; refs may point forward — resolve after all exist)
-      const pendingFields: { schemaId: string; fields: CaskPackField[]; display?: string }[] = []
-      for (const item of pack.schemas) {
-        const baseName = String(item.name ?? "").trim()
-        if (!baseName) continue
-        let name = baseName
-        if (nameTaken.has(name)) {
-          if (conflict === "skip") {
-            createdSchemas.push({ name: baseName, id: nameToId[name], skipped: true })
-            continue
-          }
-          let n = 2
-          while (nameTaken.has(name + " " + n)) n++
-          name = name + " " + n
-        }
-        const schemaId = id("s")
-        // temporary fields without refs; fix in second pass
-        const bare = (item.fields ?? []).map((field) => {
-          const f: Field = { key: String(field.key ?? "").trim(), type: field.type }
-          if (!f.key) throw new Error("包内字段名无效")
-          if (field.type === "ref") f.type = "string" // placeholder until refs resolve
-          if (field.label) f.label = true
-          if (field.search && f.type !== "secret") f.search = true
-          return f
-        }).filter((field) => field.key)
-        if (!bare.length) throw new Error("表 " + baseName + " 没有字段")
-        if (!bare.some((field) => field.label)) bare[0].label = true
-        const sortOrder = await nextSchemaSort(ctx.storage)
-        await ctx.storage.run(
-          "INSERT INTO schemas (id, name, fields, display, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-          [schemaId, name, JSON.stringify(bare), "", sortOrder, stamp, stamp],
-        )
-        nameTaken.add(name)
-        nameToId[baseName] = schemaId // original pack name maps to new id for views/samples
-        nameToId[name] = schemaId
-        createdSchemas.push({ name, id: schemaId, skipped: false })
-        pendingFields.push({ schemaId, fields: item.fields ?? [], display: item.display })
-      }
-
-      // Second pass: apply real fields with ref → id
-      for (const pending of pendingFields) {
-        const fields: Field[] = []
-        const keys = new Set<string>()
-        for (const field of pending.fields) {
-          const key = String(field.key ?? "").trim()
-          if (!key || keys.has(key)) continue
-          keys.add(key)
-          const next: Field = { key, type: field.type }
-          if (field.type === "ref") {
-            const targetName = String(field.schemaName ?? "").trim()
-            const targetId = nameToId[targetName]
-            if (!targetId || targetId === pending.schemaId) {
-              // drop broken ref → string so import still works
-              next.type = "string"
-            } else {
-              next.schema = targetId
-            }
-          }
-          if (field.label) next.label = true
-          if (field.search && next.type !== "secret") next.search = true
-          fields.push(next)
-        }
-        if (!fields.length) continue
-        if (!fields.some((field) => field.label)) fields[0].label = true
-        const display = fields.filter((field) => field.label).length > 1 ? String(pending.display ?? "").trim() : ""
-        await ctx.storage.run("UPDATE schemas SET fields = ?, display = ?, updated_at = ? WHERE id = ?", [JSON.stringify(fields), display, stamp, pending.schemaId])
-      }
-
-      const createdViews: { name: string; id: string; skipped: boolean }[] = []
-      for (const view of pack.views ?? []) {
-        const viewName = String(view.name ?? "").trim()
-        const schemaName = String(view.schemaName ?? "").trim()
-        const schemaId = nameToId[schemaName]
-        if (!viewName || !schemaId) continue
-        const exists = (await ctx.storage.query("SELECT id FROM views WHERE name = ? AND schema_id = ?", [viewName, schemaId]))[0]
-        if (exists) {
-          if (conflict === "skip") {
-            createdViews.push({ name: viewName, id: String(exists.id), skipped: true })
-            continue
-          }
-        }
-        let finalName = viewName
-        if (exists && conflict === "rename") {
-          let n = 2
-          while ((await ctx.storage.query("SELECT id FROM views WHERE name = ? AND schema_id = ?", [viewName + " " + n, schemaId]))[0]) n++
-          finalName = viewName + " " + n
-        }
-        const schemasNow = await allSchemas(ctx.storage)
-        const schema = schemasNow.find((item) => item.id === schemaId)
-        if (!schema) continue
-        let columns: ViewColumn[] = []
-        try {
-          columns = cleanViewColumns(view.columns ?? [], schema, schemasNow)
-        } catch {
-          columns = schema.fields.filter((field) => field.type !== "secret").slice(0, 6).map((field) => ({
-            key: field.key, as: "", show: true, search: true, sort: true,
-          }))
-        }
-        if (!columns.some((item) => item.show)) continue
-        const viewId = id("v")
-        const illustration = resolveViewIllustration(String(view.illustration ?? ""), viewId)
-        const shortcuts = parseViewShortcuts(view.shortcuts ?? []).map((item) => ({
-          id: id("s"),
-          name: item.name,
-          filters: item.filters,
-          sorts: item.sorts ?? [],
-        }))
-        await ctx.storage.run(
-          "INSERT INTO views (id, name, description, illustration, schema_id, columns, shortcuts, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-          [viewId, finalName, String(view.description ?? "").trim(), illustration, schemaId, JSON.stringify(columns), JSON.stringify(shortcuts), stamp, stamp],
-        )
-        createdViews.push({ name: finalName, id: viewId, skipped: false })
-      }
-
-      let sampleCount = 0
-      const packIdToNewId: Record<string, string> = {}
-      const pendingSamples: { newId: string; schemaId: string; data: Record<string, string>; tags: string[]; schema: SchemaRow }[] = []
-      const schemasNow = await allSchemas(ctx.storage)
-      const schemaById = Object.fromEntries(schemasNow.map((item) => [item.id, item]))
-      // Pass 1: insert rows with blank refs, remember packId → newId
-      for (const sample of pack.samples ?? []) {
-        const schemaId = nameToId[String(sample.schemaName ?? "").trim()]
-        if (!schemaId) continue
-        const schema = schemaById[schemaId]
-        if (!schema) continue
-        const packId = String(sample.packId ?? "").trim() || id("pack")
-        const newId = id("r")
-        packIdToNewId[packId] = newId
-        const raw = sample.data && typeof sample.data === "object" ? { ...sample.data } : {}
-        const data: Record<string, string> = {}
-        for (const field of schema.fields) {
-          if (field.type === "ref") data[field.key] = ""
-          else data[field.key] = String(raw[field.key] ?? "")
-        }
-        const tags = Array.isArray(sample.tags) ? sample.tags.map(String) : []
-        const sortOrder = await nextRecordSort(ctx.storage, schemaId)
-        await ctx.storage.run(
-          "INSERT INTO records (id, schema_id, data, tags, opened_at, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, 0, ?, ?, ?)",
-          [newId, schemaId, JSON.stringify(data), JSON.stringify(tags), sortOrder, stamp, stamp],
-        )
-        pendingSamples.push({ newId, schemaId, data: raw, tags, schema })
-        sampleCount++
-      }
-      // Pass 2: remap refs from packId → new local ids
-      for (const item of pendingSamples) {
-        let changed = false
-        const data: Record<string, string> = {}
-        for (const field of item.schema.fields) {
-          if (field.type === "ref") {
-            const packRef = String(item.data[field.key] ?? "").trim()
-            const mapped = packRef ? packIdToNewId[packRef] ?? "" : ""
-            data[field.key] = mapped
-            if (mapped) changed = true
-          } else {
-            data[field.key] = String(item.data[field.key] ?? "")
-          }
-        }
-        if (changed) {
-          await ctx.storage.run("UPDATE records SET data = ?, updated_at = ? WHERE id = ?", [JSON.stringify(data), stamp, item.newId])
-        }
-      }
-
+      const result = await runImportCaskPack(ctx.storage, toImport, conflict)
       return {
-        schemas: createdSchemas,
-        views: createdViews,
-        samples: sampleCount,
-        created: {
-          schemas: createdSchemas.filter((item) => !item.skipped).length,
-          views: createdViews.filter((item) => !item.skipped).length,
-          samples: sampleCount,
-        },
-        skipped: {
-          schemas: createdSchemas.filter((item) => item.skipped).length,
-          views: createdViews.filter((item) => item.skipped).length,
-        },
+        ...result,
+        moduleId: mod.id,
+        title: mod.title,
+        includeSamples,
       }
     },
+
+    async importCaskPack(ctx, args?: { pack?: CaskPack; conflict?: "skip" | "rename" }) {
+      const conflict = args?.conflict === "rename" ? "rename" : "skip"
+      return runImportCaskPack(ctx.storage, args?.pack as CaskPack, conflict)
+    },
+
   },
 })

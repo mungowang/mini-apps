@@ -1,0 +1,284 @@
+{
+  "version": 1,
+  "kind": "caskpack",
+  "moduleId": "qa-accounts-basic",
+  "name": "测试账号",
+  "title": "测试账号",
+  "description": "环境 · 系统 · 租户 · 角色 · 账号。多租户业务系统 + 第三方服务账号。",
+  "recommended": true,
+  "exportedAt": 0,
+  "schemas": [
+    {
+      "name": "环境",
+      "display": "{code}",
+      "fields": [
+        { "key": "name", "type": "string", "label": true, "search": true },
+        { "key": "code", "type": "string", "search": true },
+        { "key": "note", "type": "text" }
+      ]
+    },
+    {
+      "name": "系统",
+      "display": "{name} · {env.code}",
+      "fields": [
+        { "key": "name", "type": "string", "label": true, "search": true },
+        { "key": "env", "type": "ref", "schemaName": "环境" },
+        { "key": "baseUrl", "type": "url" },
+        { "key": "note", "type": "text" }
+      ]
+    },
+    {
+      "name": "租户",
+      "display": "{code} · {name}",
+      "fields": [
+        { "key": "name", "type": "string", "label": true, "search": true },
+        { "key": "code", "type": "string", "search": true },
+        { "key": "system", "type": "ref", "schemaName": "系统" },
+        { "key": "baseUrl", "type": "url" },
+        { "key": "note", "type": "text" }
+      ]
+    },
+    {
+      "name": "角色",
+      "display": "{name} · {system.name}",
+      "fields": [
+        { "key": "name", "type": "string", "label": true, "search": true },
+        { "key": "code", "type": "string", "search": true },
+        { "key": "system", "type": "ref", "schemaName": "系统" },
+        { "key": "note", "type": "text" }
+      ]
+    },
+    {
+      "name": "账号",
+      "display": "{name}",
+      "fields": [
+        { "key": "name", "type": "string", "label": true, "search": true },
+        { "key": "system", "type": "ref", "schemaName": "系统" },
+        { "key": "tenant", "type": "ref", "schemaName": "租户" },
+        { "key": "role", "type": "ref", "schemaName": "角色" },
+        { "key": "username", "type": "string", "search": true },
+        { "key": "password", "type": "secret" },
+        { "key": "note", "type": "text" }
+      ]
+    }
+  ],
+  "views": [
+    {
+      "name": "账号一览",
+      "description": "按系统 / 租户 / 角色查找测试账号。多租户入口看租户 URL，第三方服务看系统入口。",
+      "illustration": "account",
+      "schemaName": "账号",
+      "columns": [
+        { "key": "name", "as": "名称", "show": true, "search": true, "sort": true, "enum": false },
+        { "key": "username", "as": "用户名", "show": true, "search": true, "sort": true, "enum": false },
+        { "key": "tenant.code", "as": "租户编码", "show": true, "search": true, "sort": true, "enum": true },
+        { "key": "tenant.name", "as": "租户", "show": true, "search": true, "sort": true, "enum": true },
+        { "key": "role.name", "as": "角色", "show": true, "search": true, "sort": true, "enum": true },
+        { "key": "system.name", "as": "系统", "show": true, "search": true, "sort": true, "enum": true },
+        { "key": "system.env.code", "as": "环境", "show": true, "search": true, "sort": true, "enum": true },
+        { "key": "tenant.baseUrl", "as": "租户入口", "show": true, "search": false, "sort": false },
+        { "key": "system.baseUrl", "as": "系统入口", "show": true, "search": false, "sort": false },
+        { "key": "password", "as": "密码", "show": true, "search": false, "sort": false }
+      ],
+      "shortcuts": [
+        {
+          "id": "sc-biz",
+          "name": "业务系统",
+          "filters": { "system.name": "业务系统" },
+          "sorts": [{ "key": "name", "dir": "asc" }]
+        },
+        {
+          "id": "sc-jiguang",
+          "name": "极光推送",
+          "filters": { "system.name": "极光推送" },
+          "sorts": [{ "key": "name", "dir": "asc" }]
+        },
+        {
+          "id": "sc-kiro",
+          "name": "Kiro",
+          "filters": { "system.name": "Kiro" },
+          "sorts": [{ "key": "name", "dir": "asc" }]
+        },
+        {
+          "id": "sc-stg",
+          "name": "STG",
+          "filters": { "system.env.code": "STG" },
+          "sorts": [{ "key": "name", "dir": "asc" }]
+        }
+      ]
+    }
+  ],
+  "samples": [
+    {
+      "schemaName": "环境",
+      "packId": "env-stg",
+      "data": { "name": "Staging", "code": "STG", "note": "测试环境" },
+      "tags": ["sample"]
+    },
+    {
+      "schemaName": "系统",
+      "packId": "sys-biz",
+      "data": {
+        "name": "业务系统",
+        "env": "env-stg",
+        "baseUrl": "https://portal-test.saas.com",
+        "note": "多租户 SaaS；具体入口以租户 URL 为准"
+      },
+      "tags": ["sample"]
+    },
+    {
+      "schemaName": "系统",
+      "packId": "sys-jiguang",
+      "data": {
+        "name": "极光推送",
+        "env": "env-stg",
+        "baseUrl": "https://www.jiguang.cn",
+        "note": "第三方推送控制台"
+      },
+      "tags": ["sample"]
+    },
+    {
+      "schemaName": "系统",
+      "packId": "sys-kiro",
+      "data": {
+        "name": "Kiro",
+        "env": "env-stg",
+        "baseUrl": "",
+        "note": "内部工具"
+      },
+      "tags": ["sample"]
+    },
+    {
+      "schemaName": "租户",
+      "packId": "ten-001",
+      "data": {
+        "name": "公司test001",
+        "code": "test001",
+        "system": "sys-biz",
+        "baseUrl": "https://test001-test.saas.com",
+        "note": "员工号段 R260001–R260010"
+      },
+      "tags": ["sample"]
+    },
+    {
+      "schemaName": "租户",
+      "packId": "ten-002",
+      "data": {
+        "name": "公司test002",
+        "code": "test002",
+        "system": "sys-biz",
+        "baseUrl": "https://test002-test.saas.com",
+        "note": "员工号段可按同样规则扩展"
+      },
+      "tags": ["sample"]
+    },
+    {
+      "schemaName": "角色",
+      "packId": "role-biz-admin",
+      "data": { "name": "管理员", "code": "admin", "system": "sys-biz", "note": "业务系统管理员" },
+      "tags": ["sample"]
+    },
+    {
+      "schemaName": "角色",
+      "packId": "role-biz-emp",
+      "data": { "name": "员工", "code": "employee", "system": "sys-biz", "note": "业务系统员工" },
+      "tags": ["sample"]
+    },
+    {
+      "schemaName": "角色",
+      "packId": "role-jg-user",
+      "data": { "name": "控制台用户", "code": "user", "system": "sys-jiguang", "note": "" },
+      "tags": ["sample"]
+    },
+    {
+      "schemaName": "角色",
+      "packId": "role-kiro-user",
+      "data": { "name": "用户", "code": "user", "system": "sys-kiro", "note": "" },
+      "tags": ["sample"]
+    },
+    {
+      "schemaName": "账号",
+      "packId": "acc-biz-001-admin",
+      "data": {
+        "name": "test001 管理员",
+        "system": "sys-biz",
+        "tenant": "ten-001",
+        "role": "role-biz-admin",
+        "username": "138000012345",
+        "password": "init123!",
+        "note": "租户 test001 主账号"
+      },
+      "tags": ["sample"]
+    },
+    {
+      "schemaName": "账号",
+      "packId": "acc-biz-001-e1",
+      "data": {
+        "name": "test001 员工 R260001",
+        "system": "sys-biz",
+        "tenant": "ten-001",
+        "role": "role-biz-emp",
+        "username": "R260001",
+        "password": "init123!",
+        "note": "号段 R260001–R260010"
+      },
+      "tags": ["sample"]
+    },
+    {
+      "schemaName": "账号",
+      "packId": "acc-biz-001-e2",
+      "data": {
+        "name": "test001 员工 R260002",
+        "system": "sys-biz",
+        "tenant": "ten-001",
+        "role": "role-biz-emp",
+        "username": "R260002",
+        "password": "init123!",
+        "note": "号段 R260001–R260010"
+      },
+      "tags": ["sample"]
+    },
+    {
+      "schemaName": "账号",
+      "packId": "acc-biz-002-admin",
+      "data": {
+        "name": "test002 管理员",
+        "system": "sys-biz",
+        "tenant": "ten-002",
+        "role": "role-biz-admin",
+        "username": "13800012346",
+        "password": "init123!",
+        "note": "租户 test002 主账号"
+      },
+      "tags": ["sample"]
+    },
+    {
+      "schemaName": "账号",
+      "packId": "acc-jg",
+      "data": {
+        "name": "极光控制台",
+        "system": "sys-jiguang",
+        "tenant": "",
+        "role": "role-jg-user",
+        "username": "test@test.com",
+        "password": "test123",
+        "note": ""
+      },
+      "tags": ["sample"]
+    },
+    {
+      "schemaName": "账号",
+      "packId": "acc-kiro",
+      "data": {
+        "name": "Kiro",
+        "system": "sys-kiro",
+        "tenant": "",
+        "role": "role-kiro-user",
+        "username": "test",
+        "password": "test",
+        "note": ""
+      },
+      "tags": ["sample"]
+    }
+  ]
+}

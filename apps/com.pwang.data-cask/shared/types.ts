@@ -44,6 +44,8 @@ export type ViewColumn = {
   search: boolean
   /** Whether this shown column can be sorted on the home table */
   sort: boolean
+  /** When search is on: offer distinct values as autocomplete suggestions */
+  enum?: boolean
 }
 
 export type ViewSort = {
@@ -67,6 +69,8 @@ export type ViewDef = {
   schemaId: string
   columns: ViewColumn[]
   shortcuts: ViewShortcut[]
+  /** Home view: show 新增 / 行内编辑 without leaving the table */
+  allowWrite: boolean
   createdAt: number
   updatedAt: number
 }
@@ -113,6 +117,28 @@ export type CaskPack = {
   schemas: CaskPackSchema[]
   views: CaskPackView[]
   samples: CaskPackSample[]
+  /** Built-in module id; falls back to file stem when listing modules */
+  moduleId?: string
+  /** Card title in empty-state module list */
+  title?: string
+  description?: string
+  /** Sort earlier / badge in module list — UI still iterates listModules() */
+  recommended?: boolean
+}
+
+export type ModuleInfo = {
+  id: string
+  title: string
+  description: string
+  path: string
+  fileName: string
+  recommended: boolean
+  hasSamples: boolean
+  sampleCount: number
+  schemaNames: string[]
+  viewNames: string[]
+  /** All pack schema names already exist locally */
+  installed: boolean
 }
 
 export type ViewFieldOption = {

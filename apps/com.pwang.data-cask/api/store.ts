@@ -79,15 +79,19 @@ export async function nextRecordSort(storage: Ctx["storage"], schemaId: string) 
   return Number(rows[0]?.m ?? 0) + 1
 }
 
-export function refsTo(records: DataRow[], schemas: SchemaRow[], id: string, lookup?: (id: string) => string | undefined) {
-  const byId = new Map(schemas.map((item) => [item.id, item]))
+export function refsTo(records: DataRow[], schemas: SchemaRow[], id: string, labels?: Record<string, string>) {
+  const schemaById = new Map(schemas.map((item) => [item.id, item]))
+  const recordById = new Map(records.map((item) => [item.id, item]))
+  const ctx = { schemas, recordById: (rid: string) => recordById.get(rid) }
+  const lookup = (rid: string) => labels?.[rid]
   const hits: { recordId: string; schemaId: string; schemaName: string; field: string; name: string }[] = []
   for (const row of records) {
-    const schema = byId.get(row.schemaId)
+    const schema = schemaById.get(row.schemaId)
     if (!schema) continue
     for (const field of schema.fields) {
       if (field.type === "ref" && row.data[field.key] === id) {
-        hits.push({ recordId: row.id, schemaId: schema.id, schemaName: schema.name, field: field.key, name: labelOf(schema, row, lookup) || row.id })
+        const name = labels?.[row.id] || labelOf(schema, row, lookup, new Set(), ctx) || row.id
+        hits.push({ recordId: row.id, schemaId: schema.id, schemaName: schema.name, field: field.key, name })
       }
     }
   }
