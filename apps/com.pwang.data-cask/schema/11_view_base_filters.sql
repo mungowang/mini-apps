@@ -1,0 +1,1 @@
+ALTER TABLE views ADD COLUMN base_filters TEXT NOT NULL DEFAULT '{}';

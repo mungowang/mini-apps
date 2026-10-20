@@ -6,7 +6,7 @@ import { parseWorkbook } from "./api/parse-file.ts"
 import { runTextParser } from "./api/text-parse.ts"
 import { allRecords, allSchemas, id, mapRecord, mapSchema, nextRecordSort, nextSchemaSort, now, refsTo } from "./api/store.ts"
 import { BUILTIN_TEXT_PARSERS, type TextParserDef } from "./shared/parser-types.ts"
-import { flattenViewFields, labelOf, parseQuery, resolveViewPath, type CaskPack, type CaskPackField, type DataRow, type Field, type ModuleInfo, type SchemaRow, type ViewColumn, type ViewDef, type ViewShortcut } from "./shared/types.ts"
+import { flattenViewFields, isTagsPath, labelOf, parseQuery, resolveViewPath, tagsPathLabel, type CaskPack, type CaskPackField, type DataRow, type Field, type ModuleInfo, type SchemaRow, type ViewColumn, type ViewDef, type ViewShortcut } from "./shared/types.ts"
 import { resolveViewIllustration } from "./shared/view-illu.ts"
 // Bundled fallback so empty-state modules work even if runtime modules/ is missing / unreadable
 import qaAccountsBasicPack from "./modules/qa-accounts-basic.caskpack.json" with { type: "json" }
@@ -122,7 +122,43 @@ async function ensureTextParsers(storage: Storage) {
   }
 }
 
-const VIEW_SELECT = "id, name, description, illustration, schema_id, columns, shortcuts, allow_write, created_at, updated_at"
+const VIEW_SELECT = "id, name, description, illustration, schema_id, columns, shortcuts, base_filters, allow_write, reveal_secrets_default, created_at, updated_at"
+
+const BASE_OPS = new Set(["eq", "neq", "contains", "notContains", "hasTag", "lacksTag"])
+
+function parseBaseFilters(raw: unknown): import("./shared/types.ts").ViewBaseFilter[] {
+  let source: unknown = raw
+  if (typeof raw === "string") {
+    try { source = JSON.parse(raw) } catch { return [] }
+  }
+  // legacy: { "path": "value", "$tag": "x", "$tagExclude": "y" }
+  if (source && typeof source === "object" && !Array.isArray(source)) {
+    const out: import("./shared/types.ts").ViewBaseFilter[] = []
+    for (const [key, val] of Object.entries(source as Record<string, unknown>)) {
+      const value = String(val ?? "").trim()
+      const k = key.trim()
+      if (!k || !value) continue
+      if (k === "$tag") out.push({ key: "$tag", op: "hasTag", value })
+      else if (k === "$tagExclude") out.push({ key: "$tag", op: "lacksTag", value })
+      else out.push({ key: k, op: "contains", value })
+    }
+    return out
+  }
+  if (!Array.isArray(source)) return []
+  const out: import("./shared/types.ts").ViewBaseFilter[] = []
+  for (const item of source) {
+    if (!item || typeof item !== "object") continue
+    const row = item as Record<string, unknown>
+    const key = String(row.key ?? "").trim()
+    const value = String(row.value ?? "").trim()
+    let op = String(row.op ?? "contains").trim()
+    if (!BASE_OPS.has(op)) op = "contains"
+    if (!key || !value) continue
+    if (op === "hasTag" || op === "lacksTag") out.push({ key: "$tag", op: op as "hasTag" | "lacksTag", value })
+    else out.push({ key, op: op as import("./shared/types.ts").ViewBaseFilterOp, value })
+  }
+  return out
+}
 
 function mapView(row: Record<string, unknown>): ViewDef {
   const id = String(row.id)
@@ -134,10 +170,66 @@ function mapView(row: Record<string, unknown>): ViewDef {
     schemaId: String(row.schema_id),
     columns: parseViewColumns(row.columns),
     shortcuts: parseViewShortcuts(row.shortcuts),
+    baseFilters: parseBaseFilters(row.base_filters),
     allowWrite: Number(row.allow_write ?? 0) === 1,
+    revealSecretsDefault: Number(row.reveal_secrets_default ?? 0) === 1,
     createdAt: Number(row.created_at),
     updatedAt: Number(row.updated_at),
   }
+}
+
+function splitFilterValues(raw: string) {
+  return String(raw ?? "")
+    .split(/\s*\|\s*/)
+    .map((part) => part.trim())
+    .filter(Boolean)
+}
+
+function matchBaseFilters(item: DataRow, base: import("./shared/types.ts").ViewBaseFilter[], schemas: SchemaRow[], records: DataRow[], labels: Record<string, string>) {
+  for (const rule of base) {
+    const needles = splitFilterValues(rule.value).map((part) => part.toLowerCase())
+    if (!needles.length) continue
+    if (rule.op === "hasTag") {
+      // OR: row has any listed tag
+      const tags = item.tags.map((tag) => tag.toLowerCase())
+      if (!needles.some((needle) => tags.some((tag) => tag === needle))) return false
+      continue
+    }
+    if (rule.op === "lacksTag") {
+      // AND: row has none of the listed tags
+      const tags = item.tags.map((tag) => tag.toLowerCase())
+      if (needles.some((needle) => tags.some((tag) => tag === needle))) return false
+      continue
+    }
+    const resolved = resolveViewPath(item, rule.key, schemas, records, labels)
+    if (isTagsPath(rule.key)) {
+      const tags = ((resolved as { tags?: string[] }).tags ?? splitFilterValues(String(resolved.text || "").replaceAll("·", "|")))
+        .map((tag) => tag.toLowerCase())
+      if (rule.op === "eq") {
+        if (!needles.some((needle) => tags.some((tag) => tag === needle))) return false
+      } else if (rule.op === "neq") {
+        if (needles.some((needle) => tags.some((tag) => tag === needle))) return false
+      } else if (rule.op === "notContains") {
+        if (needles.some((needle) => tags.some((tag) => tag.includes(needle)))) return false
+      } else {
+        // contains — OR across needles
+        if (!needles.some((needle) => tags.some((tag) => tag === needle || tag.includes(needle)))) return false
+      }
+      continue
+    }
+    const hay = (resolved.text || resolved.copy).toLowerCase()
+    if (rule.op === "eq") {
+      if (!needles.some((needle) => hay === needle)) return false
+    } else if (rule.op === "neq") {
+      if (needles.some((needle) => hay === needle)) return false
+    } else if (rule.op === "notContains") {
+      if (needles.some((needle) => hay.includes(needle))) return false
+    } else {
+      // contains (default) — OR
+      if (!needles.some((needle) => hay.includes(needle))) return false
+    }
+  }
+  return true
 }
 
 function cleanViewColumns(columns: ViewColumn[], schema: SchemaRow, schemas: SchemaRow[]) {
@@ -435,9 +527,12 @@ async function runImportCaskPack(storage: Storage, pack: CaskPack, conflict: "sk
       filters: item.filters,
       sorts: item.sorts ?? [],
     }))
+    const baseFilters = parseBaseFilters(view.baseFilters ?? {})
+    const allowWrite = view.allowWrite === true ? 1 : 0
+    const revealSecretsDefault = view.revealSecretsDefault === true ? 1 : 0
     await storage.run(
-      "INSERT INTO views (id, name, description, illustration, schema_id, columns, shortcuts, allow_write, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-      [viewId, finalName, String(view.description ?? "").trim(), illustration, schemaId, JSON.stringify(columns), JSON.stringify(shortcuts), 0, stamp, stamp],
+      "INSERT INTO views (id, name, description, illustration, schema_id, columns, shortcuts, base_filters, allow_write, reveal_secrets_default, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      [viewId, finalName, String(view.description ?? "").trim(), illustration, schemaId, JSON.stringify(columns), JSON.stringify(shortcuts), JSON.stringify(baseFilters), allowWrite, revealSecretsDefault, stamp, stamp],
     )
     createdViews.push({ name: finalName, id: viewId, skipped: false })
   }
@@ -532,11 +627,13 @@ export default defineApp({
       }
     },
 
-    async saveView(ctx, args?: { id?: string; name?: string; description?: string; illustration?: string; schemaId?: string; columns?: ViewColumn[]; allowWrite?: boolean }) {
+    async saveView(ctx, args?: { id?: string; name?: string; description?: string; illustration?: string; schemaId?: string; columns?: ViewColumn[]; baseFilters?: unknown; allowWrite?: boolean; revealSecretsDefault?: boolean }) {
       const name = String(args?.name ?? "").trim()
       const description = String(args?.description ?? "").trim()
       const schemaId = String(args?.schemaId ?? "")
+      const baseFilters = parseBaseFilters(args?.baseFilters ?? {})
       const allowWrite = args?.allowWrite === true ? 1 : 0
+      const revealSecretsDefault = args?.revealSecretsDefault === true ? 1 : 0
       if (!name) throw new Error("视图名不能为空")
       const schemas = await allSchemas(ctx.storage)
       const schema = schemas.find((item) => item.id === schemaId)
@@ -547,12 +644,12 @@ export default defineApp({
       const existing = args?.id ? (await ctx.storage.query("SELECT id FROM views WHERE id = ?", [args.id]))[0] : undefined
       if (existing) {
         const illustration = resolveViewIllustration(String(args?.illustration ?? ""), String(existing.id))
-        await ctx.storage.run("UPDATE views SET name = ?, description = ?, illustration = ?, schema_id = ?, columns = ?, allow_write = ?, updated_at = ? WHERE id = ?", [name, description, illustration, schemaId, JSON.stringify(columns), allowWrite, stamp, existing.id])
+        await ctx.storage.run("UPDATE views SET name = ?, description = ?, illustration = ?, schema_id = ?, columns = ?, base_filters = ?, allow_write = ?, reveal_secrets_default = ?, updated_at = ? WHERE id = ?", [name, description, illustration, schemaId, JSON.stringify(columns), JSON.stringify(baseFilters), allowWrite, revealSecretsDefault, stamp, existing.id])
         return { id: String(existing.id) }
       }
       const viewId = id("v")
       const illustration = resolveViewIllustration(String(args?.illustration ?? ""), viewId)
-      await ctx.storage.run("INSERT INTO views (id, name, description, illustration, schema_id, columns, shortcuts, allow_write, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", [viewId, name, description, illustration, schemaId, JSON.stringify(columns), "[]", allowWrite, stamp, stamp])
+      await ctx.storage.run("INSERT INTO views (id, name, description, illustration, schema_id, columns, shortcuts, base_filters, allow_write, reveal_secrets_default, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", [viewId, name, description, illustration, schemaId, JSON.stringify(columns), "[]", JSON.stringify(baseFilters), allowWrite, revealSecretsDefault, stamp, stamp])
       return { id: viewId }
     },
 
@@ -617,31 +714,46 @@ export default defineApp({
       const searchable = view.columns.filter((item) => item.search)
       const matched = records.filter((item) => {
         if (item.schemaId !== view.schemaId) return false
+        if (!matchBaseFilters(item, view.baseFilters, schemas, records, labels)) return false
         return searchable.every((col) => {
-          const needle = String(filters[col.key] ?? "").trim().toLowerCase()
-          if (!needle) return true
+          const raw = String(filters[col.key] ?? "").trim()
+          if (!raw) return true
+          // multi-select values are joined with " | "
+          const needles = raw.split(/\s*\|\s*/).map((part) => part.trim().toLowerCase()).filter(Boolean)
+          if (!needles.length) return true
           const resolved = resolveViewPath(item, col.key, schemas, records, labels)
-          const hay = resolved.text || resolved.copy
-          if (resolved.type === "ref") return hay.toLowerCase() === needle || hay.toLowerCase().includes(needle)
-          return hay.toLowerCase().includes(needle)
+          if (isTagsPath(col.key)) {
+            const tags = ((resolved as { tags?: string[] }).tags ?? String(resolved.text || "").split(/[·,]/).map((part) => part.trim()).filter(Boolean))
+              .map((tag) => tag.toLowerCase())
+            return needles.some((needle) => tags.some((tag) => tag === needle || tag.includes(needle)))
+          }
+          const hay = (resolved.text || resolved.copy).toLowerCase()
+          return needles.some((needle) => {
+            if (resolved.type === "ref") return hay === needle || hay.includes(needle)
+            return hay.includes(needle)
+          })
         })
       })
       const baseRows = records.filter((item) => item.schemaId === view.schemaId)
       return {
         view,
         schema,
-        headers: shown.map((item) => ({ key: item.key, label: item.as || item.key })),
+        headers: shown.map((item) => ({ key: item.key, label: item.as || (isTagsPath(item.key) ? tagsPathLabel(item.key) : item.key) })),
         filters: searchable.map((item) => {
           const field = byPath.get(item.key)
           const options = item.enum
-            ? [...new Set(baseRows.map((row) => {
+            ? [...new Set(baseRows.flatMap((row) => {
                 const resolved = resolveViewPath(row, item.key, schemas, records, labels)
-                return String(resolved.text || resolved.copy || "").trim()
-              }).filter(Boolean))].sort((a, b) => a.localeCompare(b, "zh-CN"))
+                if (isTagsPath(item.key)) {
+                  return (resolved as { tags?: string[] }).tags ?? String(resolved.text || "").split(/[·,]/).map((part) => part.trim()).filter(Boolean)
+                }
+                const text = String(resolved.text || resolved.copy || "").trim()
+                return text ? [text] : []
+              }))].sort((a, b) => a.localeCompare(b, "zh-CN"))
             : undefined
           return {
             key: item.key,
-            label: item.as || item.key,
+            label: item.as || (isTagsPath(item.key) ? tagsPathLabel(item.key) : item.key),
             type: field?.type ?? "string",
             schema: field?.schema,
             enum: !!item.enum,
@@ -650,7 +762,25 @@ export default defineApp({
         }),
         rows: matched.map((item) => ({
           id: item.id,
-          cells: shown.map((col) => resolveViewPath(item, col.key, schemas, records, labels)),
+          cells: shown.map((col) => {
+            const resolved = resolveViewPath(item, col.key, schemas, records, labels)
+            if (isTagsPath(col.key)) {
+              const tags = Array.isArray((resolved as { tags?: string[] }).tags)
+                ? (resolved as { tags: string[] }).tags
+                : String(resolved.text || "").split(/[·,]/).map((part) => part.trim()).filter(Boolean)
+              return {
+                text: tags.join(" · "),
+                copy: tags.join(", "),
+                type: "tags",
+                tags,
+              }
+            }
+            return {
+              text: resolved.text,
+              copy: resolved.copy,
+              type: resolved.type,
+            }
+          }),
         })),
       }
     },
@@ -1177,6 +1307,9 @@ export default defineApp({
               filters: { ...item.filters },
               sorts: (item.sorts ?? []).map((sort) => ({ ...sort })),
             })),
+            baseFilters: view.baseFilters ?? [],
+            allowWrite: !!view.allowWrite,
+            revealSecretsDefault: !!view.revealSecretsDefault,
           }
         })
 
@@ -1394,6 +1527,9 @@ export default defineApp({
           filters: { ...item.filters },
           sorts: (item.sorts ?? []).map((sort) => ({ ...sort })),
         })),
+        baseFilters: view.baseFilters ?? [],
+        allowWrite: !!view.allowWrite,
+        revealSecretsDefault: !!view.revealSecretsDefault,
       }))
       const allIds = new Set(records.map((row) => row.id))
       const samples: CaskPack["samples"] = []
@@ -1447,6 +1583,82 @@ export default defineApp({
 
     async listModules(ctx) {
       return listModulePacks(ctx.appDir, ctx.storage)
+    },
+
+    /** Dry-run plan for the install review dialog — no writes. */
+    async previewModule(ctx, args?: { id?: string; path?: string; includeSamples?: boolean }) {
+      const { modules } = await listModulePacks(ctx.appDir, ctx.storage)
+      const wantId = String(args?.id ?? "").trim()
+      const wantPath = String(args?.path ?? "").trim()
+      const mod = modules.find((item) => (wantPath && item.path === wantPath) || (wantId && item.id === wantId))
+      if (!mod) throw new Error(wantId || wantPath ? "找不到该模块" : "请指定模块 id")
+      const pack = await resolveModulePack(ctx.appDir, mod)
+      const existing = await allSchemas(ctx.storage)
+      const existingNames = new Set(existing.map((item) => item.name))
+      const existingViews = (await ctx.storage.query("SELECT name, schema_id FROM views")).map((row) => ({
+        name: String(row.name),
+        schemaId: String(row.schema_id),
+      }))
+      const schemaIdByName = Object.fromEntries(existing.map((item) => [item.name, item.id]))
+      const includeSamples = !!args?.includeSamples && Array.isArray(pack.samples) && pack.samples.length > 0
+
+      const schemas = (pack.schemas ?? []).map((item) => {
+        const name = String(item.name ?? "").trim()
+        const fields = (item.fields ?? []).map((field) => String(field.key ?? "").trim()).filter(Boolean)
+        const exists = !!name && existingNames.has(name)
+        return {
+          name,
+          fieldCount: fields.length,
+          fields,
+          exists,
+          action: exists ? "reuse" as const : "create" as const,
+        }
+      }).filter((item) => item.name)
+
+      const views = (pack.views ?? []).map((item) => {
+        const name = String(item.name ?? "").trim()
+        const schemaName = String(item.schemaName ?? "").trim()
+        const schemaId = schemaIdByName[schemaName]
+        const exists = !!(name && schemaId && existingViews.some((row) => row.name === name && row.schemaId === schemaId))
+        const baseFilters = parseBaseFilters(item.baseFilters ?? [])
+        return {
+          name,
+          schemaName,
+          description: String(item.description ?? "").trim(),
+          exists,
+          action: exists ? "skip" as const : "create" as const,
+          baseFilterCount: baseFilters.length,
+          allowWrite: item.allowWrite === true,
+          revealSecretsDefault: item.revealSecretsDefault === true,
+        }
+      }).filter((item) => item.name)
+
+      const sampleGroups: Record<string, number> = {}
+      for (const sample of includeSamples ? (pack.samples ?? []) : []) {
+        const schemaName = String(sample.schemaName ?? "").trim() || "?"
+        sampleGroups[schemaName] = (sampleGroups[schemaName] ?? 0) + 1
+      }
+      const samples = Object.entries(sampleGroups).map(([schemaName, count]) => ({ schemaName, count }))
+
+      return {
+        moduleId: mod.id,
+        title: mod.title,
+        description: mod.description,
+        includeSamples,
+        hasSamples: !!mod.hasSamples,
+        sampleCount: includeSamples ? (pack.samples?.length ?? 0) : 0,
+        sampleTotal: pack.samples?.length ?? 0,
+        schemas,
+        views,
+        samples,
+        summary: {
+          schemaCreate: schemas.filter((item) => item.action === "create").length,
+          schemaReuse: schemas.filter((item) => item.action === "reuse").length,
+          viewCreate: views.filter((item) => item.action === "create").length,
+          viewSkip: views.filter((item) => item.action === "skip").length,
+          sampleRows: includeSamples ? (pack.samples?.length ?? 0) : 0,
+        },
+      }
     },
 
     async installModule(ctx, args?: { id?: string; path?: string; includeSamples?: boolean; conflict?: "skip" | "rename" }) {

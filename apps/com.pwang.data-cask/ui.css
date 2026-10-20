@@ -52,30 +52,59 @@ html, body, #root {
   from { opacity: 0; transform: scale(.6); }
   to { opacity: 1; transform: none; }
 }
+/* row actions: same liquid-glass language as view-seg */
 .view-act-rail.is-fold {
-  border-radius: 999px;
-  padding: 0 2px;
-  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--foreground) 12%, transparent);
+  border-radius: 99em;
+  padding: 4px 8px;
+  gap: 2px;
+  background-color: color-mix(in srgb, #c4b8a8 14%, transparent);
+  backdrop-filter: blur(10px) saturate(140%);
+  -webkit-backdrop-filter: blur(10px) saturate(140%);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, #fff 12%, transparent),
+    inset 1.8px 3px 0 -2px color-mix(in srgb, #fff 55%, transparent),
+    inset -2px -2px 0 -2px color-mix(in srgb, #fff 45%, transparent),
+    inset -3px -8px 1px -6px color-mix(in srgb, #fff 30%, transparent),
+    inset -0.3px -1px 4px 0 color-mix(in srgb, #1c1916 8%, transparent),
+    inset -1.5px 2.5px 0 -2px color-mix(in srgb, #1c1916 10%, transparent),
+    0 1px 5px 0 color-mix(in srgb, #1c1916 8%, transparent),
+    0 6px 16px 0 color-mix(in srgb, #1c1916 6%, transparent);
 }
 .view-act-rail.is-open {
-  background: color-mix(in oklab, white 46%, transparent);
-  backdrop-filter: blur(14px) saturate(1.4);
+  border-radius: 99em;
+  padding: 4px 8px;
+  background-color: color-mix(in srgb, #d4c8b8 42%, transparent);
+  backdrop-filter: blur(10px) saturate(140%);
+  -webkit-backdrop-filter: blur(10px) saturate(140%);
   box-shadow:
-    inset 0 1px 0 rgba(255,255,255,.8),
-    0 8px 16px color-mix(in oklab, var(--foreground) 8%, transparent);
+    inset 0 0 0 1px color-mix(in srgb, #fff 14%, transparent),
+    inset 2px 1px 0 -1px color-mix(in srgb, #fff 70%, transparent),
+    inset -1.5px -1px 0 -1px color-mix(in srgb, #fff 55%, transparent),
+    inset -2px -6px 1px -5px color-mix(in srgb, #fff 35%, transparent),
+    inset -1px 2px 3px -1px color-mix(in srgb, #1c1916 12%, transparent),
+    inset 0 -4px 1px -2px color-mix(in srgb, #1c1916 8%, transparent),
+    0 3px 6px 0 color-mix(in srgb, #1c1916 8%, transparent);
 }
 .view-sheet table {
   border-collapse: separate;
   border-spacing: 0;
 }
+.view-sheet {
+  /* avoid a 2–8px phantom horizontal scrollbar when content ≈ viewport */
+  scrollbar-gutter: stable;
+}
 .view-act-pin {
   position: sticky;
   right: 0;
   z-index: 2;
+  /* shrink-to-content: never absorb leftover table width; never clip rail */
+  width: 1%;
+  white-space: nowrap;
+  vertical-align: middle;
   background: var(--card);
   text-align: center;
-  padding-left: 12px;
-  padding-right: 12px;
+  padding-left: 10px;
+  padding-right: 14px;
   box-shadow: inset 1px 0 0 color-mix(in oklab, var(--foreground) 8%, transparent);
 }
 .group:hover > .view-act-pin,
@@ -88,6 +117,31 @@ tr.is-act-hot {
 thead .view-act-pin {
   z-index: 4;
   background: var(--card);
+}
+
+/* locked base-filter chips in sheet toolbar */
+.view-base-chip {
+  display: inline-flex;
+  max-width: 14rem;
+  align-items: center;
+  gap: 4px;
+  height: 26px;
+  padding: 0 9px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in oklab, var(--foreground) 10%, transparent);
+  background: color-mix(in oklab, var(--secondary) 55%, var(--card));
+  color: color-mix(in oklab, var(--foreground) 72%, transparent);
+  font-size: 11px;
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: default;
+  user-select: none;
+}
+.view-base-chip-lock {
+  opacity: 0.55;
+  flex: none;
 }
 
 /* filter bar: fixed column tracks so leftover fields stay column-aligned (not full-bleed, not a ragged gap) */
@@ -119,6 +173,208 @@ thead .view-act-pin {
 .view-filter-text {
   position: relative;
   height: 40px;
+}
+/* searchable multi-select field */
+.view-filter-multi {
+  height: 40px;
+  min-height: 40px;
+}
+.view-filter-multi-field {
+  position: relative;
+  box-sizing: border-box;
+  display: flex;
+  width: 100%;
+  height: 40px;
+  min-height: 40px;
+  align-items: center;
+  gap: 6px;
+  padding: 0 34px 0 8px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in oklch, var(--border) 92%, transparent);
+  background: var(--card);
+  cursor: text;
+  overflow: hidden;
+}
+.view-filter-multi-field:hover,
+.view-filter-multi-field.is-open {
+  border-color: color-mix(in oklch, var(--foreground) 18%, var(--border));
+}
+.view-filter-multi-chips {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 4px;
+  overflow: hidden;
+}
+.view-filter-multi-chip {
+  display: inline-flex;
+  max-width: 46%;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+  height: 24px;
+  padding: 0 2px 0 8px;
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--secondary) 78%, var(--card));
+  color: var(--foreground);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  line-height: 1;
+}
+.view-filter-multi-more {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--secondary) 60%, var(--card));
+  color: var(--muted-foreground);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  line-height: 1;
+  white-space: nowrap;
+}
+.view-filter-multi-chip-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.view-filter-multi-chip-x {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  flex: none;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted-foreground);
+  cursor: pointer;
+}
+.view-filter-multi-chip-x:hover {
+  background: color-mix(in oklch, var(--foreground) 10%, transparent);
+  color: var(--foreground);
+}
+.view-filter-multi-input {
+  min-width: 3rem;
+  flex: 1 1 3rem;
+  height: 28px;
+  margin: 0;
+  padding: 0 2px;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--foreground);
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.view-filter-multi-input::placeholder {
+  color: color-mix(in oklch, var(--muted-foreground) 88%, transparent);
+}
+.view-filter-multi-chev,
+.view-filter-multi-clear {
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  transform: translateY(-50%);
+  color: var(--muted-foreground);
+}
+.view-filter-multi-chev {
+  pointer-events: none;
+}
+.view-filter-multi-clear {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--muted-foreground) 12%, transparent);
+  cursor: pointer;
+}
+.view-filter-multi-clear:hover {
+  background: color-mix(in oklch, var(--foreground) 12%, transparent);
+  color: var(--foreground);
+}
+.view-filter-multi-menu {
+  max-height: min(280px, 50vh);
+  overflow: auto;
+  padding: 6px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in oklch, var(--border) 90%, transparent);
+  background: var(--card);
+  box-shadow:
+    0 8px 28px color-mix(in oklch, var(--foreground) 12%, transparent),
+    0 1px 0 color-mix(in oklch, var(--foreground) 4%, transparent);
+}
+.view-filter-multi-empty {
+  margin: 0;
+  padding: 10px 8px;
+  color: var(--muted-foreground);
+  font-size: 12px;
+  text-align: center;
+}
+.view-filter-multi-option {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--foreground);
+  font-size: 13px;
+  cursor: pointer;
+}
+.view-filter-multi-option:hover,
+.view-filter-multi-option.is-on {
+  background: color-mix(in oklch, var(--secondary) 70%, transparent);
+}
+.view-filter-multi-check {
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  flex: none;
+  border-radius: 5px;
+  border: 1px solid color-mix(in oklch, var(--foreground) 16%, transparent);
+  color: var(--background);
+}
+.view-filter-multi-check.is-on {
+  border-color: var(--foreground);
+  background: var(--foreground);
+}
+.view-filter-multi-clear-all {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+  padding: 8px;
+  border: 0;
+  border-top: 1px solid color-mix(in oklch, var(--border) 80%, transparent);
+  border-radius: 0 0 8px 8px;
+  background: transparent;
+  color: var(--muted-foreground);
+  font-size: 12px;
+  text-align: center;
+  cursor: pointer;
+}
+.view-filter-multi-clear-all:hover {
+  color: var(--foreground);
+  background: color-mix(in oklch, var(--secondary) 50%, transparent);
 }
 .view-filter-auto [data-testid="autocomplete"] {
   height: 100%;
@@ -1617,7 +1873,7 @@ button:active {
   }
 }
 
-/* list stamp: duotone by default, full color when selected */
+/* list stamp: soft mute by default, full color when selected */
 .view-illu-stamp {
   width: 48px;
   height: 48px;
@@ -1625,8 +1881,8 @@ button:active {
   overflow: hidden;
   display: grid;
   place-items: center;
-  background: color-mix(in oklch, var(--secondary) 70%, var(--card));
-  border: 1px solid color-mix(in oklch, var(--border) 70%, transparent);
+  background: color-mix(in oklch, var(--secondary) 38%, var(--card));
+  border: 1px solid color-mix(in oklch, var(--border) 45%, transparent);
 }
 .view-illu-stamp-sm {
   width: 40px;
@@ -1637,9 +1893,11 @@ button:active {
   width: 40px;
   height: 34px;
   object-fit: contain;
-  opacity: 0.88;
+  /* keep readable, not a heavy charcoal block */
+  opacity: 0.58;
   mix-blend-mode: multiply;
-  filter: grayscale(1) contrast(1.18) brightness(1.05) sepia(0.28) hue-rotate(350deg) saturate(0.35);
+  filter: grayscale(0.42) contrast(0.96) brightness(1.14) sepia(0.08) saturate(0.7);
+  transition: opacity 160ms ease, filter 160ms ease, mix-blend-mode 160ms ease;
 }
 .view-illu-stamp-sm img {
   width: 34px;
@@ -1653,9 +1911,13 @@ button:active {
   mix-blend-mode: normal;
   filter: none;
 }
+.view-rail-card:hover .view-illu-stamp:not(.is-on) img {
+  opacity: 0.72;
+}
 :root[data-mode="dark"] .view-illu-stamp img {
   mix-blend-mode: screen;
-  filter: grayscale(1) contrast(1.1) brightness(1.15) opacity(0.9);
+  opacity: 0.5;
+  filter: grayscale(0.4) contrast(0.98) brightness(1.2) saturate(0.75);
 }
 :root[data-mode="dark"] .view-illu-stamp.is-on img {
   mix-blend-mode: normal;
@@ -1737,18 +1999,24 @@ button:active {
   border-radius: 999px;
   /* one line box — number + 行 share the same center line */
   font-size: 12.5px;
-  font-weight: 650;
+  font-weight: 550;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.01em;
   line-height: 28px;
   white-space: nowrap;
-  /* same token as data-desk NavRow Badge variant="secondary" */
-  background: var(--secondary);
-  color: var(--secondary-foreground);
+  /* unselected: quiet wash, don't compete with the active card */
+  background: color-mix(in oklch, var(--secondary) 42%, transparent);
+  color: color-mix(in oklch, var(--muted-foreground) 88%, var(--foreground));
+  transition: background 150ms ease, color 150ms ease, font-weight 150ms ease;
+}
+.view-rail-card:hover .view-rail-card-count:not(.is-on) {
+  background: color-mix(in oklch, var(--secondary) 58%, transparent);
+  color: color-mix(in oklch, var(--muted-foreground) 72%, var(--foreground));
 }
 .view-rail-card-count.is-on {
   background: var(--secondary);
   color: var(--secondary-foreground);
+  font-weight: 650;
 }
 .view-rail-card-count-unit {
   margin-left: 1px;
@@ -1765,7 +2033,7 @@ button:active {
 .view-mast {
   position: relative;
   display: grid;
-  grid-template-columns: 18rem 40px 220px minmax(0, 1fr) 116px;
+  grid-template-columns: 18rem 40px 220px minmax(0, 1fr);
   column-gap: 0;
   align-items: start;
   overflow: visible;
@@ -2003,6 +2271,228 @@ button:active {
   flex-shrink: 0;
   cursor: pointer;
 }
+/* home view rail collapse */
+.view-home-rail {
+  transition:
+    width 560ms cubic-bezier(.32, .72, 0, 1),
+    min-width 560ms cubic-bezier(.32, .72, 0, 1),
+    padding 560ms cubic-bezier(.32, .72, 0, 1),
+    opacity 420ms cubic-bezier(.32, .72, 0, 1),
+    border-color 560ms cubic-bezier(.32, .72, 0, 1);
+}
+.view-home.is-rail-collapsed .view-home-rail {
+  width: 0 !important;
+  min-width: 0 !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+  opacity: 0;
+  border-right-color: transparent;
+  pointer-events: none;
+}
+.view-rail-fold {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--muted-foreground);
+  cursor: pointer;
+}
+.view-rail-fold:hover {
+  background: color-mix(in oklch, var(--foreground) 5%, transparent);
+  color: var(--foreground);
+}
+.view-rail-edge {
+  position: absolute;
+  left: 0;
+  /* margin auto + top/bottom anchors — stable center, no jump when mast height changes */
+  top: 0;
+  bottom: 0;
+  margin-top: auto;
+  margin-bottom: auto;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 64px;
+  border: 0;
+  border-radius: 0 18px 18px 0;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  background-color: color-mix(in srgb, #c4b8a8 14%, transparent);
+  backdrop-filter: blur(10px) saturate(140%);
+  -webkit-backdrop-filter: blur(10px) saturate(140%);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, #fff 12%, transparent),
+    inset 1.8px 3px 0 -2px color-mix(in srgb, #fff 55%, transparent),
+    inset -2px -2px 0 -2px color-mix(in srgb, #fff 45%, transparent),
+    inset -3px -8px 1px -6px color-mix(in srgb, #fff 30%, transparent),
+    inset -0.3px -1px 4px 0 color-mix(in srgb, #1c1916 8%, transparent),
+    0 1px 5px 0 color-mix(in srgb, #1c1916 8%, transparent),
+    0 6px 16px 0 color-mix(in srgb, #1c1916 6%, transparent);
+  transition: color 160ms ease, opacity 180ms ease;
+}
+.view-rail-edge.is-show {
+  opacity: 1;
+  pointer-events: auto;
+  transition-delay: 0ms;
+}
+/* hide instantly on expand — show is delayed via JS after collapse */
+.view-home:not(.is-rail-collapsed) .view-rail-edge {
+  transition-delay: 0ms;
+}
+.view-rail-edge:hover { color: var(--foreground); }
+
+/* collapsed: switcher centered across the mast; illu stays behind */
+.view-mast-switch {
+  grid-column: 1 / -1;
+  position: absolute;
+  left: 50%;
+  top: 12px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  z-index: 6;
+  pointer-events: none;
+}
+.view-mast-switch > * { pointer-events: auto; }
+.view-mast-switch-spacer { display: none; }
+.view-home.is-rail-collapsed .view-mast {
+  min-height: 150px;
+}
+.view-home.is-rail-collapsed .view-mast-illu img {
+  opacity: 0.45;
+}
+.view-seg-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+.view-seg {
+  --track-h: 70px;
+  --track-pad-x: 12px;
+  --track-pad-t: 8px;
+  --track-pad-b: 10px;
+  --opt-w: 68px;
+  --opt-gap: 8px;
+  --thumb-w: 84px;
+  --thumb-inset: 4px;
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--opt-gap);
+  height: var(--track-h);
+  padding: var(--track-pad-t) var(--track-pad-x) var(--track-pad-b);
+  border: none;
+  border-radius: 99em;
+  background-color: color-mix(in srgb, #c4b8a8 14%, transparent);
+  backdrop-filter: blur(10px) saturate(140%);
+  -webkit-backdrop-filter: blur(10px) saturate(140%);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, #fff 12%, transparent),
+    inset 1.8px 3px 0 -2px color-mix(in srgb, #fff 55%, transparent),
+    inset -2px -2px 0 -2px color-mix(in srgb, #fff 45%, transparent),
+    inset -3px -8px 1px -6px color-mix(in srgb, #fff 30%, transparent),
+    inset -0.3px -1px 4px 0 color-mix(in srgb, #1c1916 8%, transparent),
+    inset -1.5px 2.5px 0 -2px color-mix(in srgb, #1c1916 10%, transparent),
+    inset 0 3px 4px -2px color-mix(in srgb, #1c1916 10%, transparent),
+    0 1px 5px 0 color-mix(in srgb, #1c1916 8%, transparent),
+    0 6px 16px 0 color-mix(in srgb, #1c1916 6%, transparent);
+}
+.view-seg-thumb {
+  position: absolute;
+  left: var(--thumb-inset);
+  top: var(--thumb-inset);
+  width: var(--thumb-w);
+  height: calc(100% - 10px);
+  border-radius: 99em;
+  z-index: 0;
+  pointer-events: none;
+  background-color: color-mix(in srgb, #d4c8b8 42%, transparent);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, #fff 14%, transparent),
+    inset 2px 1px 0 -1px color-mix(in srgb, #fff 70%, transparent),
+    inset -1.5px -1px 0 -1px color-mix(in srgb, #fff 55%, transparent),
+    inset -2px -6px 1px -5px color-mix(in srgb, #fff 35%, transparent),
+    inset -1px 2px 3px -1px color-mix(in srgb, #1c1916 12%, transparent),
+    inset 0 -4px 1px -2px color-mix(in srgb, #1c1916 8%, transparent),
+    0 3px 6px 0 color-mix(in srgb, #1c1916 8%, transparent);
+  transition:
+    left 400ms cubic-bezier(1, 0, 0.4, 1),
+    width 400ms cubic-bezier(1, 0, 0.4, 1),
+    background-color 400ms cubic-bezier(1, 0, 0.4, 1),
+    box-shadow 400ms cubic-bezier(1, 0, 0.4, 1);
+  will-change: left, width, scale;
+}
+.view-seg-thumb.is-stretch {
+  animation: view-seg-stretch 440ms ease;
+}
+@keyframes view-seg-stretch {
+  0% { scale: 1 1; }
+  50% { scale: 1.17 0.94; }
+  100% { scale: 1 1; }
+}
+.view-seg-item {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: var(--opt-w);
+  height: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 99em;
+  background: transparent;
+  cursor: pointer;
+  flex: none;
+}
+.view-seg-face {
+  width: 50px;
+  height: 50px;
+  display: grid;
+  place-items: center;
+  transition: scale 200ms cubic-bezier(.5, 0, 0, 1);
+}
+.view-seg-item:hover .view-seg-face { scale: 1.12; }
+.view-seg-item.is-on:hover .view-seg-face { scale: 1; }
+.view-seg-face img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  opacity: 0.62;
+  transition: opacity 200ms ease;
+}
+.view-seg-item.is-on .view-seg-face img { opacity: 0.98; }
+.view-seg-labels {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 12px;
+}
+.view-seg-labels span {
+  width: 68px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--muted-foreground);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: color 200ms ease, font-weight 200ms ease;
+}
+.view-seg-labels span.is-on {
+  color: var(--foreground);
+  font-weight: 650;
+}
+
 .view-mast-gap {
   grid-column: 2;
   pointer-events: none;
@@ -2056,6 +2546,64 @@ button:active {
   box-shadow:
     0 1px 0 color-mix(in oklch, white 55%, transparent) inset,
     0 18px 40px color-mix(in oklch, var(--foreground) 6%, transparent);
+}
+
+.view-base-add-btn {
+  display: inline-flex;
+  height: 34px;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in oklch, var(--foreground) 14%, var(--border));
+  background: color-mix(in oklch, var(--secondary) 55%, var(--card));
+  color: var(--foreground);
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0;
+  cursor: pointer;
+}
+.view-base-add-btn:hover {
+  background: color-mix(in oklch, var(--secondary) 78%, var(--card));
+}
+.view-base-add-empty {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px dashed color-mix(in oklch, var(--foreground) 14%, var(--border));
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 140ms ease, background 140ms ease, color 140ms ease;
+}
+.view-base-add-empty:hover {
+  border-color: color-mix(in oklch, var(--foreground) 26%, var(--border));
+  background: color-mix(in oklch, var(--foreground) 3.5%, transparent);
+}
+.view-base-add-empty-ico {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  border-radius: 10px;
+  border: 1px solid color-mix(in oklch, var(--foreground) 10%, var(--border));
+  background: transparent;
+  color: var(--muted-foreground);
+  transition: color 140ms ease, border-color 140ms ease, background 140ms ease;
+}
+.view-base-add-empty:hover .view-base-add-empty-ico {
+  color: var(--foreground);
+  border-color: color-mix(in oklch, var(--foreground) 18%, var(--border));
+  background: color-mix(in oklch, var(--foreground) 4%, transparent);
+}
+.view-builder-tags-row {
+  background: color-mix(in oklch, var(--secondary) 28%, transparent);
 }
 .view-builder-panel {
   border-radius: 22px;
@@ -3027,16 +3575,21 @@ button:active {
 }
 .record-row-tag {
   display: inline-flex;
+  align-items: center;
+  justify-content: center;
   max-width: 7rem;
+  min-height: 20px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   border-radius: 999px;
   border: 1px solid color-mix(in oklch, var(--border) 80%, transparent);
   background: color-mix(in oklch, var(--background) 70%, transparent);
-  padding: 1px 7px;
+  padding: 0 8px;
   color: var(--foreground);
   font-size: 10px;
+  line-height: 1;
+  vertical-align: middle;
 }
 
 .view-illu-bar {
@@ -3115,4 +3668,278 @@ button:active {
 .view-illu-bar button.is-on span {
   color: var(--foreground);
   font-weight: 600;
+}
+
+
+/* module install review dialog */
+.module-review-dialog {
+  width: min(700px, calc(100vw - 32px));
+  max-height: min(84vh, 720px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.module-review-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.module-review-body {
+  min-height: 0;
+  flex: 1;
+  overflow: auto;
+  padding-right: 2px;
+}
+.module-review-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.module-review-summary > span {
+  display: inline-flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--secondary) 70%, var(--card));
+  color: color-mix(in oklch, var(--foreground) 78%, transparent);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+.module-review-samples-toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 12px 12px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in oklch, var(--border) 88%, transparent);
+  background: color-mix(in oklch, var(--secondary) 28%, var(--card));
+  cursor: pointer;
+}
+.module-review-section {
+  margin-top: 16px;
+}
+.module-review-section-title {
+  margin: 0 0 8px;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: none;
+  color: var(--muted-foreground);
+}
+.module-review-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid color-mix(in oklch, var(--border) 85%, transparent);
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--card);
+}
+.module-review-list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
+  column-gap: 10px;
+  row-gap: 2px;
+  padding: 10px 12px;
+  border-top: 1px solid color-mix(in oklch, var(--border) 70%, transparent);
+}
+.module-review-list li:first-child { border-top: 0; }
+.module-review-name {
+  grid-column: 1;
+  grid-row: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13.5px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.module-review-meta {
+  grid-column: 1;
+  grid-row: 2;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11.5px;
+  color: var(--muted-foreground);
+}
+.module-review-badge {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--foreground) 8%, transparent);
+  color: var(--foreground);
+  font-size: 10.5px;
+  font-weight: 650;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+.module-review-badge.is-soft {
+  background: color-mix(in oklch, var(--secondary) 70%, transparent);
+  color: var(--muted-foreground);
+  font-weight: 550;
+}
+.module-review-note {
+  margin: 14px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--muted-foreground);
+}
+.module-review-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid color-mix(in oklch, var(--border) 80%, transparent);
+}
+
+
+/* home table — tags cell (design A) */
+.view-tags-pills {
+  display: inline-flex;
+  max-width: 100%;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  overflow: hidden;
+}
+.view-tags-pill {
+  display: inline-flex;
+  max-width: 7.5rem;
+  flex: none;
+  align-items: center;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  /* neutral wash — avoid theme secondary green stealing the row */
+  background: color-mix(in oklch, var(--foreground) 5.5%, var(--card));
+  border: 1px solid color-mix(in oklch, var(--foreground) 8%, transparent);
+  color: color-mix(in oklch, var(--muted-foreground) 72%, var(--foreground));
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.view-tags-more {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  height: 22px;
+  padding: 0 7px;
+  border-radius: 999px;
+  border: 1px dashed color-mix(in oklch, var(--foreground) 12%, transparent);
+  background: transparent;
+  color: color-mix(in oklch, var(--muted-foreground) 88%, transparent);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: 1;
+}
+
+
+/* view builder — column order strips */
+.view-builder-order {
+  border-radius: 22px;
+  border: 1px solid var(--border);
+  background: color-mix(in oklch, var(--card) 92%, transparent);
+  padding: 14px 16px 12px;
+  box-shadow: 0 10px 28px color-mix(in oklch, var(--foreground) 4%, transparent);
+}
+.view-builder-order-head {
+  margin-bottom: 12px;
+}
+.view-builder-order-row {
+  display: grid;
+  grid-template-columns: 4.5rem minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  padding: 8px 0;
+  border-top: 1px solid color-mix(in oklch, var(--border) 70%, transparent);
+}
+.view-builder-order-row:first-of-type {
+  border-top: 0;
+  padding-top: 2px;
+}
+.view-builder-order-label {
+  padding-top: 8px;
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  color: color-mix(in oklch, var(--foreground) 82%, transparent);
+}
+.view-builder-order-empty {
+  padding: 8px 2px;
+  font-size: 12.5px;
+  color: var(--muted-foreground);
+}
+.view-builder-order-track {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+.view-builder-order-chip {
+  display: inline-flex;
+  max-width: 100%;
+  align-items: center;
+  gap: 5px;
+  height: 32px;
+  padding: 0 10px 0 6px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in oklch, var(--foreground) 10%, var(--border));
+  background: var(--card);
+  color: var(--foreground);
+  font-size: 12.5px;
+  font-weight: 550;
+  letter-spacing: -0.01em;
+  cursor: grab;
+  user-select: none;
+  transition: border-color 120ms ease, background 120ms ease, box-shadow 120ms ease, opacity 120ms ease;
+}
+.view-builder-order-chip:hover {
+  border-color: color-mix(in oklch, var(--foreground) 18%, var(--border));
+  background: color-mix(in oklch, var(--secondary) 35%, var(--card));
+}
+.view-builder-order-chip.is-dragging {
+  opacity: 0.45;
+  cursor: grabbing;
+  box-shadow: 0 8px 20px color-mix(in oklch, var(--foreground) 8%, transparent);
+}
+.view-builder-order-grip {
+  flex: none;
+  color: color-mix(in oklch, var(--muted-foreground) 80%, transparent);
+}
+.view-builder-order-idx {
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  flex: none;
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--foreground) 7%, transparent);
+  color: color-mix(in oklch, var(--muted-foreground) 90%, var(--foreground));
+  font-size: 10px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.view-builder-order-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }

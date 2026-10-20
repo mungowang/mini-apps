@@ -13,8 +13,6 @@ export const ROW_ACTS: { id: RowActId; label: string; side: "left" | "right" }[]
 ]
 
 const HIDE_ORDER: RowActId[] = ["open", "delete", "clone", "copy", "edit"]
-const LEFT_ORDER: RowActId[] = ["clone", "delete", "edit"]
-const RIGHT_ORDER: RowActId[] = ["copy", "open"]
 
 export function parseRowActPins(raw: unknown): [RowActId, RowActId] {
   const parts = String(raw ?? "edit,copy").split(",").map((item) => item.trim())
@@ -38,47 +36,58 @@ export function resolveRowActPins(raw: unknown, canWrite: boolean): [RowActId, R
 }
 
 export function rowActPinWidth(leftInline: number, rightInline: number, leftFold: boolean, rightFold: boolean) {
-  return 28 + 28 + 28 + 9 + leftInline * 28 + rightInline * 28 + (leftFold ? 14 : 0) + (rightFold ? 14 : 0)
-}
-
-export function layoutRowActs(opts: { sheetW: number; dataMin: number; canWrite: boolean; pins: [RowActId, RowActId] }) {
-  const avail = new Set(available(opts.canWrite))
-  const pins = opts.pins.filter((id) => avail.has(id)) as RowActId[]
-  const pinPair: [RowActId, RowActId] = [pins[0] ?? "copy", pins[1] ?? "open"]
-  const hideable = HIDE_ORDER.filter((id) => avail.has(id) && !pinPair.includes(id))
-  const fullLeft = LEFT_ORDER.filter((id) => avail.has(id) && !pinPair.includes(id))
-  const fullRight = RIGHT_ORDER.filter((id) => avail.has(id) && !pinPair.includes(id))
-  const fullW = rowActPinWidth(fullLeft.length, fullRight.length, false, false)
-  const slack = opts.sheetW > 0 ? opts.sheetW - opts.dataMin - 12 : fullW
-  let hidden: RowActId[] = []
-  if (slack < fullW) {
-    for (let n = 1; n <= hideable.length; n++) {
-      hidden = hideable.slice(0, n)
-      const leftInline = fullLeft.filter((id) => !hidden.includes(id)).length
-      const rightInline = fullRight.filter((id) => !hidden.includes(id)).length
-      const folded = emergeSides(pinPair, hidden)
-      const leftFold = folded.left.length > 0
-      const rightFold = folded.right.length > 0
-      if (rowActPinWidth(leftInline, rightInline, leftFold, rightFold) <= slack || n === hideable.length) break
-    }
-  }
-  const hiddenSet = new Set(hidden)
-  const leftInline = fullLeft.filter((id) => !hiddenSet.has(id))
-  const rightInline = fullRight.filter((id) => !hiddenSet.has(id))
-  const emerged = emergeSides(pinPair, hidden)
-  return {
-    pins: pinPair,
-    hidden,
-    leftInline,
-    rightInline,
-    leftHidden: emerged.left,
-    rightHidden: emerged.right,
-    pinW: rowActPinWidth(leftInline.length, rightInline.length, emerged.left.length > 0, emerged.right.length > 0),
-  }
+  // cell pad + glass rail pad + icons + divider + optional chevrons — never grow with table
+  // must fit the rendered rail; too-tight width clips sticky actions and causes a stub scrollbar
+  const cellPad = 10 + 14
+  const railPad = 8 + 8
+  const icons = Math.max(leftInline + rightInline, 2) * 28
+  const divider = 9
+  const chevs = (leftFold ? 16 : 0) + (rightFold ? 16 : 0)
+  return cellPad + railPad + icons + divider + chevs
 }
 
 const WRITE: RowActId[] = ["edit", "clone", "delete"]
 const READ: RowActId[] = ["copy", "open"]
+
+/** Full width: write | read. Narrow: only settings pins + fold chevrons. */
+export function layoutRowActs(opts: { sheetW: number; dataMin: number; canWrite: boolean; pins: [RowActId, RowActId] }) {
+  const avail = available(opts.canWrite)
+  const availSet = new Set(avail)
+  const pinPair = resolveRowActPins(opts.pins.join(","), opts.canWrite)
+  const writeIds = WRITE.filter((id) => availSet.has(id))
+  const readIds = READ.filter((id) => availSet.has(id))
+  // full: all write left of rule, all read right — pins ignored
+  const fullW = rowActPinWidth(writeIds.length, readIds.length, false, false)
+  // safety margin: scrollbar gutter + card chrome so we don't get a 4px phantom H-scroll
+  const slack = opts.sheetW > 0 ? opts.sheetW - opts.dataMin - 28 : fullW
+  if (slack >= fullW) {
+    return {
+      mode: "full" as const,
+      pins: pinPair,
+      hidden: [] as RowActId[],
+      leftInline: writeIds,
+      rightInline: readIds,
+      leftHidden: [] as RowActId[],
+      rightHidden: [] as RowActId[],
+      pinW: rowActPinWidth(writeIds.length, readIds.length, false, false),
+    }
+  }
+
+  // narrow / folded: only the two configured pins stay visible
+  const hideable = HIDE_ORDER.filter((id) => availSet.has(id) && !pinPair.includes(id))
+  const hidden = hideable
+  const emerged = emergeSides(pinPair, hidden)
+  return {
+    mode: "narrow" as const,
+    pins: pinPair,
+    hidden,
+    leftInline: [] as RowActId[],
+    rightInline: [] as RowActId[],
+    leftHidden: emerged.left,
+    rightHidden: emerged.right,
+    pinW: rowActPinWidth(0, 0, emerged.left.length > 0, emerged.right.length > 0),
+  }
+}
 
 function familyOf(id: RowActId) {
   return WRITE.includes(id) ? "write" : "read"
@@ -231,21 +240,28 @@ const GLASS_CSS = `
 .view-act-drop {
   position: fixed;
   z-index: 80;
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
   margin: 0;
   padding: 0;
-  border: 1px solid rgba(255,255,255,.72);
-  border-radius: 50%;
+  border: 0;
+  border-radius: 99em;
   display: grid;
   place-items: center;
   color: #3f3a34;
   cursor: pointer;
   pointer-events: auto;
-  background: linear-gradient(180deg, rgba(255,255,255,.58), rgba(255,252,247,.22));
-  backdrop-filter: blur(16px) saturate(1.7);
-  -webkit-backdrop-filter: blur(16px) saturate(1.7);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.88), 0 8px 16px rgba(28,25,22,.12);
+  background-color: color-mix(in srgb, #d4c8b8 42%, transparent);
+  backdrop-filter: blur(10px) saturate(140%);
+  -webkit-backdrop-filter: blur(10px) saturate(140%);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, #fff 14%, transparent),
+    inset 2px 1px 0 -1px color-mix(in srgb, #fff 70%, transparent),
+    inset -1.5px -1px 0 -1px color-mix(in srgb, #fff 55%, transparent),
+    inset -2px -6px 1px -5px color-mix(in srgb, #fff 35%, transparent),
+    inset -1px 2px 3px -1px color-mix(in srgb, #1c1916 12%, transparent),
+    inset 0 -4px 1px -2px color-mix(in srgb, #1c1916 8%, transparent),
+    0 3px 6px 0 color-mix(in srgb, #1c1916 8%, transparent);
   transform: translate(-50%, -50%);
 }
 .view-act-drop:hover { color: #1c1916; }
@@ -324,11 +340,22 @@ export function ViewRowActBar({
     setBox(el.getBoundingClientRect())
   }
   function markHot(on: boolean) {
-    railRef.current?.closest("tr")?.classList.toggle("is-act-hot", on)
+    const row = railRef.current?.closest("tr")
+    if (!row) return
+    if (on) {
+      // only one hot row — clear leftovers from fast pointer hops
+      row.closest("tbody")?.querySelectorAll("tr.is-act-hot").forEach((el) => {
+        if (el !== row) el.classList.remove("is-act-hot")
+      })
+      row.classList.add("is-act-hot")
+    } else {
+      row.classList.remove("is-act-hot")
+    }
   }
   function show() {
     window.clearTimeout(timer.current)
-    markHot(true)
+    // full mode: CSS :hover is enough; is-act-hot only while glass is needed
+    if (folded) markHot(true)
     if (!folded) return
     measure()
     setPhase("in")
@@ -336,6 +363,7 @@ export function ViewRowActBar({
   function stillInside(next: EventTarget | null) {
     if (!(next instanceof Node)) return false
     const row = railRef.current?.closest("tr")
+    // keep hot while pointer stays on this row or glass tray (portal)
     return !!row?.contains(next) || !!trayRef.current?.contains(next)
   }
   function leave(next: EventTarget | null) {
@@ -344,17 +372,24 @@ export function ViewRowActBar({
     window.clearTimeout(timer.current)
     setPhase((current) => current ? "out" : null)
   }
+  // always clear sticky hot when pointer leaves the row (full + folded)
+  useEffect(() => {
+    const row = railRef.current?.closest("tr")
+    if (!row) return
+    const onRowLeave = (event: PointerEvent) => leave(event.relatedTarget)
+    row.addEventListener("pointerleave", onRowLeave)
+    return () => {
+      row.removeEventListener("pointerleave", onRowLeave)
+      row.classList.remove("is-act-hot")
+    }
+  }, [])
   useEffect(() => {
     if (!phase) return
-    const row = railRef.current?.closest("tr")
     const scroller = railRef.current?.closest(".overflow-auto")
     const onScroll = () => measure()
-    const onRowLeave = (event: PointerEvent) => leave(event.relatedTarget)
-    row?.addEventListener("pointerleave", onRowLeave)
     scroller?.addEventListener("scroll", onScroll, { passive: true })
     window.addEventListener("resize", onScroll)
     return () => {
-      row?.removeEventListener("pointerleave", onRowLeave)
       scroller?.removeEventListener("scroll", onScroll)
       window.removeEventListener("resize", onScroll)
     }
@@ -372,16 +407,26 @@ export function ViewRowActBar({
           leave(event.relatedTarget)
         }}
       >
-        {layout.leftHidden.length > 0 && (
-          <span className={"grid h-7 w-3.5 place-items-center text-muted-foreground/80 " + (phase === "in" ? "invisible" : "")} aria-hidden="true"><Chev dir="left" /></span>
-        )}
-        {layout.leftInline.map((id) => <RailButton key={id} id={id} onRun={onRun} />)}
-        <RailButton id={layout.pins[0]} onRun={onRun} />
-        <span className="mx-1 h-2.5 w-px bg-border" />
-        <RailButton id={layout.pins[1]} onRun={onRun} />
-        {layout.rightInline.map((id) => <RailButton key={id} id={id} onRun={onRun} />)}
-        {layout.rightHidden.length > 0 && (
-          <span className={"grid h-7 w-3.5 place-items-center text-muted-foreground/80 " + (phase === "in" ? "invisible" : "")} aria-hidden="true"><Chev dir="right" /></span>
+        {layout.mode === "full" ? (
+          <>
+            {layout.leftInline.map((id) => <RailButton key={id} id={id} onRun={onRun} />)}
+            {layout.leftInline.length > 0 && layout.rightInline.length > 0 && (
+              <span className="mx-1 h-2.5 w-px bg-border" aria-hidden="true" />
+            )}
+            {layout.rightInline.map((id) => <RailButton key={id} id={id} onRun={onRun} />)}
+          </>
+        ) : (
+          <>
+            {layout.leftHidden.length > 0 && (
+              <span className={"grid h-7 w-3.5 place-items-center text-muted-foreground/80 " + (phase === "in" ? "invisible" : "")} aria-hidden="true"><Chev dir="left" /></span>
+            )}
+            <RailButton id={layout.pins[0]} onRun={onRun} />
+            <span className="mx-1 h-2.5 w-px bg-border" aria-hidden="true" />
+            <RailButton id={layout.pins[1]} onRun={onRun} />
+            {layout.rightHidden.length > 0 && (
+              <span className={"grid h-7 w-3.5 place-items-center text-muted-foreground/80 " + (phase === "in" ? "invisible" : "")} aria-hidden="true"><Chev dir="right" /></span>
+            )}
+          </>
         )}
       </div>
       {phase && box && folded ? (

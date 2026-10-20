@@ -1,11 +1,13 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react"
 import { AnimatePresence, motion } from "motion/react"
 import { Autocomplete, Badge, Checkbox, DatePicker, DateTimePicker, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, FileDropzone, Icon, IlluEmpty, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Separator, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TimePicker, Toaster, toast, useApp } from "@mohou/ui"
-import type { CaskPack, DataRow, Field, ModuleInfo, SchemaRow, Sheet, ViewColumn, ViewDef, ViewShortcut, ViewSort } from "./shared/types.ts"
-import { flattenViewFields, formatQuery, labelOf, parseQuery } from "./shared/types.ts"
+import type { CaskPack, DataRow, Field, ModuleInfo, SchemaRow, Sheet, ViewBaseFilter, ViewBaseFilterOp, ViewColumn, ViewDef, ViewShortcut, ViewSort } from "./shared/types.ts"
+import { flattenViewFields, formatQuery, isTagsPath, labelOf, parseQuery, tagsPathLabel } from "./shared/types.ts"
 import type { TextParseResult, TextParserDef } from "./shared/parser-types.ts"
 import { VIEW_ILLUSTRATIONS, pickViewIllustration, viewIllustrationAsset } from "./shared/view-illu.ts"
 import { layoutRowActs, parseRowActPins, resolveRowActPins, ViewRowActBar, type RowActId } from "./ui/view-row-actions.tsx"
+import { ViewRailSwitch } from "./ui/view-rail-switch.tsx"
+import { FilterMultiSelect, joinMultiFilter, parseMultiFilter } from "./ui/filter-multi-select.tsx"
 
 type Nav = "home" | "data" | "import" | "views" | "settings"
 type Step = "home" | "file" | "text" | "parser" | "ai" | "targets" | "map" | "refs" | "preview" | "done"
@@ -29,7 +31,7 @@ type ViewResult = {
   schema: SchemaRow
   headers: { key: string; label: string }[]
   filters: { key: string; label: string; type: Field["type"]; schema?: string; enum?: boolean; options?: string[] }[]
-  rows: { id: string; cells: { text: string; copy: string; type?: string }[] }[]
+  rows: { id: string; cells: { text: string; copy: string; type?: string; tags?: string[] }[] }[]
 }
 
 /** CJK counts ~2 units so short Chinese labels (角色/系统) keep readable width. */
@@ -52,12 +54,32 @@ function viewColumnMinWidths(headers: { key: string; label: string }[], rows: { 
       ...samples.map((cell) => visualLen(String(cell?.text || "").slice(0, 48))),
     )
     if (type === "secret" || /secret|password|密码|密钥|token/.test(blob)) return 118
+    if (type === "tags" || isTagsPath(header.key) || /标签|\$tags/.test(blob)) return 148
     if (type === "url" || /url|link|href|入口|baseurl|website/.test(blob)) return Math.min(260, Math.max(160, maxV * 7.5 + 36))
     if (type === "date" || type === "time") return 108
     if (type === "datetime") return 148
     // floor keeps 角色/系统/环境 from collapsing to one glyph
     return Math.min(240, Math.max(88, maxV * 8.2 + 48))
   })
+}
+
+/** Read-only chip label for a locked view base filter. */
+function formatBaseFilterChip(rule: ViewBaseFilter, headers: { key: string; label: string }[]) {
+  const parts = rule.value.split(/\s*\|\s*/).map((part) => part.trim()).filter(Boolean)
+  // ~ already means any-of; middle-dot reads cleaner than OR / |
+  const values = parts.join(" · ") || rule.value.trim()
+  const field =
+    rule.op === "hasTag" || rule.op === "lacksTag" || isTagsPath(rule.key) || rule.key === "$tag"
+      ? "标签"
+      : (headers.find((item) => item.key === rule.key)?.label
+        || rule.key.split(".").at(-1)
+        || rule.key)
+  // compact ops: =  !=  ~  !~ 
+  if (rule.op === "hasTag" || rule.op === "contains") return field + " ~ " + values
+  if (rule.op === "lacksTag" || rule.op === "notContains") return field + " !~ " + values
+  if (rule.op === "eq") return field + " = " + values
+  if (rule.op === "neq") return field + " != " + values
+  return field + " ~ " + values
 }
 
 async function copyText(text: string, okTitle: string, okDesc?: string) {
@@ -258,7 +280,7 @@ export default function App() {
     <div className="app-shell flex h-full min-h-0 overflow-hidden bg-background text-foreground">
       <Toaster position="bottom-right" timeout={3200} limit={3} />
       <nav className="flex w-[76px] shrink-0 flex-col items-center gap-1 border-r border-border bg-card py-4">
-        <img src={resolveAssetUrl("./assets/logo-open-book.webp")} alt="数据手账" title="数据手账" className="mb-3 h-11 w-11 object-contain" />
+        <img src={resolveAssetUrl("./assets/logo-refreshing-beverage.svg")} alt="数据手账" title="数据手账" className="mb-3 h-11 w-11 object-contain" />
         {(["home", "data", "views", "import", "settings"] as Nav[]).map((id) => (
           <button
             key={id}
@@ -510,6 +532,16 @@ function rememberShortcut(viewId: string, shortcutId: string) {
   try { localStorage.setItem(shortcutMemoryKey(viewId), shortcutId) } catch { /* ignore */ }
 }
 
+const RAIL_COLLAPSED_KEY = "data-cask.home-rail-collapsed"
+
+function readRailCollapsed() {
+  try { return localStorage.getItem(RAIL_COLLAPSED_KEY) === "1" } catch { return false }
+}
+
+function rememberRailCollapsed(collapsed: boolean) {
+  try { localStorage.setItem(RAIL_COLLAPSED_KEY, collapsed ? "1" : "0") } catch { /* ignore */ }
+}
+
 function HomeView({ overview, focusViewId, onOpen, onEditViews, onGoData, onGoImport, onRefresh, onFocusView }: { overview: Overview | null; focusViewId?: string; onOpen: (id: string) => void; onEditViews: () => void; onGoData: () => void; onGoImport: () => void; onRefresh: () => Promise<void>; onFocusView?: (id: string) => void }) {
   const { call, resolveAssetUrl } = useApp()
   const views = overview?.views ?? []
@@ -528,7 +560,23 @@ function HomeView({ overview, focusViewId, onOpen, onEditViews, onGoData, onGoIm
   const [pendingDeleteId, setPendingDeleteId] = useState("")
   const [actionPins, setActionPins] = useState<[RowActId, RowActId]>(["edit", "copy"])
   const [sheetW, setSheetW] = useState(0)
+  const [railCollapsed, setRailCollapsed] = useState(() => readRailCollapsed())
+  const [edgeShow, setEdgeShow] = useState(() => readRailCollapsed())
   const sheetRef = useRef<HTMLDivElement>(null)
+  function setRailCollapsedPersist(next: boolean) {
+    setRailCollapsed(next)
+    rememberRailCollapsed(next)
+  }
+  useEffect(() => {
+    if (!railCollapsed) {
+      setEdgeShow(false)
+      return
+    }
+    // wait until rail finish retracting before showing edge handle
+    // skip delay on first paint if already collapsed from memory
+    const timer = window.setTimeout(() => setEdgeShow(true), edgeShow ? 0 : 520)
+    return () => window.clearTimeout(timer)
+  }, [railCollapsed])
   const filterTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const shortcutInput = useRef<HTMLInputElement>(null)
   const active = views.find((item) => item.id === viewId) ?? views[0]
@@ -564,7 +612,7 @@ function HomeView({ overview, focusViewId, onOpen, onEditViews, onGoData, onGoIm
   useEffect(() => {
     if (focusViewId && views.some((item) => item.id === focusViewId)) setViewId(focusViewId)
   }, [focusViewId, views])
-  useEffect(() => { setRevealSecrets(false) }, [active?.id])
+  useEffect(() => { setRevealSecrets(!!active?.revealSecretsDefault) }, [active?.id, active?.revealSecretsDefault])
   useEffect(() => {
     if (!active) return
     const remembered = readRememberedShortcut(active.id)
@@ -752,8 +800,6 @@ function HomeView({ overview, focusViewId, onOpen, onEditViews, onGoData, onGoIm
     )
   }
   const schemaName = schemas.find((item) => item.id === active?.schemaId)?.name ?? ""
-  const totalRows = overview?.counts[active?.schemaId ?? ""] ?? 0
-  const matchRows = result?.rows.length ?? 0
   const packed = compactFilters(filters)
   const hasFilters = Object.keys(packed).length > 0
   const hasSorts = sorts.length > 0
@@ -768,9 +814,22 @@ function HomeView({ overview, focusViewId, onOpen, onEditViews, onGoData, onGoIm
   const hasSecrets = displayRows.some((row) => row.cells.some((cell) => cell.type === "secret" && !!(cell.copy || cell.text)))
   const sortLabel = (key: string) => result?.headers.find((h) => h.key === key)?.label ?? key
   return (
-    <section className="flex h-full min-h-0 min-w-0 flex-1 overflow-hidden bg-background">
-      <aside className="flex h-full min-h-0 w-[268px] shrink-0 flex-col overflow-hidden border-r border-border bg-card/40 px-4 py-7">
-        <p className="mb-4 px-2 text-xs tracking-[0.18em] text-muted-foreground">视图</p>
+    <section className={"view-home flex h-full min-h-0 min-w-0 flex-1 overflow-hidden bg-background" + (railCollapsed ? " is-rail-collapsed" : "")}>
+      <aside className="view-home-rail flex h-full min-h-0 w-[268px] shrink-0 flex-col overflow-hidden border-r border-border bg-card/40 px-4 py-7">
+        <div className="mb-4 flex items-center justify-between gap-2 px-2">
+          <p className="text-xs tracking-[0.18em] text-muted-foreground">视图</p>
+          {views.length > 0 && (
+            <button
+              type="button"
+              className="view-rail-fold"
+              aria-label="折叠视图列表"
+              title="折叠"
+              onClick={() => setRailCollapsedPersist(true)}
+            >
+              <Icon.ChevronLeft size={14} />
+            </button>
+          )}
+        </div>
         <div className="min-h-0 flex-1 space-y-2 overflow-auto">
           {views.map((item) => {
             const illu = viewIllustrationAsset(item.illustration, item.id)
@@ -788,8 +847,20 @@ function HomeView({ overview, focusViewId, onOpen, onEditViews, onGoData, onGoIm
           })}
         </div>
       </aside>
-      <div key={active?.id + "-" + irisKey} className="view-iris view-iris-in flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden px-10 py-8">
-        <div className="view-mast shrink-0">
+      <div className="relative flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+        <button
+          type="button"
+          className={"view-rail-edge" + (edgeShow ? " is-show" : "")}
+          aria-label="展开视图列表"
+          title="展开列表"
+          tabIndex={railCollapsed ? 0 : -1}
+          onClick={() => setRailCollapsedPersist(false)}
+        >
+          <Icon.ChevronRight size={14} />
+        </button>
+        {/* mast + liquid switch stay mounted across view changes (no iris key) */}
+        <div className="shrink-0 px-10 pt-8">
+        <div className="view-mast">
           <div className="view-mast-title min-w-0">
             <div className="view-mast-copy">
               <p className="text-xs tracking-[0.2em] text-muted-foreground">只读 · 来自 {schemaName}</p>
@@ -894,53 +965,39 @@ function HomeView({ overview, focusViewId, onOpen, onEditViews, onGoData, onGoIm
           <div className="view-mast-illu" aria-hidden="true">
             <img src={resolveAssetUrl(activeIllu.path)} alt="" />
           </div>
-          <div className="view-mast-seal">
-            <div className="view-stamp grid h-[116px] w-[116px] place-items-center rounded-[28px] border border-border">
-              <div className="text-center">
-                <p className="text-[10px] tracking-[0.22em] text-muted-foreground">VIEW</p>
-                <strong className="mt-1 block text-[28px] font-medium tracking-tight leading-none">{matchRows}<span className="text-lg text-muted-foreground">/{totalRows}</span></strong>
-                <p className="mt-1.5 text-[10px] tracking-[0.18em] text-muted-foreground">MATCH</p>
-              </div>
+          {railCollapsed ? (
+            <div className="view-mast-switch">
+              <ViewRailSwitch
+                views={views}
+                activeId={active?.id ?? ""}
+                onSelect={(id) => setViewId(id)}
+              />
             </div>
-          </div>
+          ) : (
+            <div className="view-mast-switch-spacer" aria-hidden="true" />
+          )}
         </div>
+        </div>
+        {/* only filters + sheet iris-animate on view switch */}
+        <div key={active?.id + "-" + irisKey} className="view-iris view-iris-in flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden px-10 pb-8">
         {!!result?.filters.length && (
           <div className="view-filters mt-7 rounded-[24px] border border-border bg-card px-5 py-4 shadow-sm">
             {result.filters.map((item) => {
               const enumOpts = item.enum && item.options?.length ? item.options : undefined
+              const refOpts = item.type === "ref" ? (options[item.key] ?? []).map((row) => row.label) : undefined
+              const multiOpts = enumOpts ?? refOpts
+              const multiValues = multiOpts ? parseMultiFilter(filters[item.key]) : []
               return (
               <label key={item.key} className="view-filter-item flex flex-col gap-2 text-[11px] tracking-[0.14em] text-muted-foreground">
                 {item.label}
-                {enumOpts ? (
-                  <div className={"view-filter-auto" + ((filters[item.key] ?? "").trim() ? " has-value" : "")}>
-                    <Autocomplete
-                      value={filters[item.key] ?? ""}
+                {multiOpts ? (
+                  <div className="view-filter-multi">
+                    <FilterMultiSelect
+                      values={multiValues}
+                      options={multiOpts}
                       placeholder="输入或选择"
-                      options={enumOpts}
-                      onChange={(value) => {
-                        // typing → debounce; picking a full option → apply immediately
-                        const exact = enumOpts.includes(value)
-                        if (exact || !value) run({ ...filters, [item.key]: value })
-                        else runTextFilter(item.key, value)
-                      }}
+                      onChange={(next) => run({ ...filters, [item.key]: joinMultiFilter(next) })}
                     />
-                    <button
-                      type="button"
-                      className="view-filter-clear"
-                      aria-label={"清除 " + item.label}
-                      tabIndex={(filters[item.key] ?? "").trim() ? 0 : -1}
-                      onMouseDown={(event) => event.preventDefault()}
-                      onClick={() => run({ ...filters, [item.key]: "" })}
-                    >
-                      <Icon.X size={14} />
-                    </button>
-                  </div>
-                ) : item.type === "ref" ? (
-                  <div className={"view-filter-select" + ((filters[item.key] ?? "").trim() ? " has-value" : "")}>
-                    <AppSelect height={40} value={filters[item.key] ?? ""} placeholder="全部" emptyLabel="全部" onChange={(value) => run({ ...filters, [item.key]: value })} options={(options[item.key] ?? []).map((row) => ({ value: row.label, label: row.label }))} />
-                    <button type="button" className="view-filter-clear" aria-label={"清除 " + item.label} tabIndex={(filters[item.key] ?? "").trim() ? 0 : -1} onClick={() => run({ ...filters, [item.key]: "" })}>
-                      <Icon.X size={14} />
-                    </button>
                   </div>
                 ) : item.type === "date" ? (
                   <DatePicker className="h-10 w-full justify-between rounded-xl border border-border bg-card px-3 text-sm font-normal shadow-none hover:bg-card dark:bg-card dark:hover:bg-card" placeholder="全部" {...asDate(filters[item.key]) ? { value: asDate(filters[item.key]) } : {}} onChange={(value) => run({ ...filters, [item.key]: value ? stampDate(value) : "" })} />
@@ -964,7 +1021,11 @@ function HomeView({ overview, focusViewId, onOpen, onEditViews, onGoData, onGoIm
           </div>
         )}
         <div className="mt-6 flex min-h-0 flex-1 flex-col overflow-hidden rounded-[28px] border border-border bg-card shadow-sm">
-          {(canWrite || hasSorts || hasSecrets) && (
+          {(() => {
+            const lockedFilters = active?.baseFilters ?? []
+            const showToolbar = canWrite || hasSorts || hasSecrets || lockedFilters.length > 0
+            if (!showToolbar) return null
+            return (
             <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-2.5 text-[11px]">
               {canWrite && (
                 <button
@@ -997,19 +1058,33 @@ function HomeView({ overview, focusViewId, onOpen, onEditViews, onGoData, onGoIm
                   </button>
                 </>
               )}
-              {hasSecrets && (
-                <button
-                  type="button"
-                  className={"ml-auto inline-flex h-7 items-center gap-1.5 rounded-lg border px-2.5 " + (revealSecrets ? "border-foreground bg-foreground text-background" : "border-border bg-background text-muted-foreground hover:bg-secondary hover:text-foreground")}
-                  title={revealSecrets ? "隐藏全部密钥" : "一键显示本页全部密钥"}
-                  onClick={() => setRevealSecrets((v) => !v)}
-                >
-                  {revealSecrets ? <Icon.EyeOff size={13} /> : <Icon.Eye size={13} />}
-                  <span>{revealSecrets ? "隐藏全部密钥" : "显示全部密钥"}</span>
-                </button>
-              )}
+              <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-1.5">
+                {lockedFilters.length > 0 && (
+                  <div className="flex min-w-0 flex-wrap items-center gap-1.5" title="视图预置条件，不可在此修改">
+                    <span className="shrink-0 tracking-[0.14em] text-muted-foreground">预置条件</span>
+                    {lockedFilters.map((rule, index) => (
+                      <span key={rule.key + rule.op + rule.value + index} className="view-base-chip" title="预置条件 · 在「视图」里改">
+                        <Icon.Lock size={11} className="view-base-chip-lock" />
+                        <span className="truncate">{formatBaseFilterChip(rule, result?.headers ?? [])}</span>
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {hasSecrets && (
+                  <button
+                    type="button"
+                    className={"inline-flex h-7 shrink-0 items-center gap-1.5 rounded-lg border px-2.5 " + (revealSecrets ? "border-foreground bg-foreground text-background" : "border-border bg-background text-muted-foreground hover:bg-secondary hover:text-foreground")}
+                    title={revealSecrets ? "隐藏全部密钥" : "一键显示本页全部密钥"}
+                    onClick={() => setRevealSecrets((v) => !v)}
+                  >
+                    {revealSecrets ? <Icon.EyeOff size={13} /> : <Icon.Eye size={13} />}
+                    <span>{revealSecrets ? "隐藏全部密钥" : "显示全部密钥"}</span>
+                  </button>
+                )}
+              </div>
             </div>
-          )}
+            )
+          })()}
           <div ref={sheetRef} className="view-sheet min-h-0 flex-1 overflow-auto">
             {(() => {
               const headers = result?.headers ?? []
@@ -1021,13 +1096,15 @@ function HomeView({ overview, focusViewId, onOpen, onEditViews, onGoData, onGoIm
                 pins: resolveRowActPins(actionPins.join(","), canWrite),
               })
               const actionsMin = actLayout.pinW
+              // min only — maxWidth was clipping the glass rail and causing a stub H-scrollbar
+              const actColStyle = { width: actionsMin, minWidth: actionsMin } as const
               return (
             <table className="w-max min-w-full text-left text-sm">
               <colgroup>
                 {headers.map((header, index) => (
                   <col key={header.key} style={{ minWidth: mins[index] ?? 96 }} />
                 ))}
-                <col style={{ minWidth: actionsMin }} />
+                <col style={actColStyle} />
               </colgroup>
               <thead className="sticky top-0 z-[1] bg-card/95 backdrop-blur">
                 <tr>
@@ -1065,7 +1142,7 @@ function HomeView({ overview, focusViewId, onOpen, onEditViews, onGoData, onGoIm
                       </th>
                     )
                   })}
-                  <th className="view-act-pin border-b border-border py-3.5 text-[11px] font-medium tracking-[0.16em] text-muted-foreground" style={{ minWidth: actionsMin }}>操作</th>
+                  <th className="view-act-pin border-b border-border py-3.5 text-[11px] font-medium tracking-[0.16em] text-muted-foreground" style={actColStyle}>操作</th>
                 </tr>
               </thead>
               <tbody>
@@ -1077,6 +1154,12 @@ function HomeView({ overview, focusViewId, onOpen, onEditViews, onGoData, onGoIm
                       <td key={index} className="px-4 py-4 align-middle" style={{ minWidth: mins[index] }}>
                         {cell.type === "secret" ? (
                           <ViewSecretCell text={cell.text} copy={cell.copy} forceOpen={revealSecrets} label={colLabel} />
+                        ) : cell.type === "tags" || isTagsPath(headers[index]?.key ?? "") ? (
+                          <ViewTagsCell
+                            tags={cell.tags ?? String(cell.text || "").split(/[·,]/).map((part) => part.trim()).filter(Boolean)}
+                            copy={cell.copy || cell.text}
+                            label={colLabel}
+                          />
                         ) : (
                           <span className="inline-flex max-w-full items-center gap-2">
                             <span className="whitespace-nowrap">{cell.text || "—"}</span>
@@ -1095,7 +1178,7 @@ function HomeView({ overview, focusViewId, onOpen, onEditViews, onGoData, onGoIm
                       </td>
                       )
                     })}
-                    <td className="view-act-pin py-2 align-middle" style={{ minWidth: actionsMin }}>
+                    <td className="view-act-pin py-2 align-middle" style={actColStyle}>
                       <ViewRowActBar
                         layout={actLayout}
                         onRun={(id) => {
@@ -1144,6 +1227,7 @@ function HomeView({ overview, focusViewId, onOpen, onEditViews, onGoData, onGoIm
             })()}
           </div>
         </div>
+      </div>
       </div>
       {editor && canWrite && writeSchema && (
         <ViewRecordDialog
@@ -1196,6 +1280,20 @@ function HomeView({ overview, focusViewId, onOpen, onEditViews, onGoData, onGoIm
   )
 }
 
+type ModuleInstallPreview = {
+  moduleId: string
+  title: string
+  description: string
+  includeSamples: boolean
+  hasSamples: boolean
+  sampleCount: number
+  sampleTotal: number
+  schemas: { name: string; fieldCount: number; fields: string[]; exists: boolean; action: "create" | "reuse" }[]
+  views: { name: string; schemaName: string; description: string; exists: boolean; action: "create" | "skip"; baseFilterCount: number; allowWrite: boolean; revealSecretsDefault: boolean }[]
+  samples: { schemaName: string; count: number }[]
+  summary: { schemaCreate: number; schemaReuse: number; viewCreate: number; viewSkip: number; sampleRows: number }
+}
+
 function ViewEmptyStage({ kind, onPrimary, onSecondary, onTertiary, onRefresh, onInstalled }: {
   kind: "no-tables" | "no-views"
   onPrimary: () => void
@@ -1210,6 +1308,12 @@ function ViewEmptyStage({ kind, onPrimary, onSecondary, onTertiary, onRefresh, o
   const [modulesError, setModulesError] = useState("")
   const [includeSamples, setIncludeSamples] = useState<Record<string, boolean>>({})
   const [installingId, setInstallingId] = useState("")
+  const [review, setReview] = useState<{
+    mod: ModuleInfo
+    preview: ModuleInstallPreview | null
+    loading: boolean
+    error: string
+  } | null>(null)
   const illu = kind === "no-tables"
     ? viewIllustrationAsset("files", "empty-tables")
     : viewIllustrationAsset("filter", "empty-views")
@@ -1245,8 +1349,51 @@ function ViewEmptyStage({ kind, onPrimary, onSecondary, onTertiary, onRefresh, o
     return () => { alive = false }
   }, [kind])
 
-  async function installModule(mod: ModuleInfo) {
+  async function openInstallReview(mod: ModuleInfo) {
     if (installingId) return
+    const withSamples = !!includeSamples[mod.id] && mod.hasSamples
+    setReview({ mod, preview: null, loading: true, error: "" })
+    try {
+      const preview = await call<ModuleInstallPreview>("previewModule", {
+        id: mod.id,
+        includeSamples: withSamples,
+      })
+      setReview({ mod, preview, loading: false, error: "" })
+    } catch (err) {
+      setReview({
+        mod,
+        preview: null,
+        loading: false,
+        error: String(err instanceof Error ? err.message : err),
+      })
+    }
+  }
+
+  async function refreshInstallReview(nextSamples: boolean) {
+    if (!review || installingId) return
+    const mod = review.mod
+    setIncludeSamples((prev) => ({ ...prev, [mod.id]: nextSamples }))
+    setReview({ mod, preview: null, loading: true, error: "" })
+    try {
+      const preview = await call<ModuleInstallPreview>("previewModule", {
+        id: mod.id,
+        includeSamples: nextSamples && mod.hasSamples,
+      })
+      setReview({ mod, preview, loading: false, error: "" })
+    } catch (err) {
+      setReview({
+        mod,
+        preview: null,
+        loading: false,
+        error: String(err instanceof Error ? err.message : err),
+      })
+    }
+  }
+
+  async function confirmInstallModule() {
+    if (!review || installingId) return
+    const mod = review.mod
+    const withSamples = !!includeSamples[mod.id] && mod.hasSamples
     setInstallingId(mod.id)
     try {
       const result = await call<{
@@ -1255,7 +1402,7 @@ function ViewEmptyStage({ kind, onPrimary, onSecondary, onTertiary, onRefresh, o
         title?: string
       }>("installModule", {
         id: mod.id,
-        includeSamples: !!includeSamples[mod.id] && mod.hasSamples,
+        includeSamples: withSamples,
         conflict: "skip",
       })
       const created = result?.created
@@ -1269,6 +1416,7 @@ function ViewEmptyStage({ kind, onPrimary, onSecondary, onTertiary, onRefresh, o
         description: bits.length ? bits.join(" · ") : "同名表已复用",
         type: "success",
       })
+      setReview(null)
       await onInstalled?.(result?.primaryViewId || undefined)
     } catch (err) {
       toast.add({ title: "安装失败", description: String(err instanceof Error ? err.message : err), type: "error" })
@@ -1358,7 +1506,7 @@ function ViewEmptyStage({ kind, onPrimary, onSecondary, onTertiary, onRefresh, o
                         type="button"
                         className="view-empty-module-go"
                         disabled={!!installingId}
-                        onClick={() => void installModule(mod)}
+                        onClick={() => void openInstallReview(mod)}
                       >
                         <span>{busy ? "安装中" : mod.installed ? "再次安装" : "安装场景"}</span>
                         {!busy && <Icon.ArrowRight size={15} strokeWidth={2.2} />}
@@ -1367,6 +1515,147 @@ function ViewEmptyStage({ kind, onPrimary, onSecondary, onTertiary, onRefresh, o
                   </div>
                 )
               })}
+            </div>
+          </div>
+        )}
+
+        {review && (
+          <div className="view-record-mask" onClick={() => !installingId && setReview(null)}>
+            <div className="view-record-dialog module-review-dialog" onClick={(event) => event.stopPropagation()}>
+              <div className="module-review-head">
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] tracking-[0.16em] text-muted-foreground">安装预览</p>
+                  <h2 className="mt-1 text-lg font-semibold tracking-tight">{review.mod.title}</h2>
+                  {!!review.mod.description && (
+                    <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{review.mod.description}</p>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-muted-foreground hover:bg-secondary hover:text-foreground"
+                  aria-label="关闭"
+                  disabled={!!installingId}
+                  onClick={() => setReview(null)}
+                >
+                  <Icon.X size={16} />
+                </button>
+              </div>
+
+              {review.loading && (
+                <p className="mt-5 flex items-center gap-2 text-sm text-muted-foreground">
+                  <Icon.Loader2 size={15} className="animate-spin" />
+                  正在生成安装清单…
+                </p>
+              )}
+              {!!review.error && !review.loading && (
+                <p className="mt-5 text-sm text-destructive">{review.error}</p>
+              )}
+
+              {review.preview && !review.loading && (() => {
+                const p = review.preview!
+                const sum = p.summary
+                return (
+                  <div className="module-review-body mt-5">
+                    <div className="module-review-summary">
+                      <span>{sum.schemaCreate ? "新建 " + sum.schemaCreate + " 表" : "无新表"}</span>
+                      {sum.schemaReuse > 0 && <span>复用 {sum.schemaReuse} 表</span>}
+                      <span>{sum.viewCreate ? "新建 " + sum.viewCreate + " 视图" : "无新视图"}</span>
+                      {sum.viewSkip > 0 && <span>跳过 {sum.viewSkip} 视图</span>}
+                      <span>{sum.sampleRows ? sum.sampleRows + " 条示例" : "不含示例"}</span>
+                    </div>
+
+                    {review.mod.hasSamples && (
+                      <label className="module-review-samples-toggle">
+                        <Checkbox
+                          checked={!!includeSamples[review.mod.id]}
+                          disabled={!!installingId}
+                          onCheckedChange={(checked) => void refreshInstallReview(!!checked)}
+                        />
+                        <span className="min-w-0">
+                          <strong className="block text-sm font-medium">包含示例数据</strong>
+                          <span className="text-xs text-muted-foreground">
+                            包内共 {p.sampleTotal} 条 · {includeSamples[review.mod.id] ? "将写入本地" : "本次不写入"}
+                          </span>
+                        </span>
+                      </label>
+                    )}
+
+                    <div className="module-review-section">
+                      <p className="module-review-section-title">数据表</p>
+                      <ul className="module-review-list">
+                        {p.schemas.map((item) => (
+                          <li key={item.name}>
+                            <span className="module-review-name">{item.name}</span>
+                            <span className="module-review-meta">{item.fieldCount} 字段 · {item.fields.slice(0, 4).join(" · ")}{item.fields.length > 4 ? " …" : ""}</span>
+                            <span className={"module-review-badge" + (item.action === "reuse" ? " is-soft" : "")}>
+                              {item.action === "reuse" ? "已有 · 复用" : "新建"}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    <div className="module-review-section">
+                      <p className="module-review-section-title">视图</p>
+                      <ul className="module-review-list">
+                        {p.views.map((item) => (
+                          <li key={item.name + item.schemaName}>
+                            <span className="module-review-name">{item.name}</span>
+                            <span className="module-review-meta">
+                              来自 {item.schemaName}
+                              {item.baseFilterCount ? " · 预置条件 " + item.baseFilterCount : ""}
+                              {item.allowWrite ? " · 可写" : ""}
+                              {item.revealSecretsDefault ? " · 默认显密" : ""}
+                            </span>
+                            <span className={"module-review-badge" + (item.action === "skip" ? " is-soft" : "")}>
+                              {item.action === "skip" ? "已有 · 跳过" : "新建"}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    {p.includeSamples && p.samples.length > 0 && (
+                      <div className="module-review-section">
+                        <p className="module-review-section-title">示例数据</p>
+                        <ul className="module-review-list">
+                          {p.samples.map((item) => (
+                            <li key={item.schemaName}>
+                              <span className="module-review-name">{item.schemaName}</span>
+                              <span className="module-review-meta">{item.count} 条</span>
+                              <span className="module-review-badge">写入</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    <p className="module-review-note">
+                      冲突策略：同名表复用并合并缺失字段；同名视图跳过。安装不会覆盖你已有的行数据。
+                    </p>
+                  </div>
+                )
+              })()}
+
+              <div className="module-review-actions">
+                <button
+                  type="button"
+                  className="h-10 rounded-xl border border-border px-4 text-sm"
+                  disabled={!!installingId}
+                  onClick={() => setReview(null)}
+                >
+                  取消
+                </button>
+                <button
+                  type="button"
+                  className="inline-flex h-10 items-center gap-2 rounded-xl bg-foreground px-5 text-sm font-medium text-background disabled:opacity-50"
+                  disabled={!!installingId || review.loading || !!review.error || !review.preview}
+                  onClick={() => void confirmInstallModule()}
+                >
+                  {installingId ? <Icon.Loader2 size={15} className="animate-spin" /> : null}
+                  {installingId ? "安装中…" : "确认安装"}
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -1397,7 +1686,15 @@ function ViewBuilder({ schemas, views, counts, focusViewId, onGoData, onGoImport
   const [schemaId, setSchemaId] = useState(current?.schemaId ?? schemas[0]?.id ?? "")
   const [columns, setColumns] = useState<ViewColumn[]>(current?.columns ?? [])
   const [allowWrite, setAllowWrite] = useState(!!current?.allowWrite)
+  const [revealSecretsDefault, setRevealSecretsDefault] = useState(!!current?.revealSecretsDefault)
+  const [baseFilterRows, setBaseFilterRows] = useState<ViewBaseFilter[]>(() => [...(current?.baseFilters ?? [])])
+  const [tagOptions, setTagOptions] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
+  useEffect(() => {
+    call<Overview>("overview").then((data) => {
+      setTagOptions(Object.keys(data.tags ?? {}).sort((a, b) => a.localeCompare(b, "zh-CN")))
+    }).catch(() => {})
+  }, [call])
   const schema = schemas.find((item) => item.id === schemaId)
   const fieldOptions = schema ? flattenViewFields(schema, schemas) : []
   const visibleFields = fieldOptions.filter((field) => {
@@ -1422,16 +1719,18 @@ function ViewBuilder({ schemas, views, counts, focusViewId, onGoData, onGoImport
   function defaultColumns(target?: SchemaRow) {
     if (!target) return [] as ViewColumn[]
     return flattenViewFields(target, schemas).map((field) => {
+      const tagsCol = field.builtin === "tags" || isTagsPath(field.path)
       const searchable = field.depth === 0 && field.type !== "secret"
       // nested paths (role.name / system.env.code) or refs → enum suggestions by default
-      const suggest = field.type !== "secret" && (field.type === "ref" || field.path.includes("."))
+      const suggest = field.type !== "secret" && (field.type === "ref" || field.path.includes(".") || tagsCol)
       return {
         key: field.path,
-        as: "",
-        show: field.depth === 0 && field.type !== "secret",
-        search: searchable || suggest,
-        sort: field.depth === 0 && field.type !== "secret",
-        enum: (searchable || suggest) && suggest,
+        as: tagsCol ? (field.depth === 0 ? "标签" : tagsPathLabel(field.path)) : "",
+        // root tags shown by default; nested ref tags opt-in
+        show: field.depth === 0 && (tagsCol || field.type !== "secret"),
+        search: tagsCol || searchable || suggest,
+        sort: field.depth === 0 && field.type !== "secret" && !tagsCol,
+        enum: tagsCol || ((searchable || suggest) && suggest),
       }
     })
   }
@@ -1458,6 +1757,8 @@ function ViewBuilder({ schemas, views, counts, focusViewId, onGoData, onGoImport
       setSchemaId(schemas[0].id)
       setColumns(defaultColumns(schemas[0]))
       setAllowWrite(false)
+      setRevealSecretsDefault(false)
+      setBaseFilterRows([])
       setOpenPaths(defaultOpenPaths(schemas[0]))
       return
     }
@@ -1466,6 +1767,8 @@ function ViewBuilder({ schemas, views, counts, focusViewId, onGoData, onGoImport
     setIllustration(current.illustration || pickViewIllustration(current.id))
     setSchemaId(current.schemaId)
     setAllowWrite(!!current.allowWrite)
+    setRevealSecretsDefault(!!current.revealSecretsDefault)
+    setBaseFilterRows([...(current.baseFilters ?? [])])
     const target = schemas.find((item) => item.id === current.schemaId)
     const nextColumns = current.columns.length ? current.columns : defaultColumns(target)
     setColumns(nextColumns)
@@ -1474,19 +1777,45 @@ function ViewBuilder({ schemas, views, counts, focusViewId, onGoData, onGoImport
   useEffect(() => {
     if (!schema) return
     setColumns((prev) => {
+      const fields = flattenViewFields(schema, schemas)
+      const allowed = new Set(fields.map((item) => item.path))
+      const meta = new Map(fields.map((item) => [item.path, item]))
       const byKey = new Map(prev.map((item) => [item.key, item]))
-      return flattenViewFields(schema, schemas).map((field) => {
-        const old = byKey.get(field.path)
-        if (old) return { ...old, search: field.type === "secret" ? false : old.search, enum: field.type === "secret" ? false : !!old.search && !!old.enum }
-        return { key: field.path, as: "", show: false, search: false, sort: false, enum: false }
-      })
+      const next: ViewColumn[] = []
+      const seen = new Set<string>()
+      // keep existing order (drag order / pack order)
+      for (const item of prev) {
+        if (!allowed.has(item.key) || seen.has(item.key)) continue
+        const field = meta.get(item.key)
+        const secret = field?.type === "secret"
+        seen.add(item.key)
+        next.push({
+          ...item,
+          search: secret ? false : item.search,
+          enum: secret ? false : !!item.search && !!item.enum,
+          sort: secret ? false : item.sort,
+        })
+      }
+      // append any newly available fields
+      for (const field of fields) {
+        if (seen.has(field.path)) continue
+        next.push({ key: field.path, as: "", show: false, search: false, sort: false, enum: false })
+      }
+      return next
     })
   }, [schemaId])
   async function save() {
     if (saving) return
     setSaving(true)
     try {
-      const saved = await call<{ id: string }>("saveView", { id: creating ? undefined : editing || undefined, name, description, illustration, schemaId, columns, allowWrite })
+      const baseFilters: ViewBaseFilter[] = baseFilterRows
+        .map((row) => ({
+          key: (row.op === "hasTag" || row.op === "lacksTag" ? "$tag" : row.key).trim(),
+          op: row.op,
+          value: row.value.trim(),
+        }))
+        .filter((row) => row.key && row.value)
+      const saved = await call<{ id: string }>("saveView", { id: creating ? undefined : editing || undefined, name, description, illustration, schemaId, columns, baseFilters, allowWrite, revealSecretsDefault })
       setCreating(false)
       setEditing(saved.id)
       await onSaved()
@@ -1519,6 +1848,8 @@ function ViewBuilder({ schemas, views, counts, focusViewId, onGoData, onGoImport
     setSchemaId(schemas[0]?.id ?? "")
     setColumns(defaultColumns(schemas[0]))
     setAllowWrite(false)
+    setRevealSecretsDefault(false)
+    setBaseFilterRows([])
     setOpenPaths(defaultOpenPaths(schemas[0]))
   }
   if (!schemas.length) {
@@ -1650,37 +1981,168 @@ function ViewBuilder({ schemas, views, counts, focusViewId, onGoData, onGoImport
               <AppSelect height={40} value={schemaId} allowEmpty={false} onChange={(value) => { setSchemaId(value); setOpenPaths(defaultOpenPaths(schemas.find((item) => item.id === value))) }} options={schemas.map((item) => ({ value: item.id, label: item.name }))} />
             </div>
           </div>
-          <div className="flex min-w-0 items-center gap-4 border-t border-border pt-4 md:border-l md:border-t-0 md:pl-4 md:pt-0">
-            <div className="min-w-0 flex-1">
-              <p className="text-[11px] tracking-[0.16em] text-muted-foreground">首页操作</p>
-              <p className="mt-0.5 text-sm text-foreground/80">在首页表格显示新增 / 编辑 / 删除</p>
+          <div className="flex min-w-0 flex-col gap-4 border-t border-border pt-4 md:border-l md:border-t-0 md:pl-4 md:pt-0">
+            <div className="flex min-w-0 items-center gap-4">
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] tracking-[0.16em] text-muted-foreground">首页操作</p>
+                <p className="mt-0.5 text-sm text-foreground/80">在首页表格显示新增 / 编辑 / 删除</p>
+              </div>
+              <label className="inline-flex shrink-0 cursor-pointer items-center gap-2 text-sm">
+                <Checkbox checked={allowWrite} onCheckedChange={(checked) => setAllowWrite(!!checked)} />
+                <span>允许写入</span>
+              </label>
             </div>
-            <label className="inline-flex shrink-0 cursor-pointer items-center gap-2 text-sm">
-              <Checkbox checked={allowWrite} onCheckedChange={(checked) => setAllowWrite(!!checked)} />
-              <span>允许写入</span>
-            </label>
+            <div className="flex min-w-0 items-center gap-4 border-t border-border/70 pt-4">
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] tracking-[0.16em] text-muted-foreground">密钥显示</p>
+                <p className="mt-0.5 text-sm text-foreground/80">打开此视图时默认「显示全部密钥」</p>
+              </div>
+              <label className="inline-flex shrink-0 cursor-pointer items-center gap-2 text-sm">
+                <Checkbox checked={revealSecretsDefault} onCheckedChange={(checked) => setRevealSecretsDefault(!!checked)} />
+                <span>默认显示</span>
+              </label>
+            </div>
           </div>
+        </div>
+
+        <div className="view-builder-panel mt-5">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-[11px] tracking-[0.16em] text-muted-foreground">固定条件</p>
+              <p className="mt-0.5 text-sm text-foreground/80">始终生效，首页筛选栏改不掉。多值用 | 连接，匹配为「任一」</p>
+            </div>
+            {baseFilterRows.length > 0 && (
+              <button
+                type="button"
+                className="view-base-add-btn"
+                onClick={() => setBaseFilterRows((prev) => [...prev, { key: "$tag", op: "hasTag", value: "" }])}
+              >
+                <Icon.Plus size={14} strokeWidth={2.4} />
+                加一条
+              </button>
+            )}
+          </div>
+          {baseFilterRows.length === 0 ? (
+            <button
+              type="button"
+              className="view-base-add-empty mt-3"
+              onClick={() => setBaseFilterRows([{ key: "$tag", op: "hasTag", value: "" }])}
+            >
+              <span className="view-base-add-empty-ico" aria-hidden="true">
+                <Icon.Plus size={16} strokeWidth={2.4} />
+              </span>
+              <span className="min-w-0 text-left">
+                <strong className="block text-sm font-medium text-foreground">添加固定条件</strong>
+                <span className="mt-0.5 block text-xs text-muted-foreground">例如：标签包含 business，或环境等于 STG</span>
+              </span>
+            </button>
+          ) : (
+            <div className="mt-3 space-y-2">
+              {baseFilterRows.map((row, index) => {
+                const isTag = row.op === "hasTag" || row.op === "lacksTag"
+                const tagsField = isTagsPath(row.key)
+                const fieldValue = isTag ? "$tag" : row.key
+                const multiValues = parseMultiFilter(row.value)
+                const useTagMulti = (isTag || tagsField) && tagOptions.length > 0
+                const fieldOps: { value: ViewBaseFilterOp; label: string }[] = isTag
+                  ? [
+                      { value: "hasTag", label: "包含标签" },
+                      { value: "lacksTag", label: "不含标签" },
+                    ]
+                  : [
+                      { value: "eq", label: "等于" },
+                      { value: "neq", label: "不等于" },
+                      { value: "contains", label: "包含" },
+                      { value: "notContains", label: "不包含" },
+                    ]
+                return (
+                  <div key={index} className="flex flex-wrap items-center gap-2">
+                    <div className="min-w-[9rem] flex-[1.2]">
+                      <AppSelect
+                        height={36}
+                        value={fieldValue}
+                        placeholder="字段"
+                        allowEmpty={false}
+                        onChange={(value) => setBaseFilterRows((prev) => prev.map((item, i) => {
+                          if (i !== index) return item
+                          if (value === "$tag") return { key: "$tag", op: item.op === "lacksTag" ? "lacksTag" : "hasTag", value: item.value }
+                          const op = (item.op === "hasTag" || item.op === "lacksTag") ? "contains" : item.op
+                          return { key: value, op, value: item.value }
+                        }))}
+                        options={[
+                          { value: "$tag", label: "标签（本行）" },
+                          ...fieldOptions.filter((f) => f.type !== "secret").map((f) => ({
+                            value: f.path,
+                            label: f.builtin === "tags" || isTagsPath(f.path) ? tagsPathLabel(f.path) + " · " + f.path : f.path,
+                          })),
+                        ]}
+                      />
+                    </div>
+                    <div className="w-[7.5rem] shrink-0">
+                      <AppSelect
+                        height={36}
+                        value={row.op}
+                        allowEmpty={false}
+                        onChange={(value) => setBaseFilterRows((prev) => prev.map((item, i) => i === index ? { ...item, op: value as ViewBaseFilterOp, key: (value === "hasTag" || value === "lacksTag") ? "$tag" : item.key } : item))}
+                        options={fieldOps.map((op) => ({ value: op.value, label: op.label }))}
+                      />
+                    </div>
+                    <div className="min-w-[8rem] flex-1">
+                      {useTagMulti ? (
+                        <FilterMultiSelect
+                          values={multiValues}
+                          options={tagOptions}
+                          placeholder="选择标签（可多选）"
+                          onChange={(next) => setBaseFilterRows((prev) => prev.map((item, i) => i === index ? { ...item, value: joinMultiFilter(next) } : item))}
+                        />
+                      ) : (
+                        <input
+                          className="h-9 w-full rounded-xl border border-border bg-card px-3 text-sm outline-none"
+                          placeholder="匹配值 · 多个用 | 分隔"
+                          value={row.value}
+                          autoCapitalize="none"
+                          autoCorrect="off"
+                          spellCheck={false}
+                          onChange={(event) => setBaseFilterRows((prev) => prev.map((item, i) => i === index ? { ...item, value: event.target.value } : item))}
+                        />
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      className="grid h-9 w-9 place-items-center rounded-xl text-muted-foreground hover:bg-secondary hover:text-foreground"
+                      aria-label="删除条件"
+                      onClick={() => setBaseFilterRows((prev) => prev.filter((_, i) => i !== index))}
+                    >
+                      <Icon.X size={14} />
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </div>
 
         <div className="view-builder-fields mt-5 w-full overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
           <div className="flex items-center justify-between gap-3 border-b border-border px-5 py-3.5">
             <div>
               <p className="text-[11px] tracking-[0.16em] text-muted-foreground">字段</p>
-              <p className="mt-0.5 text-sm text-foreground/80">勾选显示与搜索列</p>
+              <p className="mt-0.5 text-sm text-foreground/80">勾选显示与搜索列 · 顺序在下方拖</p>
             </div>
           </div>
           <div className="grid grid-cols-[1.4fr_1fr_56px_56px_56px_56px] gap-2 border-b border-border bg-secondary/30 px-5 py-2.5 text-[11px] tracking-[0.14em] text-muted-foreground"><span>字段</span><span>显示为</span><span className="text-center">显示</span><span className="text-center">搜索</span><span className="text-center" title="搜索时提供枚举建议">枚举</span><span className="text-center">排序</span></div>
           {visibleFields.map((field) => {
             const col = columns.find((item) => item.key === field.path) ?? { key: field.path, as: "", show: false, search: false, sort: false, enum: false }
             const secret = field.type === "secret"
+            const tagsCol = field.builtin === "tags" || isTagsPath(field.path)
             const leaf = field.path.split(".").at(-1) ?? field.path
-            const hasChildren = fieldOptions.some((item) => item.path.startsWith(field.path + ".") && item.depth === field.depth + 1)
+            const title = tagsCol ? "标签" : leaf
+            const hasChildren = !tagsCol && fieldOptions.some((item) => item.path.startsWith(field.path + ".") && item.depth === field.depth + 1)
             const opened = !!openPaths[field.path]
             function ensure(prev: ViewColumn[]) {
               return prev.some((item) => item.key === field.path) ? prev : [...prev, { key: field.path, as: "", show: false, search: false, sort: false, enum: false }]
             }
             return (
-              <div key={field.path} className="grid grid-cols-[1.4fr_1fr_56px_56px_56px_56px] items-center gap-2 border-b border-border px-5 py-3 last:border-0 hover:bg-secondary/20">
+              <div key={field.path} className={"grid grid-cols-[1.4fr_1fr_56px_56px_56px_56px] items-center gap-2 border-b border-border px-5 py-3 last:border-0 hover:bg-secondary/20" + (tagsCol ? " view-builder-tags-row" : "")}>
                 <span className="flex min-w-0 items-center gap-2" style={{ paddingLeft: field.depth * 20 }}>
                   {hasChildren ? (
                     <button type="button" className="grid h-6 w-6 shrink-0 place-items-center rounded-md text-muted-foreground hover:bg-secondary" aria-label={opened ? "收起" : "展开"} onClick={() => setOpenPaths((prev) => ({ ...prev, [field.path]: !prev[field.path] }))}>
@@ -1688,11 +2150,11 @@ function ViewBuilder({ schemas, views, counts, focusViewId, onGoData, onGoImport
                     </button>
                   ) : <span className="w-6 shrink-0" />}
                   <span className="min-w-0">
-                    <b className="block truncate text-sm leading-5">{leaf}</b>
-                    <span className="mt-0.5 block truncate text-[11px] leading-4 text-muted-foreground">{field.note}</span>
+                    <b className="block truncate text-sm leading-5">{title}{tagsCol ? <span className="ml-1.5 text-[10px] font-medium tracking-wide text-muted-foreground">{field.path}</span> : null}</b>
+                    <span className="mt-0.5 block truncate text-[11px] leading-4 text-muted-foreground">{tagsCol ? field.note + " · 内置" : field.note}</span>
                   </span>
                 </span>
-                <input className="h-9 rounded-lg border border-border bg-background px-2.5 text-sm outline-none focus:border-foreground/30" autoCapitalize="none" autoCorrect="off" spellCheck={false} placeholder={leaf} value={col.as} onChange={(event) => setColumns((prev) => ensure(prev).map((item) => item.key === field.path ? { ...item, as: event.target.value } : item))} />
+                <input className="h-9 rounded-lg border border-border bg-background px-2.5 text-sm outline-none focus:border-foreground/30" autoCapitalize="none" autoCorrect="off" spellCheck={false} placeholder={title} value={col.as} onChange={(event) => setColumns((prev) => ensure(prev).map((item) => item.key === field.path ? { ...item, as: event.target.value } : item))} />
                 <div className="flex justify-center">
                   <Checkbox checked={col.show} onCheckedChange={(checked) => setColumns((prev) => ensure(prev).map((item) => item.key === field.path ? { ...item, show: !!checked, sort: checked ? item.sort : false } : item))} />
                 </div>
@@ -1709,6 +2171,44 @@ function ViewBuilder({ schemas, views, counts, focusViewId, onGoData, onGoImport
             )
           })}
         </div>
+
+        {(() => {
+          const showCols = columns.filter((item) => item.show)
+          const searchCols = columns.filter((item) => item.search)
+          function labelOfCol(col: ViewColumn) {
+            if (col.as.trim()) return col.as.trim()
+            if (isTagsPath(col.key)) return tagsPathLabel(col.key)
+            return col.key.split(".").at(-1) || col.key
+          }
+          function reorderShown(fromKey: string, toKey: string) {
+            setColumns((prev) => reorderColumnSubset(prev, (item) => item.show, fromKey, toKey))
+          }
+          function reorderSearch(fromKey: string, toKey: string) {
+            setColumns((prev) => reorderColumnSubset(prev, (item) => item.search, fromKey, toKey))
+          }
+          return (
+            <div className="view-builder-order mt-5">
+              <div className="view-builder-order-head">
+                <div>
+                  <p className="text-[11px] tracking-[0.16em] text-muted-foreground">顺序</p>
+                  <p className="mt-0.5 text-sm text-foreground/80">拖动手柄调整首页筛选栏 / 表头从左到右</p>
+                </div>
+              </div>
+              <ViewColumnOrderRow
+                title="搜索栏"
+                empty="还没勾选搜索列"
+                items={searchCols.map((col) => ({ key: col.key, label: labelOfCol(col) }))}
+                onMove={reorderSearch}
+              />
+              <ViewColumnOrderRow
+                title="显示列"
+                empty="还没勾选显示列"
+                items={showCols.map((col) => ({ key: col.key, label: labelOfCol(col) }))}
+                onMove={reorderShown}
+              />
+            </div>
+          )
+        })()}
 
         <div className="mt-6 flex w-full items-center justify-between gap-4">
           <p className="text-xs leading-relaxed text-muted-foreground">有箭头的是关联字段。显示 / 搜索 / 枚举 / 排序：列、筛选、可输入下拉建议、表头排序。</p>
@@ -1734,6 +2234,72 @@ function moveId(ids: string[], fromId: string, toId: string) {
   next.splice(from, 1)
   next.splice(to, 0, fromId)
   return next
+}
+
+/** Reorder only columns matching predicate; other columns keep their slots. */
+function reorderColumnSubset(columns: ViewColumn[], predicate: (col: ViewColumn) => boolean, fromKey: string, toKey: string) {
+  const subset = columns.filter(predicate)
+  const keys = moveId(subset.map((item) => item.key), fromKey, toKey)
+  if (keys === subset.map((item) => item.key)) return columns
+  const byKey = new Map(columns.map((item) => [item.key, item]))
+  const nextSubset = keys.map((key) => byKey.get(key)!).filter(Boolean)
+  let i = 0
+  return columns.map((item) => (predicate(item) ? nextSubset[i++]! : item))
+}
+
+function ViewColumnOrderRow({
+  title,
+  empty,
+  items,
+  onMove,
+}: {
+  title: string
+  empty: string
+  items: { key: string; label: string }[]
+  onMove: (fromKey: string, toKey: string) => void
+}) {
+  const [dragKey, setDragKey] = useState("")
+  return (
+    <div className="view-builder-order-row">
+      <span className="view-builder-order-label">{title}</span>
+      {items.length === 0 ? (
+        <span className="view-builder-order-empty">{empty}</span>
+      ) : (
+        <div className="view-builder-order-track" role="list">
+          {items.map((item, index) => (
+            <button
+              key={item.key}
+              type="button"
+              role="listitem"
+              draggable
+              className={"view-builder-order-chip" + (dragKey === item.key ? " is-dragging" : "")}
+              title="拖到目标位置"
+              onDragStart={(event) => {
+                setDragKey(item.key)
+                event.dataTransfer.effectAllowed = "move"
+                event.dataTransfer.setData("text/plain", item.key)
+              }}
+              onDragOver={(event) => {
+                event.preventDefault()
+                event.dataTransfer.dropEffect = "move"
+              }}
+              onDrop={(event) => {
+                event.preventDefault()
+                const from = dragKey || event.dataTransfer.getData("text/plain")
+                if (from) onMove(from, item.key)
+                setDragKey("")
+              }}
+              onDragEnd={() => setDragKey("")}
+            >
+              <Icon.GripVertical size={13} className="view-builder-order-grip" aria-hidden="true" />
+              <span className="view-builder-order-idx">{index + 1}</span>
+              <span className="view-builder-order-name">{item.label}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
 }
 
 function ListSearch({ title, count, value, onChange, sortMode, onToggleSort, canSort }: { title: string; count: number; icon?: ReactNode; value: string; onChange: (q: string) => void; sortMode?: boolean; onToggleSort?: () => void; canSort?: boolean }) {
@@ -2385,9 +2951,9 @@ function TagRow({ tags, onChange }: { tags: string[]; onChange: (tags: string[])
   return (
     <div className="mb-4 flex flex-wrap items-center gap-2">
       {tags.map((tag) => (
-        <Badge key={tag} variant="secondary">
+        <Badge key={tag} variant="secondary" className="inline-flex items-center leading-none">
           {tag}
-          <button className="ml-1" aria-label={"去掉 " + tag} onClick={() => onChange(tags.filter((item) => item !== tag))}>×</button>
+          <button type="button" className="ml-1 inline-flex h-3 w-3 items-center justify-center leading-none" aria-label={"去掉 " + tag} onClick={() => onChange(tags.filter((item) => item !== tag))}>×</button>
         </Badge>
       ))}
       {adding ? (
@@ -2405,6 +2971,36 @@ function SecretField({ value, onChange }: { value: string; onChange: (value: str
     <span className="record-control record-control-secret">
       <input className="min-w-0 flex-1 bg-transparent text-sm outline-none" autoCapitalize="none" autoCorrect="off" spellCheck={false} type={open ? "text" : "password"} value={value} onChange={(event) => onChange(event.target.value)} />
       <button type="button" className="shrink-0 rounded-md px-1.5 py-0.5 text-[11px] tracking-[0.06em] text-muted-foreground hover:bg-secondary hover:text-foreground" onClick={() => setOpen(!open)}>{open ? "隐藏" : "显示"}</button>
+    </span>
+  )
+}
+
+/** Home table tags cell — design A: quiet pills, max 2 + overflow. */
+function ViewTagsCell({ tags, copy, label = "标签" }: { tags: string[]; copy?: string; label?: string }) {
+  const list = tags.map((tag) => tag.trim()).filter(Boolean)
+  if (!list.length) return <span className="text-muted-foreground">—</span>
+  // max 2 pills; overflow as +N
+  const shown = list.length > 2 ? list.slice(0, 2) : list
+  const hidden = Math.max(0, list.length - shown.length)
+  const full = list.join(" · ")
+  return (
+    <span className="view-tags-cell group/tags inline-flex max-w-full items-center gap-1.5" title={full}>
+      <span className="view-tags-pills">
+        {shown.map((tag) => (
+          <span key={tag} className="view-tags-pill">{tag}</span>
+        ))}
+        {hidden > 0 && <span className="view-tags-more">+{hidden}</span>}
+      </span>
+      {!!(copy || full) && (
+        <button
+          type="button"
+          className="shrink-0 rounded-md p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-background hover:text-foreground group-hover:opacity-100"
+          aria-label={"复制单元格 " + label}
+          onClick={() => void copyText(copy || full, "已复制单元格", label)}
+        >
+          <Icon.Copy size={13} />
+        </button>
+      )}
     </span>
   )
 }
@@ -3297,7 +3893,7 @@ function SettingsDesk({ schemas, views, onDefaultsChanged, onOpenImport, onReset
               <div className="settings-row">
                 <div className="settings-row-copy">
                   <div className="settings-row-t">窄列保留</div>
-                  <div className="settings-row-d">收到最窄时留下的两枚，中间只是分隔，不代表写入/只读。展开时同类从对应一侧冒出；两侧同一类，另一类从外侧冒出</div>
+                  <div className="settings-row-d">仅窄列生效：空间不够时竖线两侧各留一枚。够宽时固定为 写入（编辑·克隆·删除）| 只读（复制·跳转）</div>
                 </div>
                 <div className="settings-row-control flex !w-auto items-center gap-1.5">
                   <div className="w-[108px]">

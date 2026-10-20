@@ -61,6 +61,22 @@ export type ViewShortcut = {
   sorts: ViewSort[]
 }
 
+/** Always-on view filter rule (not editable from the home filter bar). */
+export type ViewBaseFilterOp =
+  | "eq"
+  | "neq"
+  | "contains"
+  | "notContains"
+  | "hasTag"
+  | "lacksTag"
+
+export type ViewBaseFilter = {
+  /** Field path, or "$tag" when op is hasTag / lacksTag */
+  key: string
+  op: ViewBaseFilterOp
+  value: string
+}
+
 export type ViewDef = {
   id: string
   name: string
@@ -69,8 +85,12 @@ export type ViewDef = {
   schemaId: string
   columns: ViewColumn[]
   shortcuts: ViewShortcut[]
+  /** Always-on filters for this view */
+  baseFilters: ViewBaseFilter[]
   /** Home view: show 新增 / 行内编辑 without leaving the table */
   allowWrite: boolean
+  /** Home view: start with 「显示全部密钥」 on */
+  revealSecretsDefault: boolean
   createdAt: number
   updatedAt: number
 }
@@ -99,6 +119,11 @@ export type CaskPackView = {
   columns: ViewColumn[]
   /** Optional shortcuts; omit or [] to skip */
   shortcuts?: ViewShortcut[]
+  /** Always-on filters; see ViewBaseFilter */
+  baseFilters?: ViewBaseFilter[] | Record<string, string>
+  allowWrite?: boolean
+  /** Default on for home 「显示全部密钥」 */
+  revealSecretsDefault?: boolean
 }
 
 export type CaskPackSample = {
@@ -147,6 +172,21 @@ export type ViewFieldOption = {
   schema?: string
   note: string
   depth: number
+  /** Synthetic column — not a schema field key */
+  builtin?: "tags"
+}
+
+/** Built-in tags column: `$tags` or `system.$tags` (tags of the walked record). */
+export function isTagsPath(path: string) {
+  const parts = String(path ?? "").split(".").filter(Boolean)
+  return parts.length > 0 && parts[parts.length - 1] === "$tags"
+}
+
+export function tagsPathLabel(path: string) {
+  if (!isTagsPath(path)) return path
+  const parts = path.split(".").filter(Boolean)
+  if (parts.length === 1) return "标签"
+  return parts.slice(0, -1).join(".") + " · 标签"
 }
 
 export function flattenViewFields(schema: SchemaRow, schemas: SchemaRow[], prefix = "", depth = 0, maxDepth = 3, seen = new Set<string>()): ViewFieldOption[] {
@@ -154,6 +194,14 @@ export function flattenViewFields(schema: SchemaRow, schemas: SchemaRow[], prefi
   const nextSeen = new Set(seen)
   nextSeen.add(schema.id)
   const out: ViewFieldOption[] = []
+  // every table level gets a built-in tags column, same rank as real fields
+  out.push({
+    path: prefix ? prefix + ".$tags" : "$tags",
+    type: "string",
+    note: prefix ? "引用行标签" : "本行标签",
+    depth,
+    builtin: "tags",
+  })
   for (const field of schema.fields) {
     const path = prefix ? prefix + "." + field.key : field.key
     const target = field.type === "ref" ? schemas.find((item) => item.id === field.schema) : undefined
@@ -174,6 +222,28 @@ export function flattenViewFields(schema: SchemaRow, schemas: SchemaRow[], prefi
 export function resolveViewPath(row: DataRow, path: string, schemas: SchemaRow[], records: DataRow[], labels: Record<string, string>) {
   const parts = path.split(".").filter(Boolean)
   if (!parts.length) return { text: "", copy: "", type: "string" as FieldType, schema: undefined as string | undefined }
+
+  // `$tags` / `ref.$tags` — tags of the record at the end of the ref walk
+  if (parts[parts.length - 1] === "$tags") {
+    let current: DataRow | undefined = row
+    let currentSchema = schemas.find((item) => item.id === row.schemaId)
+    for (let index = 0; index < parts.length - 1; index++) {
+      const key = parts[index]
+      const field = currentSchema?.fields.find((item) => item.key === key)
+      if (!field || field.type !== "ref" || !current) {
+        return { text: "", copy: "", type: "string" as FieldType, schema: undefined, tags: [] as string[] }
+      }
+      const raw = current.data[key] ?? ""
+      if (!raw) return { text: "", copy: "", type: "string" as FieldType, schema: field.schema, tags: [] as string[] }
+      current = records.find((item) => item.id === raw)
+      currentSchema = schemas.find((item) => item.id === field.schema)
+    }
+    const tags = current?.tags ?? []
+    const text = tags.join(" · ")
+    // type stays string for FieldType; UI detects via tags[] / isTagsPath
+    return { text, copy: tags.join(", "), type: "string" as FieldType, schema: undefined, tags }
+  }
+
   let current: DataRow | undefined = row
   let currentSchema = schemas.find((item) => item.id === row.schemaId)
   for (let index = 0; index < parts.length; index++) {

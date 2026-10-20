@@ -1,0 +1,1 @@
+ALTER TABLE views ADD COLUMN reveal_secrets_default INTEGER NOT NULL DEFAULT 0;

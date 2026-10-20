@@ -12,98 +12,626 @@
       "name": "环境",
       "display": "{code}",
       "fields": [
-        { "key": "name", "type": "string", "label": true, "search": true },
-        { "key": "code", "type": "string", "search": true },
-        { "key": "note", "type": "text" }
+        {
+          "key": "name",
+          "type": "string",
+          "label": true,
+          "search": true
+        },
+        {
+          "key": "code",
+          "type": "string",
+          "search": true
+        },
+        {
+          "key": "note",
+          "type": "text"
+        }
       ]
     },
     {
       "name": "系统",
       "display": "{name} · {env.code}",
       "fields": [
-        { "key": "name", "type": "string", "label": true, "search": true },
-        { "key": "env", "type": "ref", "schemaName": "环境" },
-        { "key": "baseUrl", "type": "url" },
-        { "key": "note", "type": "text" }
+        {
+          "key": "name",
+          "type": "string",
+          "label": true,
+          "search": true
+        },
+        {
+          "key": "env",
+          "type": "ref",
+          "schemaName": "环境"
+        },
+        {
+          "key": "baseUrl",
+          "type": "url"
+        },
+        {
+          "key": "note",
+          "type": "text"
+        }
       ]
     },
     {
       "name": "租户",
       "display": "{code} · {name}",
       "fields": [
-        { "key": "name", "type": "string", "label": true, "search": true },
-        { "key": "code", "type": "string", "search": true },
-        { "key": "system", "type": "ref", "schemaName": "系统" },
-        { "key": "baseUrl", "type": "url" },
-        { "key": "note", "type": "text" }
+        {
+          "key": "name",
+          "type": "string",
+          "label": true,
+          "search": true
+        },
+        {
+          "key": "code",
+          "type": "string",
+          "search": true
+        },
+        {
+          "key": "system",
+          "type": "ref",
+          "schemaName": "系统"
+        },
+        {
+          "key": "baseUrl",
+          "type": "url"
+        },
+        {
+          "key": "note",
+          "type": "text"
+        }
       ]
     },
     {
       "name": "角色",
       "display": "{name} · {system.name}",
       "fields": [
-        { "key": "name", "type": "string", "label": true, "search": true },
-        { "key": "code", "type": "string", "search": true },
-        { "key": "system", "type": "ref", "schemaName": "系统" },
-        { "key": "note", "type": "text" }
+        {
+          "key": "name",
+          "type": "string",
+          "label": true,
+          "search": true
+        },
+        {
+          "key": "code",
+          "type": "string",
+          "search": true
+        },
+        {
+          "key": "system",
+          "type": "ref",
+          "schemaName": "系统"
+        },
+        {
+          "key": "note",
+          "type": "text"
+        }
       ]
     },
     {
       "name": "账号",
       "display": "{name}",
       "fields": [
-        { "key": "name", "type": "string", "label": true, "search": true },
-        { "key": "system", "type": "ref", "schemaName": "系统" },
-        { "key": "tenant", "type": "ref", "schemaName": "租户" },
-        { "key": "role", "type": "ref", "schemaName": "角色" },
-        { "key": "username", "type": "string", "search": true },
-        { "key": "password", "type": "secret" },
-        { "key": "note", "type": "text" }
+        {
+          "key": "name",
+          "type": "string",
+          "label": true,
+          "search": true
+        },
+        {
+          "key": "system",
+          "type": "ref",
+          "schemaName": "系统"
+        },
+        {
+          "key": "tenant",
+          "type": "ref",
+          "schemaName": "租户"
+        },
+        {
+          "key": "role",
+          "type": "ref",
+          "schemaName": "角色"
+        },
+        {
+          "key": "username",
+          "type": "string",
+          "search": true
+        },
+        {
+          "key": "password",
+          "type": "secret"
+        },
+        {
+          "key": "note",
+          "type": "text"
+        }
       ]
     }
   ],
   "views": [
     {
       "name": "账号一览",
-      "description": "按系统 / 租户 / 角色查找测试账号。多租户入口看租户 URL，第三方服务看系统入口。",
+      "description": "全部测试账号。业务与杂项合在一起，方便总览。",
       "illustration": "account",
       "schemaName": "账号",
+      "allowWrite": true,
       "columns": [
-        { "key": "name", "as": "名称", "show": true, "search": true, "sort": true, "enum": false },
-        { "key": "username", "as": "用户名", "show": true, "search": true, "sort": true, "enum": false },
-        { "key": "tenant.code", "as": "租户编码", "show": true, "search": true, "sort": true, "enum": true },
-        { "key": "tenant.name", "as": "租户", "show": true, "search": true, "sort": true, "enum": true },
-        { "key": "role.name", "as": "角色", "show": true, "search": true, "sort": true, "enum": true },
-        { "key": "system.name", "as": "系统", "show": true, "search": true, "sort": true, "enum": true },
-        { "key": "system.env.code", "as": "环境", "show": true, "search": true, "sort": true, "enum": true },
-        { "key": "tenant.baseUrl", "as": "租户入口", "show": true, "search": false, "sort": false },
-        { "key": "system.baseUrl", "as": "系统入口", "show": true, "search": false, "sort": false },
-        { "key": "password", "as": "密码", "show": true, "search": false, "sort": false }
+        {
+          "key": "system.env.code",
+          "as": "环境",
+          "show": true,
+          "search": true,
+          "sort": true,
+          "enum": true
+        },
+        {
+          "key": "system.name",
+          "as": "系统",
+          "show": true,
+          "search": true,
+          "sort": true,
+          "enum": true
+        },
+        {
+          "key": "name",
+          "as": "名称",
+          "show": true,
+          "search": true,
+          "sort": true,
+          "enum": false
+        },
+        {
+          "key": "$tags",
+          "as": "标签",
+          "show": true,
+          "search": true,
+          "sort": false,
+          "enum": true
+        },
+        {
+          "key": "username",
+          "as": "用户名",
+          "show": true,
+          "search": true,
+          "sort": true,
+          "enum": false
+        },
+        {
+          "key": "tenant.code",
+          "as": "租户编码",
+          "show": true,
+          "search": true,
+          "sort": true,
+          "enum": true
+        },
+        {
+          "key": "tenant.name",
+          "as": "租户",
+          "show": true,
+          "search": true,
+          "sort": false,
+          "enum": true
+        },
+        {
+          "key": "role.name",
+          "as": "角色",
+          "show": true,
+          "search": true,
+          "sort": false,
+          "enum": true
+        },
+        {
+          "key": "tenant.baseUrl",
+          "as": "租户入口",
+          "show": false,
+          "search": false,
+          "sort": false,
+          "enum": false
+        },
+        {
+          "key": "system.baseUrl",
+          "as": "系统入口",
+          "show": true,
+          "search": false,
+          "sort": false,
+          "enum": false
+        },
+        {
+          "key": "password",
+          "as": "密码",
+          "show": true,
+          "search": false,
+          "sort": false,
+          "enum": false
+        }
       ],
       "shortcuts": [
         {
           "id": "sc-biz",
-          "name": "业务系统",
-          "filters": { "system.name": "业务系统" },
-          "sorts": [{ "key": "name", "dir": "asc" }]
+          "name": "业务",
+          "filters": {
+            "system.name": "业务系统"
+          },
+          "sorts": [
+            {
+              "key": "name",
+              "dir": "asc"
+            }
+          ]
         },
         {
-          "id": "sc-jiguang",
-          "name": "极光推送",
-          "filters": { "system.name": "极光推送" },
-          "sorts": [{ "key": "name", "dir": "asc" }]
-        },
-        {
-          "id": "sc-kiro",
-          "name": "Kiro",
-          "filters": { "system.name": "Kiro" },
-          "sorts": [{ "key": "name", "dir": "asc" }]
+          "id": "sc-personal",
+          "name": "杂项",
+          "filters": {
+            "system.name": "极光推送 | Kiro"
+          },
+          "sorts": [
+            {
+              "key": "name",
+              "dir": "asc"
+            }
+          ]
         },
         {
           "id": "sc-stg",
           "name": "STG",
-          "filters": { "system.env.code": "STG" },
-          "sorts": [{ "key": "name", "dir": "asc" }]
+          "filters": {
+            "system.env.code": "STG"
+          },
+          "sorts": [
+            {
+              "key": "name",
+              "dir": "asc"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "业务·环境",
+      "description": "仅业务账号。按环境筛选与排序，排查 STG/PRD 入口。",
+      "illustration": "security",
+      "schemaName": "账号",
+      "allowWrite": true,
+      "baseFilters": [
+        {
+          "key": "$tag",
+          "op": "hasTag",
+          "value": "business | biz"
+        }
+      ],
+      "columns": [
+        {
+          "key": "system.env.code",
+          "as": "环境",
+          "show": true,
+          "search": true,
+          "sort": true,
+          "enum": true
+        },
+        {
+          "key": "system.env.name",
+          "as": "环境名",
+          "show": true,
+          "search": true,
+          "sort": true,
+          "enum": false
+        },
+        {
+          "key": "name",
+          "as": "名称",
+          "show": true,
+          "search": true,
+          "sort": true,
+          "enum": false
+        },
+        {
+          "key": "$tags",
+          "as": "标签",
+          "show": true,
+          "search": true,
+          "sort": false,
+          "enum": true
+        },
+        {
+          "key": "username",
+          "as": "用户名",
+          "show": true,
+          "search": true,
+          "sort": true,
+          "enum": false
+        },
+        {
+          "key": "tenant.code",
+          "as": "租户编码",
+          "show": true,
+          "search": true,
+          "sort": true,
+          "enum": true
+        },
+        {
+          "key": "tenant.name",
+          "as": "租户",
+          "show": true,
+          "search": true,
+          "sort": false,
+          "enum": true
+        },
+        {
+          "key": "role.name",
+          "as": "角色",
+          "show": true,
+          "search": true,
+          "sort": false,
+          "enum": true
+        },
+        {
+          "key": "system.name",
+          "as": "系统",
+          "show": true,
+          "search": true,
+          "sort": false,
+          "enum": true
+        },
+        {
+          "key": "password",
+          "as": "密码",
+          "show": true,
+          "search": false,
+          "sort": false,
+          "enum": false
+        }
+      ],
+      "shortcuts": [
+        {
+          "id": "sc-env-stg",
+          "name": "STG",
+          "filters": {
+            "system.env.code": "STG"
+          },
+          "sorts": [
+            {
+              "key": "tenant.code",
+              "dir": "asc"
+            }
+          ]
+        }
+      ],
+      "revealSecretsDefault": true
+    },
+    {
+      "name": "业务·租户",
+      "description": "仅业务账号。按租户编码 / 名称查找多租户入口。",
+      "illustration": "files",
+      "schemaName": "账号",
+      "allowWrite": true,
+      "baseFilters": [
+        {
+          "key": "$tag",
+          "op": "hasTag",
+          "value": "business | biz"
+        }
+      ],
+      "columns": [
+        {
+          "key": "tenant.code",
+          "as": "租户编码",
+          "show": true,
+          "search": true,
+          "sort": true,
+          "enum": true
+        },
+        {
+          "key": "tenant.name",
+          "as": "租户",
+          "show": true,
+          "search": true,
+          "sort": true,
+          "enum": true
+        },
+        {
+          "key": "name",
+          "as": "名称",
+          "show": true,
+          "search": true,
+          "sort": true,
+          "enum": false
+        },
+        {
+          "key": "$tags",
+          "as": "标签",
+          "show": true,
+          "search": true,
+          "sort": false,
+          "enum": true
+        },
+        {
+          "key": "username",
+          "as": "用户名",
+          "show": true,
+          "search": true,
+          "sort": true,
+          "enum": false
+        },
+        {
+          "key": "role.name",
+          "as": "角色",
+          "show": true,
+          "search": true,
+          "sort": false,
+          "enum": true
+        },
+        {
+          "key": "system.env.code",
+          "as": "环境",
+          "show": true,
+          "search": true,
+          "sort": true,
+          "enum": true
+        },
+        {
+          "key": "tenant.baseUrl",
+          "as": "租户入口",
+          "show": true,
+          "search": false,
+          "sort": false,
+          "enum": false
+        },
+        {
+          "key": "password",
+          "as": "密码",
+          "show": true,
+          "search": false,
+          "sort": false,
+          "enum": false
+        }
+      ],
+      "shortcuts": [
+        {
+          "id": "sc-ten-001",
+          "name": "test001",
+          "filters": {
+            "tenant.code": "test001"
+          },
+          "sorts": [
+            {
+              "key": "username",
+              "dir": "asc"
+            }
+          ]
+        },
+        {
+          "id": "sc-ten-002",
+          "name": "test002",
+          "filters": {
+            "tenant.code": "test002"
+          },
+          "sorts": [
+            {
+              "key": "username",
+              "dir": "asc"
+            }
+          ]
+        }
+      ],
+      "revealSecretsDefault": true
+    },
+    {
+      "name": "杂项·系统",
+      "description": "个人 / 第三方杂项账号（极光、Kiro 等）。按系统类型区分。",
+      "illustration": "collection",
+      "schemaName": "账号",
+      "allowWrite": true,
+      "baseFilters": [
+        {
+          "key": "$tag",
+          "op": "hasTag",
+          "value": "personal"
+        }
+      ],
+      "columns": [
+        {
+          "key": "system.name",
+          "as": "系统",
+          "show": true,
+          "search": true,
+          "sort": true,
+          "enum": true
+        },
+        {
+          "key": "name",
+          "as": "名称",
+          "show": true,
+          "search": true,
+          "sort": true,
+          "enum": false
+        },
+        {
+          "key": "$tags",
+          "as": "标签",
+          "show": true,
+          "search": true,
+          "sort": false,
+          "enum": true
+        },
+        {
+          "key": "username",
+          "as": "用户名",
+          "show": true,
+          "search": true,
+          "sort": true,
+          "enum": false
+        },
+        {
+          "key": "role.name",
+          "as": "角色",
+          "show": true,
+          "search": true,
+          "sort": false,
+          "enum": true
+        },
+        {
+          "key": "system.env.code",
+          "as": "环境",
+          "show": true,
+          "search": true,
+          "sort": true,
+          "enum": true
+        },
+        {
+          "key": "system.baseUrl",
+          "as": "系统入口",
+          "show": true,
+          "search": false,
+          "sort": false,
+          "enum": false
+        },
+        {
+          "key": "password",
+          "as": "密码",
+          "show": true,
+          "search": false,
+          "sort": false,
+          "enum": false
+        },
+        {
+          "key": "note",
+          "as": "备注",
+          "show": true,
+          "search": true,
+          "sort": false,
+          "enum": false
+        }
+      ],
+      "shortcuts": [
+        {
+          "id": "sc-jg",
+          "name": "极光",
+          "filters": {
+            "system.name": "极光推送"
+          },
+          "sorts": [
+            {
+              "key": "name",
+              "dir": "asc"
+            }
+          ]
+        },
+        {
+          "id": "sc-kiro2",
+          "name": "Kiro",
+          "filters": {
+            "system.name": "Kiro"
+          },
+          "sorts": [
+            {
+              "key": "name",
+              "dir": "asc"
+            }
+          ]
         }
       ]
     }
@@ -112,8 +640,14 @@
     {
       "schemaName": "环境",
       "packId": "env-stg",
-      "data": { "name": "Staging", "code": "STG", "note": "测试环境" },
-      "tags": ["sample"]
+      "data": {
+        "name": "Staging",
+        "code": "STG",
+        "note": "测试环境"
+      },
+      "tags": [
+        "stg"
+      ]
     },
     {
       "schemaName": "系统",
@@ -124,7 +658,10 @@
         "baseUrl": "https://portal-test.saas.com",
         "note": "多租户 SaaS；具体入口以租户 URL 为准"
       },
-      "tags": ["sample"]
+      "tags": [
+        "business",
+        "biz"
+      ]
     },
     {
       "schemaName": "系统",
@@ -135,7 +672,10 @@
         "baseUrl": "https://www.jiguang.cn",
         "note": "第三方推送控制台"
       },
-      "tags": ["sample"]
+      "tags": [
+        "personal",
+        "jiguang"
+      ]
     },
     {
       "schemaName": "系统",
@@ -146,7 +686,10 @@
         "baseUrl": "",
         "note": "内部工具"
       },
-      "tags": ["sample"]
+      "tags": [
+        "personal",
+        "kiro"
+      ]
     },
     {
       "schemaName": "租户",
@@ -158,7 +701,10 @@
         "baseUrl": "https://test001-test.saas.com",
         "note": "员工号段 R260001–R260010"
       },
-      "tags": ["sample"]
+      "tags": [
+        "business",
+        "test001"
+      ]
     },
     {
       "schemaName": "租户",
@@ -170,31 +716,62 @@
         "baseUrl": "https://test002-test.saas.com",
         "note": "员工号段可按同样规则扩展"
       },
-      "tags": ["sample"]
+      "tags": [
+        "business",
+        "test002"
+      ]
     },
     {
       "schemaName": "角色",
       "packId": "role-biz-admin",
-      "data": { "name": "管理员", "code": "admin", "system": "sys-biz", "note": "业务系统管理员" },
-      "tags": ["sample"]
+      "data": {
+        "name": "管理员",
+        "code": "admin",
+        "system": "sys-biz",
+        "note": "业务系统管理员"
+      },
+      "tags": [
+        "business"
+      ]
     },
     {
       "schemaName": "角色",
       "packId": "role-biz-emp",
-      "data": { "name": "员工", "code": "employee", "system": "sys-biz", "note": "业务系统员工" },
-      "tags": ["sample"]
+      "data": {
+        "name": "员工",
+        "code": "employee",
+        "system": "sys-biz",
+        "note": "业务系统员工"
+      },
+      "tags": [
+        "business"
+      ]
     },
     {
       "schemaName": "角色",
       "packId": "role-jg-user",
-      "data": { "name": "控制台用户", "code": "user", "system": "sys-jiguang", "note": "" },
-      "tags": ["sample"]
+      "data": {
+        "name": "控制台用户",
+        "code": "user",
+        "system": "sys-jiguang",
+        "note": ""
+      },
+      "tags": [
+        "personal"
+      ]
     },
     {
       "schemaName": "角色",
       "packId": "role-kiro-user",
-      "data": { "name": "用户", "code": "user", "system": "sys-kiro", "note": "" },
-      "tags": ["sample"]
+      "data": {
+        "name": "用户",
+        "code": "user",
+        "system": "sys-kiro",
+        "note": ""
+      },
+      "tags": [
+        "personal"
+      ]
     },
     {
       "schemaName": "账号",
@@ -208,7 +785,10 @@
         "password": "init123!",
         "note": "租户 test001 主账号"
       },
-      "tags": ["sample"]
+      "tags": [
+        "business",
+        "test001"
+      ]
     },
     {
       "schemaName": "账号",
@@ -222,7 +802,10 @@
         "password": "init123!",
         "note": "号段 R260001–R260010"
       },
-      "tags": ["sample"]
+      "tags": [
+        "business",
+        "test001"
+      ]
     },
     {
       "schemaName": "账号",
@@ -236,7 +819,10 @@
         "password": "init123!",
         "note": "号段 R260001–R260010"
       },
-      "tags": ["sample"]
+      "tags": [
+        "business",
+        "test001"
+      ]
     },
     {
       "schemaName": "账号",
@@ -250,7 +836,10 @@
         "password": "init123!",
         "note": "租户 test002 主账号"
       },
-      "tags": ["sample"]
+      "tags": [
+        "business",
+        "test002"
+      ]
     },
     {
       "schemaName": "账号",
@@ -264,7 +853,10 @@
         "password": "test123",
         "note": ""
       },
-      "tags": ["sample"]
+      "tags": [
+        "personal",
+        "jiguang"
+      ]
     },
     {
       "schemaName": "账号",
@@ -278,7 +870,10 @@
         "password": "test",
         "note": ""
       },
-      "tags": ["sample"]
+      "tags": [
+        "personal",
+        "kiro"
+      ]
     }
   ]
 }
