@@ -309,15 +309,38 @@ const GLASS_CSS = `
   background: rgba(28,25,22,.16);
   flex: none;
 }
+:root[data-mode="dark"] .view-act-pop,
+:root[data-mode="dark"] .view-act-drop,
+:root[data-mode="dark"] .view-act-ico {
+  color: color-mix(in oklab, var(--foreground) 92%, transparent);
+}
+:root[data-mode="dark"] .view-act-pop:hover,
+:root[data-mode="dark"] .view-act-ico:hover {
+  background: color-mix(in oklab, var(--foreground) 10%, transparent);
+  color: var(--foreground);
+}
+:root[data-mode="dark"] .view-act-drop:hover {
+  color: var(--foreground);
+}
+:root[data-mode="dark"] .view-act-pop.is-danger:hover,
+:root[data-mode="dark"] .view-act-drop.is-danger:hover,
+:root[data-mode="dark"] .view-act-ico.is-danger:hover {
+  color: var(--destructive);
+}
+:root[data-mode="dark"] .view-act-rule {
+  background: color-mix(in oklab, var(--foreground) 32%, transparent);
+}
 `
 
 function ensureGlassCss() {
   if (typeof document === "undefined") return
-  if (document.getElementById("view-act-glass-css")) return
-  const style = document.createElement("style")
-  style.id = "view-act-glass-css"
-  style.textContent = GLASS_CSS
-  document.head.appendChild(style)
+  let style = document.getElementById("view-act-glass-css")
+  if (!style) {
+    style = document.createElement("style")
+    style.id = "view-act-glass-css"
+    document.head.appendChild(style)
+  }
+  if (style.textContent !== GLASS_CSS) style.textContent = GLASS_CSS
 }
 
 export function ViewRowActBar({

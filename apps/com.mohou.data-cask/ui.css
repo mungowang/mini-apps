@@ -70,6 +70,15 @@ html, body, #root {
     0 1px 5px 0 color-mix(in srgb, #1c1916 8%, transparent),
     0 6px 16px 0 color-mix(in srgb, #1c1916 6%, transparent);
 }
+:root[data-mode="dark"] .view-act-rail.is-open button {
+  color: color-mix(in oklab, var(--foreground) 92%, transparent);
+}
+:root[data-mode="dark"] .view-act-rail.is-open button:hover {
+  color: var(--foreground);
+}
+:root[data-mode="dark"] .view-act-rail.is-open button:hover[class*="destructive"] {
+  color: var(--destructive);
+}
 .view-act-rail.is-open {
   border-radius: 99em;
   padding: 4px 8px;
