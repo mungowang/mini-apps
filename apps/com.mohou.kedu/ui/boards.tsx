@@ -140,7 +140,7 @@ export function BoardsCenter(props: { narrow: boolean }) {
                   e.stopPropagation();
                   startEdit(b);
                 }}
-                className="hidden shrink-0 rounded-full px-1 py-0.5 text-[10px] text-muted-foreground hover:text-foreground group-hover/pill:block"
+                className="pointer-events-none absolute right-1 top-1/2 z-10 grid size-4 -translate-y-1/2 place-items-center rounded-full border border-border bg-card text-[9px] text-muted-foreground opacity-0 shadow-sm transition-opacity duration-150 hover:text-foreground group-hover/pill:pointer-events-auto group-hover/pill:opacity-100"
               >
                 ✎
               </button>
@@ -210,7 +210,7 @@ export function BoardsCenter(props: { narrow: boolean }) {
           {boards.map(function (b) {
             const on = b.id === boardId;
             return (
-              <div key={b.id} className="group/mi flex items-center">
+              <div key={b.id} className="group/mi relative flex items-center">
                 <button
                   type="button"
                   role="menuitemradio"
@@ -236,7 +236,7 @@ export function BoardsCenter(props: { narrow: boolean }) {
                       setEditName(b.name);
                       setMenuOpen(false);
                     }}
-                    className="hidden shrink-0 rounded-md px-1.5 py-0.5 text-[10px] text-muted-foreground hover:text-foreground group-hover/mi:block"
+                    className="pointer-events-none absolute right-1 top-1/2 z-10 grid size-4 -translate-y-1/2 place-items-center rounded-full text-[10px] text-muted-foreground opacity-0 hover:text-foreground group-hover/mi:pointer-events-auto group-hover/mi:opacity-100"
                   >
                     ✎
                   </button>
