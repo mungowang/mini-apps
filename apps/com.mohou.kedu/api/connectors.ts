@@ -144,7 +144,7 @@ export function rowToConnector(r: Row): Connector {
     params: parseJson<Record<string, unknown>>(r.params, {}),
     rootPath: typeof r.root_path === "string" ? r.root_path : "",
     mapping: parseJson<ConnectorMapping>(r.mapping, { externalId: { const: "" }, title: { const: "" } }),
-    options: parseJson(r.options, { boardId: "default", syncDone: true }),
+    options: parseJson(r.options, { boardId: "default", syncDone: true, keepDeleted: true }),
     createdAt: Number(r.created_at) || 0,
     lastRunAt: r.last_run_at == null ? null : Number(r.last_run_at),
     lastRunResult: r.last_run_result == null ? null : String(r.last_run_result),
@@ -210,9 +210,15 @@ export async function upsertDrafts(
       );
       if (linkRows.length) {
         const link = linkRows[0] as { task_id: unknown; raw_hash: unknown; deleted_at: unknown };
-        if (link.deleted_at != null) {
+        if (link.deleted_at != null && connector.options.keepDeleted !== false) {
           out.skipped += 1;
           continue; // user deleted it locally; do not resurrect
+        }
+        if (link.deleted_at != null) {
+          // keepDeleted off: forget the tombstone and re-import as new.
+          await store.run("DELETE FROM task_links WHERE connector_id = ? AND external_id = ?", [connector.id, d.externalId]);
+          out.skipped += 1;
+          continue;
         }
         const taskId = String(link.task_id);
         const task = await deps.loadTask(taskId);
@@ -333,7 +339,7 @@ export const TEMPLATES: ConnectorTemplate[] = [
         tags: [{ lit: "jira" }, { field: "fields.status.name" }],
         subtasks: { field: "fields.subtasks[]" },
       },
-      options: { boardId: "default", syncDone: true },
+      options: { boardId: "default", syncDone: true, keepDeleted: true },
     },
   },
   {
@@ -356,7 +362,7 @@ export const TEMPLATES: ConnectorTemplate[] = [
         notes: { field: "body" },
         tags: [{ lit: "github" }],
       },
-      options: { boardId: "default", syncDone: false },
+      options: { boardId: "default", syncDone: false, keepDeleted: true },
     },
   },
   {
@@ -370,7 +376,7 @@ export const TEMPLATES: ConnectorTemplate[] = [
       params: {},
       rootPath: "",
       mapping: { externalId: { const: "" }, title: { const: "" } },
-      options: { boardId: "default", syncDone: true },
+      options: { boardId: "default", syncDone: true, keepDeleted: true },
     },
   },
 ];

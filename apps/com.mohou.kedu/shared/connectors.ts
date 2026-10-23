@@ -35,6 +35,8 @@ export type ConnectorOptions = {
   boardId: string;
   /** Remote-closed records mark their kedu task done (never reopen). */
   syncDone: boolean;
+  /** Default true: records deleted locally are not re-imported on sync. */
+  keepDeleted: boolean;
 };
 
 export type ConnectorMapping = {

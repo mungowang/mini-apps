@@ -13,7 +13,7 @@ import type {
   TplToken,
   ValueSpec,
 } from "../shared/connectors";
-import { evalMapping, evalSpec } from "../shared/connectors";
+import { evalMapping } from "../shared/connectors";
 import { useStore } from "./store";
 
 const EASE = [0.16, 1, 0.3, 1] as const;
@@ -36,7 +36,6 @@ function useReducedMotion(): boolean {
 
 /* ───────────────────────── wizard state ───────────────────────── */
 
-/** The connector being edited — split so each step edits its slice. */
 type Draft = {
   id: string;
   name: string;
@@ -50,6 +49,7 @@ type Draft = {
   mapping: ConnectorMapping;
   boardId: string;
   syncDone: boolean;
+  keepDeleted: boolean;
 };
 
 function draftFromTemplate(t: ConnectorTemplate): Draft {
@@ -68,6 +68,7 @@ function draftFromTemplate(t: ConnectorTemplate): Draft {
     mapping: JSON.parse(JSON.stringify(c.mapping)),
     boardId: c.options.boardId,
     syncDone: c.options.syncDone,
+    keepDeleted: c.options.keepDeleted !== false,
   };
 }
 
@@ -86,6 +87,7 @@ function draftFromConnector(c: Connector): Draft {
     mapping: JSON.parse(JSON.stringify(c.mapping)),
     boardId: c.options.boardId,
     syncDone: c.options.syncDone,
+    keepDeleted: c.options.keepDeleted !== false,
   };
 }
 
@@ -104,6 +106,19 @@ type SampleState = {
 };
 
 const EMPTY_SAMPLE: SampleState = { loading: false, error: null, count: 0, roots: [], catalog: [], rows: [] };
+
+/** 参数名提示：按 kind / 模板给常用键。 */
+const PARAM_HINTS: Record<string, { name: string; note: string }[]> = {
+  jira: [
+    { name: "jql", note: "圈范围，如 assignee = currentUser() AND statusCategory != Done" },
+    { name: "num_results", note: "拉多少条" },
+    { name: "fields", note: "要哪些字段，一行一个（summary / priority / status / duedate …）" },
+  ],
+  http: [
+    { name: "state", note: "GitHub 等常用" },
+    { name: "per_page", note: "每页条数" },
+  ],
+};
 
 /* ───────────────────────── small pieces ───────────────────────── */
 
@@ -172,7 +187,7 @@ function Labeled(props: { label: string; children: React.ReactNode }) {
 const inputCls =
   "h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm outline-none focus:border-foreground placeholder:text-muted-foreground";
 
-/* ───────────────────────── slot editor ───────────────────────── */
+/* ───────────────────────── slot model ───────────────────────── */
 
 type SlotId = "externalId" | "title" | "priority" | "dates" | "notes" | "tags" | "subtasks";
 
@@ -180,74 +195,103 @@ const SLOTS: { id: SlotId; label: string; required?: boolean }[] = [
   { id: "externalId", label: "唯一键", required: true },
   { id: "title", label: "标题", required: true },
   { id: "priority", label: "优先级" },
-  { id: "dates", label: "日期" },
+  { id: "dates", label: "日期", hint: "from / to" },
   { id: "notes", label: "备注" },
   { id: "tags", label: "标签" },
   { id: "subtasks", label: "子任务" },
 ];
 
-/** The slot the user has active; catalog clicks land there. */
+/**
+ * Which slot the catalog clicks land in. `sub` only matters for dates
+ * (due / starts); the slot row stays open while its sub-row is armed.
+ */
 type Active =
-  | { slot: "title" | "externalId"; mode: "template" }
-  | { slot: "priority" | "notes" | "subtasks" | "starts" | "due"; mode: "field" }
-  | { slot: "tags" };
+  | { slot: "title" | "externalId" }
+  | { slot: "priority" | "notes" | "subtasks" | "tags" }
+  | { slot: "dates"; sub: "due" | "starts" };
+
+function specFilled(spec: ValueSpec | TplToken[] | undefined): boolean {
+  if (!spec) return false;
+  if (Array.isArray(spec)) return spec.length > 0;
+  if (typeof (spec as { const?: unknown }).const === "string") return Boolean((spec as { const: string }).const);
+  const f = (spec as { field?: string }).field;
+  if (typeof f === "string") return Boolean(f);
+  const t = (spec as { template?: TplToken[] }).template;
+  if (Array.isArray(t)) return t.length > 0;
+  return false;
+}
+
+function slotFilled(d: Draft, id: SlotId): boolean {
+  const m = d.mapping;
+  if (id === "externalId") return specFilled(m.externalId);
+  if (id === "title") return specFilled(m.title);
+  if (id === "priority") return specFilled(m.priority);
+  if (id === "dates") return specFilled(m.due) || specFilled(m.starts);
+  if (id === "notes") return specFilled(m.notes);
+  if (id === "tags") return specFilled(m.tags);
+  if (id === "subtasks") return specFilled(m.subtasks);
+  return false;
+}
+
+/* ───────────────────────── slot editor ───────────────────────── */
 
 function SlotEditor(props: {
   slot: SlotId;
   draft: Draft;
   catalog: CatalogEntry[];
-  rows: unknown[];
   active: Active | null;
   setActive: (a: Active | null) => void;
   patch: (fn: (d: Draft) => void) => void;
 }) {
-  const { slot, draft, catalog, rows, active, setActive, patch } = props;
+  const { slot, draft, catalog, active, setActive, patch } = props;
   const m = draft.mapping;
 
-  function specOf(id: string): ValueSpec | undefined {
-    if (id === "externalId") return m.externalId;
-    if (id === "title") return m.title;
-    if (id === "priority") return m.priority;
-    if (id === "notes") return m.notes;
-    if (id === "subtasks") return m.subtasks;
-    return undefined;
-  }
-
-  /* value mapper for the priority enum */
-  const prioEntry = m.priority && "field" in m.priority ? catalog.find(function (c) { return c.path === m.priority!.field; }) : null;
-
-  function renderTokenEditor(spec: ValueSpec, id: string) {
-    const tokens = "template" in spec && Array.isArray(spec.template) ? spec.template : [];
-    return (
-      <div className="flex flex-wrap items-center gap-1.5">
-        {tokens.map(function (tok, i) {
-          return tok.lit !== undefined ? (
-            <span key={i} className="text-xs text-muted-foreground">{tok.lit}</span>
-          ) : (
-            <FieldChip
-              key={i}
-              path={String(tok.field)}
-              onRemove={function () {
-                patch(function (d) {
-                  const s = id === "title" ? d.mapping.title : d.mapping.externalId;
-                  s.template.splice(i, 1);
-                });
-              }}
-            />
-          );
-        })}
-      </div>
-    );
-  }
-
   if (slot === "externalId" || slot === "title") {
-    const spec = specOf(slot) as ValueSpec;
+    const spec = (slot === "title" ? m.title : m.externalId) as ValueSpec;
+    const tokens = "template" in spec && Array.isArray(spec.template) ? spec.template : [];
+    const setSpec = function (s: ValueSpec) {
+      patch(function (d) {
+        if (slot === "title") d.mapping.title = s as ConnectorMapping["title"];
+        else d.mapping.externalId = s as ConnectorMapping["externalId"];
+      });
+    };
     return (
       <div>
         <div className="mb-2 inline-flex overflow-hidden rounded-md border border-border">
-          <SegBtn on={"template" in spec} label="模板" onClick={function () { setActive({ slot: slot as "title" | "externalId", mode: "template" }); }} />
+          <SegBtn on label="模板" onClick={function () { setActive({ slot: slot }); }} />
+          <SegBtn
+            on={"const" in spec}
+            label="固定值"
+            onClick={function () { setSpec({ const: "" }); }}
+          />
         </div>
-        {renderTokenEditor(spec, slot)}
+        {"const" in spec ? (
+          <input
+            value={spec.const}
+            onChange={function (e) { setSpec({ const: e.target.value }); }}
+            className={inputCls + " h-8"}
+            placeholder={slot === "title" ? "所有任务同一标题（一般不建议）" : "如外部系统没有唯一键"}
+          />
+        ) : (
+          <div className="flex flex-wrap items-center gap-1.5">
+            {tokens.map(function (tok, i) {
+              return tok.lit !== undefined ? (
+                <span key={i} className="text-xs text-muted-foreground">{tok.lit}</span>
+              ) : (
+                <FieldChip
+                  key={i}
+                  path={String(tok.field)}
+                  onRemove={function () {
+                    patch(function (d) {
+                      const s = slot === "title" ? d.mapping.title : d.mapping.externalId;
+                      s.template.splice(i, 1);
+                    });
+                  }}
+                />
+              );
+            })}
+          </div>
+        )}
         <p className="mt-2 text-[11px] text-muted-foreground">在字段目录里点一个字段，加进这里</p>
       </div>
     );
@@ -255,11 +299,15 @@ function SlotEditor(props: {
 
   if (slot === "priority") {
     const spec = m.priority;
+    const prioEntry =
+      spec && "field" in spec
+        ? catalog.find(function (c) { return c.path === (m.priority as { field: string }).field; })
+        : null;
     return (
       <div>
         <div className="mb-2 inline-flex overflow-hidden rounded-md border border-border">
           <SegBtn on={!spec} label="不设" onClick={function () { patch(function (d) { d.mapping.priority = undefined; }); }} />
-          <SegBtn on={Boolean(spec && "field" in spec)} label="从字段" onClick={function () { setActive({ slot: "priority", mode: "field" }); }} />
+          <SegBtn on={Boolean(spec && "field" in spec)} label="从字段" onClick={function () { setActive({ slot: "priority" }); }} />
           <SegBtn on={Boolean(spec && "const" in spec)} label="固定值" onClick={function () { patch(function (d) { d.mapping.priority = { const: "3" }; }); }} />
         </div>
         {spec && "field" in spec && spec.field ? (
@@ -277,8 +325,9 @@ function SlotEditor(props: {
                         onChange={function (e) {
                           const val = e.target.value;
                           patch(function (d) {
-                            if (!d.mapping.priority || !("field" in d.mapping.priority)) return;
-                            d.mapping.priority.map = Object.assign({}, d.mapping.priority.map, (function () { const o: Record<string, string> = {}; o[v] = val; return o; })());
+                            const p = d.mapping.priority;
+                            if (!p || !("field" in p)) return;
+                            p.map = Object.assign({}, p.map, (function () { const o: Record<string, string> = {}; o[v] = val; return o; })());
                           });
                         }}
                         className="h-7 rounded-md border border-border bg-transparent px-1.5 text-xs"
@@ -313,14 +362,51 @@ function SlotEditor(props: {
   }
 
   if (slot === "dates") {
+    const sub = active && active.slot === "dates" ? active.sub : null;
+    /** One from/to row: 不设 / 字段 / 固定 */
     const dateRow = function (label: string, key: "due" | "starts") {
       const spec = m[key];
+      const armed = sub === key;
       return (
-        <div className="mb-2.5">
-          <div className="mb-1 flex items-center gap-2 text-[11px] text-muted-foreground">
-            <span>{label}</span>
-            {spec && "field" in spec && spec.field ? <FieldChip path={spec.field} /> : <span className="opacity-70">未设</span>}
+        <div className={"mb-2 rounded-lg border p-2 " + (armed ? "border-foreground/40 bg-muted/60" : "border-border")}>
+          <div className="mb-1.5 flex items-center gap-2">
+            <span className="text-[11px] font-medium text-muted-foreground">{label}</span>
+            {spec && "field" in spec && spec.field ? <FieldChip path={spec.field} /> : null}
           </div>
+          <div className="mb-2 inline-flex overflow-hidden rounded-md border border-border">
+            <SegBtn on={!spec} label="不设" onClick={function () { patch(function (d) { d.mapping[key] = undefined; }); }} />
+            <SegBtn on={Boolean(spec && "field" in spec)} label="字段" onClick={function () { setActive({ slot: "dates", sub: key }); }} />
+            <SegBtn on={Boolean(spec && "const" in spec)} label="固定" onClick={function () { patch(function (d) { d.mapping[key] = { const: key === "due" ? "next-monday" : "today" }; }); }} />
+          </div>
+          {spec && "field" in spec ? (
+            <p className="text-[11px] text-muted-foreground">{armed ? "在字段目录里点一个日期字段" : "已从字段取"}</p>
+          ) : null}
+          {spec && "const" in spec ? (
+            <div className="flex flex-wrap items-center gap-1.5">
+              <input
+                type="date"
+                value={/^\d{4}-\d{2}-\d{2}$/.test(spec.const) ? spec.const : ""}
+                onChange={function (e) {
+                  if (e.target.value) patch(function (d) { d.mapping[key] = { const: e.target.value }; });
+                }}
+                className="h-7 rounded-md border border-border bg-transparent px-1.5 text-xs"
+              />
+              {["today", "+3d", "next-monday", key === "due" ? "this-week" : "", key === "due" ? "next-week" : ""]
+                .filter(Boolean)
+                .map(function (v) {
+                  return (
+                    <button
+                      key={v}
+                      type="button"
+                      onClick={function () { patch(function (d) { d.mapping[key] = { const: v }; }); }}
+                      className={"rounded-full border px-2 py-0.5 text-[11px] " + (spec.const === v ? "border-foreground bg-muted text-foreground" : "border-border text-muted-foreground hover:text-foreground")}
+                    >
+                      {v}
+                    </button>
+                  );
+                })}
+            </div>
+          ) : null}
         </div>
       );
     };
@@ -328,39 +414,7 @@ function SlotEditor(props: {
       <div>
         {dateRow("to（截止 = due）", "due")}
         {dateRow("from（开始，可选）", "starts")}
-        <div className="flex flex-wrap gap-1.5">
-          {[
-            { v: "today", t: "今天" },
-            { v: "+3d", t: "+3 天" },
-            { v: "next-monday", t: "下周一" },
-            { v: "this-week", t: "本周" },
-            { v: "next-week", t: "下周" },
-          ].map(function (c) {
-            return (
-              <button
-                key={c.v}
-                type="button"
-                onClick={function () {
-                  patch(function (d) {
-                    d.mapping.due = { const: c.v };
-                    if (c.v === "this-week" || c.v === "next-week") d.mapping.starts = { const: c.v };
-                  });
-                }}
-                className="rounded-full border border-border px-2.5 py-1 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground"
-              >
-                {c.t}
-              </button>
-            );
-          })}
-        </div>
-        <div className="mt-2 flex gap-3">
-          <button type="button" onClick={function () { setActive({ slot: "due", mode: "field" }); }} className="text-[11.5px] text-muted-foreground underline underline-offset-2 hover:text-foreground">
-            to 从字段选
-          </button>
-          <button type="button" onClick={function () { setActive({ slot: "starts", mode: "field" }); }} className="text-[11.5px] text-muted-foreground underline underline-offset-2 hover:text-foreground">
-            from 从字段选
-          </button>
-        </div>
+        <p className="text-[11px] text-muted-foreground">只设 from 不设 to 时，to 取 from（单日）。</p>
       </div>
     );
   }
@@ -371,10 +425,15 @@ function SlotEditor(props: {
       <div>
         <div className="mb-2 inline-flex overflow-hidden rounded-md border border-border">
           <SegBtn on={!spec} label="不设" onClick={function () { patch(function (d) { if (slot === "notes") d.mapping.notes = undefined; else d.mapping.subtasks = undefined; }); }} />
-          <SegBtn on={Boolean(spec && "field" in spec)} label="从字段" onClick={function () { setActive({ slot: slot as "notes" | "subtasks", mode: "field" }); }} />
+          <SegBtn on={Boolean(spec && "field" in spec)} label="从字段" onClick={function () { setActive({ slot: slot as "notes" | "subtasks" }); }} />
           <SegBtn on={Boolean(spec && "const" in spec)} label="固定值" onClick={function () { patch(function (d) { if (slot === "notes") d.mapping.notes = { const: "" }; else d.mapping.subtasks = { const: "" }; }); }} />
         </div>
-        {spec && "field" in spec && spec.field ? <FieldChip path={spec.field} /> : null}
+        {spec && "field" in spec && spec.field ? (
+          <div>
+            <FieldChip path={spec.field} />
+            <p className="mt-1.5 text-[11px] text-muted-foreground">已从字段取</p>
+          </div>
+        ) : null}
         {spec && "const" in spec ? (
           <input
             value={spec.const}
@@ -390,19 +449,15 @@ function SlotEditor(props: {
 
   // tags
   const tokens = m.tags || [];
+  const [adding, setAdding] = React.useState(false);
+  const [lit, setLit] = React.useState("");
   return (
     <div className="flex flex-wrap items-center gap-1.5">
       {tokens.map(function (tok, i) {
-        return tok.lit !== undefined ? (
+        return (
           <FieldChip
             key={i}
-            path={String(tok.lit)}
-            onRemove={function () { patch(function (d) { d.mapping.tags.splice(i, 1); }); }}
-          />
-        ) : (
-          <FieldChip
-            key={i}
-            path={String(tok.field)}
+            path={tok.lit !== undefined ? String(tok.lit) : String(tok.field)}
             onRemove={function () { patch(function (d) { d.mapping.tags.splice(i, 1); }); }}
           />
         );
@@ -414,16 +469,43 @@ function SlotEditor(props: {
       >
         ＋ 字段
       </button>
-      <button
-        type="button"
-        onClick={function () {
-          const v = window.prompt("固定标签文字");
-          if (v && v.trim()) patch(function (d) { (d.mapping.tags = d.mapping.tags || []).push({ lit: v.trim() }); });
-        }}
-        className="rounded-full border border-dashed border-border px-2.5 py-0.5 text-[11px] text-muted-foreground hover:text-foreground"
-      >
-        ＋ 固定
-      </button>
+      {adding ? (
+        <span className="inline-flex items-center gap-1">
+          <input
+            autoFocus
+            value={lit}
+            onChange={function (e) { setLit(e.target.value); }}
+            onKeyDown={function (e) {
+              if (e.key === "Enter" && lit.trim()) {
+                patch(function (d) { (d.mapping.tags = d.mapping.tags || []).push({ lit: lit.trim() }); });
+                setLit("");
+                setAdding(false);
+              }
+            }}
+            className="h-7 w-24 rounded-md border border-border bg-transparent px-2 text-[11px] outline-none focus:border-foreground"
+            placeholder="标签名"
+          />
+          <button
+            type="button"
+            onClick={function () {
+              if (lit.trim()) patch(function (d) { (d.mapping.tags = d.mapping.tags || []).push({ lit: lit.trim() }); });
+              setLit("");
+              setAdding(false);
+            }}
+            className="text-[11px] text-muted-foreground underline underline-offset-2 hover:text-foreground"
+          >
+            加上
+          </button>
+        </span>
+      ) : (
+        <button
+          type="button"
+          onClick={function () { setAdding(true); }}
+          className="rounded-full border border-dashed border-border px-2.5 py-0.5 text-[11px] text-muted-foreground hover:text-foreground"
+        >
+          ＋ 固定
+        </button>
+      )}
     </div>
   );
 }
@@ -472,7 +554,6 @@ export function Connect(props: { onPack: (res: unknown) => void }) {
     });
   }
 
-  /* one sample fetch; preview evaluates locally afterwards */
   async function takeSample(d: Draft) {
     setSample(Object.assign({}, EMPTY_SAMPLE, { loading: true }));
     try {
@@ -497,7 +578,6 @@ export function Connect(props: { onPack: (res: unknown) => void }) {
     }
   }
 
-  /* local preview from cached rows */
   const previews: TaskDraft[] = React.useMemo(
     function () {
       if (!draft || !sample.rows.length) return [];
@@ -506,7 +586,6 @@ export function Connect(props: { onPack: (res: unknown) => void }) {
     [draft, sample.rows, today]
   );
 
-  /* catalog click → land in the active slot */
   function catalogClick(entry: CatalogEntry) {
     if (!draft) return;
     const path = entry.path;
@@ -529,16 +608,15 @@ export function Connect(props: { onPack: (res: unknown) => void }) {
     }
     if (a.slot === "priority") {
       const transform = entry.type === "enum" ? ("enum" as const) : entry.type === "date" ? ("date" as const) : undefined;
-      patch(function (d) { d.mapping.priority = { field: path, transform: transform, map: transform === "enum" ? {} : undefined }; });
+      patch(function (d) {
+        d.mapping.priority = { field: path, transform: transform, map: transform === "enum" ? {} : undefined };
+      });
       return;
     }
-    if (a.slot === "due" || a.slot === "starts") {
+    if (a.slot === "dates") {
       const transform = entry.type === "date" ? ("date" as const) : undefined;
-      patch(function (d) {
-        if (a.slot === "due") d.mapping.due = { field: path, transform: transform };
-        else d.mapping.starts = { field: path, transform: transform };
-      });
-      setActive(null);
+      const key = a.sub;
+      patch(function (d) { d.mapping[key] = { field: path, transform: transform }; });
       return;
     }
     // notes / subtasks
@@ -546,7 +624,6 @@ export function Connect(props: { onPack: (res: unknown) => void }) {
       if (a.slot === "notes") d.mapping.notes = { field: path };
       else d.mapping.subtasks = { field: path };
     });
-    setActive(null);
   }
 
   async function runConnector(c: Connector, limit: number) {
@@ -555,10 +632,7 @@ export function Connect(props: { onPack: (res: unknown) => void }) {
       const res = await call("connectorRun", { id: c.id, limit: limit });
       props.onPack(res);
       const s = (res as { summary?: string }).summary;
-      toast.add({
-        title: limit ? "试运行完成" : "同步完成",
-        description: s || undefined,
-      });
+      toast.add({ title: limit ? "试运行完成" : "同步完成", description: s || undefined });
       void load();
     } catch (e) {
       toast.add({ title: "同步没有完成", description: String((e as { message?: string }).message || e) });
@@ -567,24 +641,26 @@ export function Connect(props: { onPack: (res: unknown) => void }) {
     }
   }
 
+  function connectorPayload(d: Draft) {
+    return {
+      id: d.id || undefined,
+      name: d.name,
+      kind: d.kind,
+      source: draftSource(d),
+      params: d.params,
+      rootPath: d.rootPath,
+      mapping: d.mapping,
+      options: { boardId: d.boardId, syncDone: d.syncDone, keepDeleted: d.keepDeleted },
+    };
+  }
+
   async function save() {
     if (!draft) return;
     try {
-      const res = await call("connectorSave", {
-        connector: {
-          id: draft.id || undefined,
-          name: draft.name,
-          kind: draft.kind,
-          source: draftSource(draft),
-          params: draft.params,
-          rootPath: draft.rootPath,
-          mapping: draft.mapping,
-          options: { boardId: draft.boardId, syncDone: draft.syncDone },
-        },
-      });
+      const res = await call("connectorSave", { connector: connectorPayload(draft) });
       const r = res as { connectors?: Connector[] };
       if (r.connectors) setConnectors(r.connectors);
-      toast.add({ title: "已保存" + (draft.id ? "" : "，可全量同步") });
+      toast.add({ title: "已保存" });
       setView("list");
       setStep(1);
       setDraft(null);
@@ -634,14 +710,14 @@ export function Connect(props: { onPack: (res: unknown) => void }) {
           const busy = running === c.id + ":0" || running === c.id + ":3";
           return (
             <div key={c.id} className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl border border-border px-3.5 py-3">
-              <span className={"size-1.5 shrink-0 rounded-full " + (c.lastRunResult && c.lastRunResult.indexOf("跳过 0") < 0 && c.lastRunResult.indexOf("HTTP") >= 0 ? "bg-destructive" : "bg-foreground/60")} />
+              <span className="size-1.5 shrink-0 rounded-full bg-foreground/60" />
               <div className="min-w-0">
                 <p className="truncate text-sm font-medium">{c.name}</p>
                 <p className="truncate text-xs text-muted-foreground">
                   {c.kind === "mcp"
                     ? "mcp · " + ("serverId" in c.source ? c.source.serverId + "/" + c.source.toolName : "")
                     : "http"}
-                  {c.lastRunAt ? " · 上次 " + String(c.lastRunAt) : ""}
+                  {c.lastRunAt ? " · " + new Date(c.lastRunAt).toLocaleString() : ""}
                   {c.lastRunResult ? " · " + c.lastRunResult : ""}
                 </p>
               </div>
@@ -670,21 +746,19 @@ export function Connect(props: { onPack: (res: unknown) => void }) {
           );
         })}
         {connectors.length ? (
-          <div className="mt-1 flex items-center justify-between">
-            <button
-              type="button"
-              onClick={function () {
-                const t = templates[templates.length - 1];
-                setDraft(draftFromTemplate(t));
-                setView("wizard");
-                setStep(2);
-                setSample(EMPTY_SAMPLE);
-              }}
-              className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
-            >
-              ＋ 新建连接器
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={function () {
+              const t = templates[templates.length - 1];
+              setDraft(draftFromTemplate(t));
+              setView("wizard");
+              setStep(2);
+              setSample(EMPTY_SAMPLE);
+            }}
+            className="mt-1 self-start text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+          >
+            ＋ 新建连接器
+          </button>
         ) : null}
       </div>
     );
@@ -733,7 +807,7 @@ export function Connect(props: { onPack: (res: unknown) => void }) {
                   <input value={draft.serverId} onChange={function (e) { patch(function (d) { d.serverId = e.target.value; }); }} className={inputCls} placeholder="jira" />
                 </Labeled>
                 <Labeled label="工具名">
-                  <input value={draft.toolName} onChange={function (e) { patch(function (d) { d.toolName = e.target.value; }); }} className={inputCls} placeholder="getIssues" />
+                  <input value={draft.toolName} onChange={function (e) { patch(function (d) { d.toolName = e.target.value; }); }} className={inputCls} placeholder="JiraQuery" />
                 </Labeled>
               </div>
             ) : (
@@ -766,42 +840,100 @@ export function Connect(props: { onPack: (res: unknown) => void }) {
         {step === 3 ? (
           <div className="max-w-lg">
             <p className="mb-3 text-sm text-muted-foreground">
-              请求参数决定“导入哪些”。导入后本地改动不会被同步覆盖，删除的任务不会复活。
+              请求参数决定「导入哪些」。导入后本地改动不会被同步覆盖，删除过的（除非关掉「不再导入」）不会复活。
             </p>
-            {Object.keys(draft.params).length === 0 ? (
-              <p className="mb-2 text-xs text-muted-foreground">暂无参数（Jira 常用 jql，GitHub 常用 state）</p>
-            ) : null}
             {Object.keys(draft.params).map(function (k) {
+              const v = draft.params[k];
+              const isArr = Array.isArray(v);
               return (
-                <div key={k} className="mb-2 grid grid-cols-3 gap-2">
-                  <input
-                    value={k}
-                    readOnly
-                    className={inputCls + " h-8 font-mono text-xs"}
-                  />
-                  <input
-                    value={String(draft.params[k] ?? "")}
-                    onChange={function (e) {
-                      patch(function (d) { d.params[k] = e.target.value; });
-                    }}
-                    className={inputCls + " col-span-2 h-8 text-xs"}
-                    placeholder="值"
-                  />
+                <div key={k} className="mb-2">
+                  <div className="grid grid-cols-3 gap-2">
+                    <input
+                      value={k}
+                      onChange={function (e) {
+                        const nk = e.target.value;
+                        patch(function (d) {
+                          const val = d.params[k];
+                          delete d.params[k];
+                          if (nk) d.params[nk] = val;
+                        });
+                      }}
+                      className={inputCls + " h-8 font-mono text-xs"}
+                      placeholder="参数名"
+                    />
+                    {isArr ? null : (
+                      <input
+                        value={String(v ?? "")}
+                        onChange={function (e) {
+                          const nk = k;
+                          const nv = e.target.value;
+                          patch(function (d) { d.params[nk] = nv; });
+                        }}
+                        className={inputCls + " col-span-2 h-8 text-xs"}
+                        placeholder="值"
+                      />
+                    )}
+                    <div className="col-span-3 flex items-center justify-between">
+                      {isArr ? (
+                        <textarea
+                          value={(v as unknown[]).map(String).join("\n")}
+                          onChange={function (e) {
+                            const lines = e.target.value.split("\n");
+                            patch(function (d) { d.params[k] = lines; });
+                          }}
+                          rows={Math.min(6, (v as unknown[]).length + 1)}
+                          className="w-full rounded-md border border-input bg-transparent px-2 py-1 font-mono text-[11px] outline-none focus:border-foreground"
+                        />
+                      ) : (
+                        <span className="text-[10px] text-muted-foreground">数组参数一行一个值</span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={function () { patch(function (d) { delete d.params[k]; }); }}
+                        className="text-[11px] text-muted-foreground hover:text-destructive"
+                      >
+                        ✕ 删
+                      </button>
+                    </div>
+                  </div>
                 </div>
               );
             })}
             <button
               type="button"
               onClick={function () {
-                const k = window.prompt("参数名（如 jql）");
-                if (!k) return;
-                const v = window.prompt("值") || "";
-                patch(function (d) { d.params[k] = v; });
+                const nk = "p" + String(Object.keys(draft.params).length + 1);
+                patch(function (d) { d.params[nk] = ""; });
+                setStep(3);
               }}
-              className="mb-4 text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+              className="mb-3 text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
             >
               ＋ 加参数
             </button>
+            <p className="mb-2 text-[11px] text-muted-foreground">
+              常用参数（点一下就加上）：
+            </p>
+            <div className="mb-4 flex flex-wrap gap-1.5">
+              {(PARAM_HINTS[draft.kind === "mcp" && /jira/i.test(draft.serverId + draft.toolName) ? "jira" : draft.kind] || []).map(function (h) {
+                return (
+                  <button
+                    key={h.name}
+                    type="button"
+                    title={h.note}
+                    onClick={function () {
+                      patch(function (d) {
+                        if (d.params[h.name] === undefined) {
+                          d.params[h.name] = h.name === "fields" ? ["summary"] : "";
+                        }
+                      });
+                    }}
+                    className="rounded-full border border-border px-2.5 py-1 font-mono text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground"
+                  >
+                    {h.name}
+                  </button>
+                );
+              })}
+            </div>
             <p className="mb-1.5 text-xs text-muted-foreground">样本根路径（自动检测）</p>
             <div className="mb-4 flex flex-wrap gap-1.5">
               {(sample.roots.length ? sample.roots : [draft.rootPath || "$"]).map(function (r) {
@@ -833,7 +965,7 @@ export function Connect(props: { onPack: (res: unknown) => void }) {
         ) : null}
 
         {step === 4 ? (
-          <div className="grid min-h-0 flex-1 grid-cols-1 gap-2.5 md:grid-cols-[minmax(0,1.1fr)_minmax(0,1.6fr)] lg:grid-cols-[280px_minmax(0,1.4fr)_300px]">
+          <div className="grid min-h-0 flex-1 grid-cols-1 gap-2.5 md:grid-cols-[minmax(0,1.1fr)_minmax(0,1.6fr)] lg:grid-cols-[300px_minmax(0,1.4fr)_300px]">
             {/* slots */}
             <div className="flex min-h-0 flex-col overflow-y-auto rounded-xl border border-border p-2">
               <p className="px-1.5 pb-1.5 pt-1 text-[11px] tracking-[0.18em] text-muted-foreground">任务字段</p>
@@ -849,13 +981,12 @@ export function Connect(props: { onPack: (res: unknown) => void }) {
                           setActive(null);
                           return;
                         }
-                        const a: Active | null = s.id === "title" || s.id === "externalId"
-                          ? { slot: s.id, mode: "template" }
-                          : s.id === "tags"
-                            ? { slot: "tags" }
-                            : s.id === "priority" || s.id === "notes" || s.id === "subtasks"
-                              ? { slot: s.id, mode: "field" }
-                              : null;
+                        const a: Active =
+                          s.id === "dates"
+                            ? { slot: "dates", sub: "due" }
+                            : s.id === "externalId" || s.id === "title" || s.id === "priority" || s.id === "notes" || s.id === "subtasks" || s.id === "tags"
+                              ? { slot: s.id as Active["slot"] }
+                              : { slot: "dates", sub: "due" };
                         setActive(a);
                       }}
                       className={
@@ -873,7 +1004,7 @@ export function Connect(props: { onPack: (res: unknown) => void }) {
                     </button>
                     {on ? (
                       <div className="mt-1 border-t border-dashed border-border px-1 pt-2">
-                        <SlotEditor slot={s.id} draft={draft} catalog={sample.catalog} rows={sample.rows} active={active} setActive={setActive} patch={patch} />
+                        <SlotEditor slot={s.id} draft={draft} catalog={sample.catalog} active={active} setActive={setActive} patch={patch} />
                       </div>
                     ) : null}
                   </div>
@@ -907,11 +1038,7 @@ export function Connect(props: { onPack: (res: unknown) => void }) {
                         <span
                           className={
                             "shrink-0 rounded border px-1 text-[9.5px] " +
-                            (c.type === "enum"
-                              ? "border-foreground/30 text-muted-foreground"
-                              : c.type === "date"
-                                ? "border-foreground/30 text-muted-foreground"
-                                : "border-border text-muted-foreground")
+                            (c.type === "enum" || c.type === "date" ? "border-foreground/30 text-muted-foreground" : "border-border text-muted-foreground")
                           }
                         >
                           {c.type}
@@ -974,8 +1101,17 @@ export function Connect(props: { onPack: (res: unknown) => void }) {
               />
               远端关闭 / Done 的任务标为完成
             </label>
+            <label className="mt-2.5 flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={draft.keepDeleted}
+                onChange={function (e) { patch(function (d) { d.keepDeleted = e.target.checked; }); }}
+                className="size-3.5 accent-foreground"
+              />
+              本地删过的外部任务不再导入
+            </label>
             <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
-              导入的任务先进板块，之后随你怎么挪——同步不会把它搬回去。本地删过的，不会复活。
+              导入的任务先进板块，之后随你怎么挪——同步不会把它搬回去。
             </p>
             <div className="mt-5 rounded-xl border border-dashed border-border p-3.5">
               <p className="mb-2 text-xs text-muted-foreground">先真实导入 3 条看看，可撤销</p>
@@ -986,18 +1122,7 @@ export function Connect(props: { onPack: (res: unknown) => void }) {
                   onClick={async function () {
                     if (!draft) return;
                     try {
-                      const res = await call("connectorSave", {
-                        connector: {
-                          id: draft.id || undefined,
-                          name: draft.name,
-                          kind: draft.kind,
-                          source: draftSource(draft),
-                          params: draft.params,
-                          rootPath: draft.rootPath,
-                          mapping: draft.mapping,
-                          options: { boardId: draft.boardId, syncDone: draft.syncDone },
-                        },
-                      });
+                      const res = await call("connectorSave", { connector: connectorPayload(draft) });
                       const r = res as { connectors?: Connector[] };
                       if (r.connectors) setConnectors(r.connectors);
                       const saved = (r.connectors || []).find(function (c) { return c.name === draft.name; });
@@ -1086,16 +1211,4 @@ export function Connect(props: { onPack: (res: unknown) => void }) {
       </div>
     </motion.div>
   );
-}
-
-function slotFilled(d: Draft, id: SlotId): boolean {
-  const m = d.mapping;
-  if (id === "externalId") return Boolean(evalSpec({}, m.externalId)) || ("field" in m.externalId && Boolean(m.externalId.field));
-  if (id === "title") return ("template" in m.title && m.title.template.some(function (t) { return Boolean(t.field); })) || ("field" in m.title && Boolean(m.title.field)) || ("const" in m.title && Boolean(m.title.const));
-  if (id === "priority") return Boolean(m.priority);
-  if (id === "dates") return Boolean(m.due || m.starts);
-  if (id === "notes") return Boolean(m.notes);
-  if (id === "tags") return Boolean(m.tags && m.tags.length);
-  if (id === "subtasks") return Boolean(m.subtasks);
-  return false;
 }

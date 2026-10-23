@@ -653,7 +653,7 @@ export default defineApp({
       }
       const mapping = c.mapping || { externalId: { const: "" }, title: { const: "" } };
       if (!mapping.externalId || !mapping.title) throw new Error("至少映射出唯一键和标题");
-      const options = Object.assign({ boardId: "default", syncDone: true }, c.options || {});
+      const options = Object.assign({ boardId: "default", syncDone: true, keepDeleted: true }, c.options || {});
       if (options.boardId && options.boardId !== "default") {
         const found = await ctx.storage.query("SELECT id FROM boards WHERE id = ?", [options.boardId]);
         if (found.length === 0) throw new Error("目标板块不存在，重新选一个");
