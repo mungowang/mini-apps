@@ -623,6 +623,8 @@ export default function Ui() {
           const before: Record<string, boolean> = {};
           for (let i = 0; i < tasks.length; i++) before[tasks[i].id] = true;
           const payload: Record<string, unknown> = { title: raw };
+          // 快记默认进当前板块；$板名 标记在后端覆盖。
+          payload.boardId = boardId === "default" ? null : boardId;
           if (extra && typeof extra.notes === "string" && extra.notes.trim()) payload.notes = extra.notes.trim();
           if (extra && Array.isArray(extra.subtasks) && extra.subtasks.length) payload.subtasks = extra.subtasks;
           const res = await run("add", payload);
@@ -767,7 +769,7 @@ export default function Ui() {
         },
       };
     },
-    [run, tasks, undo, revealLeftInbox]
+    [run, tasks, boardId, undo, revealLeftInbox]
   );
 
   const stats = React.useMemo(

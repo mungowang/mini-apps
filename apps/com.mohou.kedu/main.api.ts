@@ -281,12 +281,16 @@ export default defineApp({
       const parsed = parseKeduPaste(raw, today);
       const title = parsed.title.trim();
       if (!title) throw new Error("除了日期和标签，还要写上要做什么");
-      // $板名 → board id；没有 $ 标记就进「默认」板块。不认识的板名直接拦下。
+      // $板名 → board id；没有 $ 标记就进「当前板块」（UI 传入，默认板块传 null）。不认识的板名直接拦下。
       let boardId: string | null = null;
       if (parsed.boardName) {
         const boardRows = await ctx.storage.query("SELECT id FROM boards WHERE name = ?", [parsed.boardName]);
         if (boardRows.length === 0) throw new Error("没有这个板块：$" + parsed.boardName);
         boardId = String(boardRows[0].id);
+      } else if (args && typeof args.boardId === "string" && args.boardId !== "default") {
+        const boardRows = await ctx.storage.query("SELECT id FROM boards WHERE id = ?", [args.boardId]);
+        if (boardRows.length === 0) throw new Error("板块不存在");
+        boardId = args.boardId;
       }
       const minOrder = await minSortOrder(ctx.storage);
       const hasDue = args && Object.prototype.hasOwnProperty.call(args, "due");
