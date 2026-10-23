@@ -112,7 +112,7 @@ function ImportDialog(props: { open: boolean; onOpenChange: (v: boolean) => void
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
       <DialogContent width={440}>
         <DialogHeader>
-          <DialogTitle>导入清单</DialogTitle>
+          <DialogTitle>粘贴清单</DialogTitle>
           <DialogDescription>一行一件，或整段刻度文本（含备注 / 子任务）。</DialogDescription>
         </DialogHeader>
         <Textarea
@@ -162,6 +162,7 @@ export function Commands(props: {
   onFocusSearch: () => void;
   onClearDone: () => void;
   onReset: () => void;
+  onConnect: () => void;
 }) {
   const { setLens, setSelectMode, setRhythmOpen, openTask, tasks, boards, followInbox, setFollowInbox } = useStore();
   const [query, setQuery] = React.useState("");
@@ -233,8 +234,17 @@ export function Commands(props: {
     },
     { id: "copy", label: "复制未完成的清单", run: copyUndone },
     {
+      id: "connect",
+      label: "接入外部任务…",
+      hint: "I",
+      run: function () {
+        props.onOpenChange(false);
+        props.onConnect();
+      },
+    },
+    {
       id: "import",
-      label: "导入清单",
+      label: "粘贴清单",
       run: function () {
         props.onOpenChange(false);
         setImportOpen(true);

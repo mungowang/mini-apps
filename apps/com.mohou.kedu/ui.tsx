@@ -22,6 +22,7 @@ import { Capture } from "./ui/capture";
 import { Commands } from "./ui/commands";
 import { FilterButton } from "./ui/filter";
 import { Archive } from "./ui/archive";
+import { Connect } from "./ui/connect";
 import { GRACE_MS, TaskList } from "./ui/list";
 import { OnceList, OnceRangeBar } from "./ui/once";
 import { ContextRail } from "./ui/rail";
@@ -349,6 +350,8 @@ export default function Ui() {
   const [undo, setUndo] = React.useState<Task | null>(null);
   const [rhythmOpen, setRhythmOpen] = React.useState(false);
   const [archiveOpen, setArchiveOpenState] = React.useState(false);
+  const [connectOpen, setConnectOpen] = React.useState(false);
+  const [hasConnectors, setHasConnectors] = React.useState(false);
   const [paletteOpen, setPaletteOpen] = React.useState(false);
   const [confirmClear, setConfirmClear] = React.useState(false);
   const [confirmReset, setConfirmReset] = React.useState(false);
@@ -485,6 +488,16 @@ export default function Ui() {
         if (alive) setLoadError(String((e as { message?: string } | null)?.message || e));
       } finally {
         if (alive) setLoading(false);
+      }
+    })();
+    // 接入：面板外的小图标只在配过连接器后才出现。
+    void (async function () {
+      try {
+        const res = await callRef.current("connectorsList", {});
+        const list = (res && typeof res === "object" ? (res as { connectors?: unknown[] }).connectors : null) || [];
+        if (alive && list.length) setHasConnectors(true);
+      } catch (e) {
+        /* the panel opens fine without the icon */
       }
     })();
     return function () {
@@ -784,6 +797,11 @@ export default function Ui() {
       function onKey(e: KeyboardEvent) {
         const el = e.target as HTMLElement | null;
         const typing = Boolean(el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable));
+        if (connectOpen && e.key === "Escape") {
+          e.preventDefault();
+          setConnectOpen(false);
+          return;
+        }
         if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
           e.preventDefault();
           setPaletteOpen(function (v) {
@@ -816,6 +834,9 @@ export default function Ui() {
         } else if (e.key === "n" || e.key === "N") {
           e.preventDefault();
           if (addRef.current) addRef.current.focus();
+        } else if (e.key === "I") {
+          e.preventDefault();
+          setConnectOpen(true);
         } else if (e.key === "Escape") {
           if (archiveOpen) {
             if (selectedId) {
@@ -857,7 +878,7 @@ export default function Ui() {
         window.removeEventListener("keydown", onKey);
       };
     },
-    [searchOpen, query, rhythmOpen, selectedId, selectMode, setSelectMode, layout, archiveOpen, tasks, actions, boards, setBoard]
+    [searchOpen, query, rhythmOpen, selectedId, selectMode, setSelectMode, layout, archiveOpen, connectOpen, tasks, actions, boards, setBoard]
   );
 
   const store: Store = React.useMemo(
@@ -1231,6 +1252,19 @@ export default function Ui() {
               <Icon.Search size={15} strokeWidth={2} />
             </button>
             <FilterButton />
+            {hasConnectors ? (
+              <button
+                type="button"
+                aria-label="接入"
+                title="接入外部任务"
+                onClick={function () {
+                  setConnectOpen(true);
+                }}
+                className="grid size-8 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+              >
+                <Icon.Cable size={15} strokeWidth={2} />
+              </button>
+            ) : null}
             <button
               type="button"
               aria-label="命令"
@@ -1487,11 +1521,24 @@ export default function Ui() {
         <AnimatePresence>
           {archiveOpen ? <Archive key="archive" detailSide={frameWidth >= WIDE_AT} /> : null}
         </AnimatePresence>
+        <AnimatePresence>
+          {connectOpen ? (
+            <Connect
+              key="connect"
+              onPack={function (res) {
+                if (isPack(res)) apply(res);
+              }}
+            />
+          ) : null}
+        </AnimatePresence>
       </div>
 
       <Commands
         open={paletteOpen}
         onOpenChange={setPaletteOpen}
+        onConnect={function () {
+          setConnectOpen(true);
+        }}
         onFocusAdd={function () {
           setPaletteOpen(false);
           window.requestAnimationFrame(function () {

@@ -4,6 +4,9 @@ import { collectTags, parseKeduPaste, shiftKey, todayKey } from "./shared/model"
 import type { Priority, Task, TaskPatch } from "./shared/types";
 import { clearAllTasks, clearDoneRows, countTasks, deleteTask, insertTask, loadBoards, loadTask, loadTasks, minSortOrder, nextBoardSort, persistTask, searchTaskIds } from "./api/store";
 import type { Board } from "./shared/types";
+import type { Connector, ConnectorKind, ConnectorMapping, ConnectorSource } from "./shared/connectors";
+import { TEMPLATES, connectorUid, fetchRows, loadConnector, loadConnectors, rowToConnector, tombstoneTaskLinks, upsertDrafts } from "./api/connectors";
+import { buildCatalog, detectRoots, evalMapping } from "./shared/connectors";
 
 const K_SEEDED = "seeded";
 
@@ -383,6 +386,7 @@ export default defineApp({
       const task = await loadTask(ctx.storage, id);
       if (!task) throw new Error("任务不存在");
       await ctx.storage.transaction(async function (tx) {
+        await tombstoneTaskLinks(tx, id);
         await deleteTask(tx, id);
       });
       return snapshot(ctx);
@@ -430,7 +434,10 @@ export default defineApp({
       const action = String((args && args.action) || "done");
       if (action === "remove") {
         await ctx.storage.transaction(async function (tx) {
-          for (let i = 0; i < ids.length; i++) await deleteTask(tx, ids[i]);
+          for (let i = 0; i < ids.length; i++) {
+            await tombstoneTaskLinks(tx, ids[i]);
+            await deleteTask(tx, ids[i]);
+          }
         });
       } else if (action === "schedule") {
         const patch = args && args.patch && typeof args.patch === "object" ? args.patch : {};
@@ -471,6 +478,8 @@ export default defineApp({
 
     async clearDone(ctx) {
       await ctx.storage.transaction(async function (tx) {
+        const doneIds = (await tx.query("SELECT id FROM tasks WHERE done = 1")).map(function (r) { return String(r.id); });
+        for (let i = 0; i < doneIds.length; i++) await tombstoneTaskLinks(tx, doneIds[i]);
         await clearDoneRows(tx);
       });
       return snapshot(ctx);
@@ -576,6 +585,154 @@ export default defineApp({
       }
       await ctx.storage.run("DELETE FROM boards WHERE id = ?", [id]);
       return snapshot(ctx);
+    },
+
+    /* ── 接入：外部数据源 ── */
+
+    /** Connectors + boards + templates, for the 接入 panel. */
+    async connectorsList(ctx) {
+      const connectors = await loadConnectors(ctx.storage);
+      return {
+        connectors: connectors,
+        boards: await loadBoards(ctx.storage),
+        templates: TEMPLATES,
+      };
+    },
+
+    /** Debug: the raw shape a MCP tool returns (for choosing rootPath). */
+    async connectorDebug(ctx, args) {
+      const serverId = String((args && args.serverId) || "");
+      const toolName = String((args && args.toolName) || "");
+      if (!serverId || !toolName) throw new Error("serverId 和 toolName 都要填");
+      const res = await ctx.mcp(serverId, toolName, (args && args.params) || {});
+      let text: string;
+      try {
+        text = JSON.stringify(res);
+      } catch (e) {
+        text = String(res);
+      }
+      return { raw: text.slice(0, 600) };
+    },
+
+    /**
+     * Pull up to 20 sample rows and answer everything the mapping editor needs:
+     * roots (if not yet chosen), the aggregated field catalog, and mapped drafts.
+     */
+    async connectorSample(ctx, args) {
+      const source = (args && args.source) as ConnectorSource | undefined;
+      const params = (args && args.params && typeof args.params === "object" ? args.params : {}) as Record<string, unknown>;
+      const rootPath = typeof (args && args.rootPath) === "string" ? (args as { rootPath: string }).rootPath : "";
+      const mapping = (args && args.mapping) as ConnectorMapping | undefined;
+      const rows = await fetchRows(ctx, source || { serverId: "", toolName: "" }, params, rootPath, 20);
+      const roots = detectRoots(rows);
+      const catalog = buildCatalog(rows);
+      const today = todayKey();
+      const drafts = rows.slice(0, 8).map(function (r) {
+        return evalMapping(mapping || { externalId: { const: "" }, title: { const: "" } }, r, today);
+      });
+      return {
+        count: rows.length,
+        roots: roots,
+        rootPath: rootPath || roots[0] || "",
+        catalog: catalog,
+        drafts: drafts,
+        rows: rows.slice(0, 8),
+      };
+    },
+
+    async connectorSave(ctx, args) {
+      const c = (args && args.connector) as Partial<Connector> | undefined;
+      if (!c || !c.name || !String(c.name).trim()) throw new Error("连接器还差个名字");
+      const kind: ConnectorKind = c.kind === "http" ? "http" : "mcp";
+      if (!c.source || !("serverId" in (c.source as object) || "url" in (c.source as object))) {
+        throw new Error("数据源没配完整");
+      }
+      const mapping = c.mapping || { externalId: { const: "" }, title: { const: "" } };
+      if (!mapping.externalId || !mapping.title) throw new Error("至少映射出唯一键和标题");
+      const options = Object.assign({ boardId: "default", syncDone: true }, c.options || {});
+      if (options.boardId && options.boardId !== "default") {
+        const found = await ctx.storage.query("SELECT id FROM boards WHERE id = ?", [options.boardId]);
+        if (found.length === 0) throw new Error("目标板块不存在，重新选一个");
+      }
+      const id = typeof c.id === "string" && c.id ? c.id : connectorUid();
+      const existing = await loadConnector(ctx.storage, id);
+      if (existing) {
+        await ctx.storage.run(
+          "UPDATE connectors SET name = ?, kind = ?, source = ?, params = ?, root_path = ?, mapping = ?, options = ? WHERE id = ?",
+          [
+            String(c.name).trim(),
+            kind,
+            JSON.stringify(c.source),
+            JSON.stringify(c.params || {}),
+            String(c.rootPath || ""),
+            JSON.stringify(mapping),
+            JSON.stringify(options),
+            id,
+          ]
+        );
+      } else {
+        await ctx.storage.run(
+          "INSERT INTO connectors (id, name, kind, source, params, root_path, mapping, options, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+          [
+            id,
+            String(c.name).trim(),
+            kind,
+            JSON.stringify(c.source),
+            JSON.stringify(c.params || {}),
+            String(c.rootPath || ""),
+            JSON.stringify(mapping),
+            JSON.stringify(options),
+            Date.now(),
+          ]
+        );
+      }
+      const connectors = await loadConnectors(ctx.storage);
+      return { connectors: connectors, boards: await loadBoards(ctx.storage), templates: TEMPLATES };
+    },
+
+    async connectorRemove(ctx, args) {
+      const id = String((args && args.id) || "");
+      if (!id) throw new Error("缺少连接器");
+      await ctx.storage.transaction(async function (tx) {
+        await tx.run("DELETE FROM task_links WHERE connector_id = ?", [id]);
+        await tx.run("DELETE FROM connectors WHERE id = ?", [id]);
+      });
+      const connectors = await loadConnectors(ctx.storage);
+      return { connectors: connectors, boards: await loadBoards(ctx.storage), templates: TEMPLATES };
+    },
+
+    /**
+     * Sync a connector. `limit` > 0 = 试运行 (import only the first N).
+     * Returns the pack so the store refreshes, plus a run summary.
+     */
+    async connectorRun(ctx, args) {
+      const id = String((args && args.id) || "");
+      const limit = Number(args && args.limit) || 0;
+      const connector = await loadConnector(ctx.storage, id);
+      if (!connector) throw new Error("连接器不存在");
+      const boardIds = new Set(
+        (await ctx.storage.query("SELECT id FROM boards")).map(function (r) { return String(r.id); })
+      );
+      const rows = await fetchRows(ctx, connector.source, connector.params, connector.rootPath, limit > 0 ? limit : 200);
+      const today = todayKey();
+      const drafts = rows.map(function (r) { return evalMapping(connector.mapping, r, today); });
+      const result = await ctx.storage.transaction(async function (tx) {
+        return await upsertDrafts(tx, {
+          insertTask: function (t) { return insertTask(tx, t); },
+          loadTask: function (tid) { return loadTask(tx, tid); },
+          persistTask: function (t) { return persistTask(tx, t); },
+        }, connector, drafts, function (bid) { return bid === "default" || boardIds.has(bid); });
+      });
+      const summary =
+        "新增 " + String(result.added) + " · 更新 " + String(result.updated) + " · 跳过 " + String(result.skipped) +
+        (result.errors.length ? " · " + result.errors[0] : "");
+      await ctx.storage.run("UPDATE connectors SET last_run_at = ?, last_run_result = ? WHERE id = ?", [
+        Date.now(),
+        summary,
+        id,
+      ]);
+      const pack = await snapshot(ctx);
+      return Object.assign(pack, { summary: summary, added: result.added, updated: result.updated, skipped: result.skipped });
     },
   },
 });
