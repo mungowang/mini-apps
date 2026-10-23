@@ -109,6 +109,8 @@ export type Parsed = {
   title: string;
   priority: Priority;
   tags: string[];
+  /** `$工作` in the DSL line; resolved to a board id by the api. */
+  boardName: string | null;
   starts: string | null;
   due: string | null;
   startTime: string | null;
@@ -235,6 +237,7 @@ export function parseQuickAdd(raw: string, today: string): Parsed {
   let priority: Priority = 3;
   const tags: string[] = [];
   const warnings: string[] = [];
+  let boardName: string | null = null;
   let starts: string | null = null;
   let due: string | null = null;
   let startTime: string | null = null;
@@ -247,6 +250,16 @@ export function parseQuickAdd(raw: string, today: string): Parsed {
     const pri = /^[!！]([1-4])$/.exec(token) || /^[pP]([1-4])$/.exec(token);
     if (pri) {
       priority = Number(pri[1]) as Priority;
+      continue;
+    }
+    const board = /^\$([^$\s]{1,16})$/.exec(token);
+    if (board) {
+      if (!boardName) boardName = board[1];
+      continue;
+    }
+    if (/^\$/.test(token) && token.length > 1) {
+      warnings.push(token.length > 17 ? "$ 后最多 16 个字" : token);
+      kept.push(token);
       continue;
     }
     const tag = /^#([^#\s]{1,16})$/.exec(token);
@@ -283,15 +296,16 @@ export function parseQuickAdd(raw: string, today: string): Parsed {
     }
     kept.push(token);
   }
-  return { title: kept.join(" ").trim(), priority, tags, starts, due, startTime, endTime, warnings };
+  return { title: kept.join(" ").trim(), priority, tags, boardName, starts, due, startTime, endTime, warnings };
 }
 
 /** One quick-add line per task. Round-trips through parseQuickAdd. */
-export function formatTaskLine(task: Task): string {
+export function formatTaskLine(task: Task, boardName?: string | null): string {
   const parts: string[] = [task.title];
   if (task.tags.length) {
     parts.push(task.tags.map(function (n) { return "#" + n; }).join(" "));
   }
+  if (boardName) parts.push("$" + boardName);
   if (task.priority !== 3) parts.push("!" + task.priority);
   if (task.starts && task.due && task.starts !== task.due) parts.push("@" + task.starts + "~" + task.due);
   else if (task.due) parts.push("@" + task.due);
@@ -319,8 +333,8 @@ export const COPY_FORMAT_HINT: Record<CopyFormat, string> = {
 };
 
 /** 刻度文本：first line is DSL; notes and subtasks follow as an optional block (import still eats line 1). */
-export function formatTaskKedu(task: Task): string {
-  let out = formatTaskLine(task);
+export function formatTaskKedu(task: Task, boardName?: string | null): string {
+  let out = formatTaskLine(task, boardName);
   const extras: string[] = [];
   if (task.notes && task.notes.trim()) extras.push(task.notes.trim());
   if (task.subtasks.length) {
@@ -336,7 +350,7 @@ export function formatTaskKedu(task: Task): string {
   return out;
 }
 
-export function formatTaskMarkdown(task: Task): string {
+export function formatTaskMarkdown(task: Task, boardName?: string | null): string {
   const title = task.done ? "~~" + task.title + "~~" : task.title;
   const lines: string[] = ["## " + title, ""];
   if (task.notes && task.notes.trim()) {
@@ -351,6 +365,7 @@ export function formatTaskMarkdown(task: Task): string {
     lines.push("");
   }
   const foot: string[] = [];
+  if (boardName) foot.push("$" + boardName);
   if (task.priority !== 3) foot.push("P" + String(task.priority));
   if (task.tags.length) foot.push(task.tags.map(function (n) { return "#" + n; }).join(" "));
   if (task.starts && task.due && task.starts !== task.due) foot.push(fmtShort(task.starts) + " → " + fmtShort(task.due));
@@ -360,10 +375,11 @@ export function formatTaskMarkdown(task: Task): string {
   return lines.join("\n").replace(/\n+$/, "") + "\n";
 }
 
-export function formatTaskPlain(task: Task): string {
+export function formatTaskPlain(task: Task, boardName?: string | null): string {
   const lines: string[] = [];
   lines.push(task.done ? task.title + "（已完成）" : task.title);
   const meta: string[] = [];
+  if (boardName) meta.push("$" + boardName);
   if (task.priority !== 3) meta.push("P" + String(task.priority));
   if (task.tags.length) meta.push(task.tags.map(function (n) { return "#" + n; }).join(" "));
   if (task.starts && task.due && task.starts !== task.due) meta.push(fmtShort(task.starts) + " → " + fmtShort(task.due));
@@ -385,10 +401,10 @@ export function formatTaskPlain(task: Task): string {
   return lines.join("\n");
 }
 
-export function formatTaskExport(task: Task, format: CopyFormat): string {
-  if (format === "markdown") return formatTaskMarkdown(task);
-  if (format === "plain") return formatTaskPlain(task);
-  return formatTaskKedu(task);
+export function formatTaskExport(task: Task, format: CopyFormat, boardName?: string | null): string {
+  if (format === "markdown") return formatTaskMarkdown(task, boardName);
+  if (format === "plain") return formatTaskPlain(task, boardName);
+  return formatTaskKedu(task, boardName);
 }
 
 export type KeduSubPaste = { title: string; done: boolean };
@@ -452,6 +468,7 @@ export function parseKeduPaste(raw: string, today: string): KeduPaste {
     title: parsed.title,
     priority: parsed.priority,
     tags: parsed.tags,
+    boardName: parsed.boardName,
     starts: parsed.starts,
     due: parsed.due,
     startTime: parsed.startTime,

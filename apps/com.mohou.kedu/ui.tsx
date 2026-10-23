@@ -15,8 +15,9 @@ import {
 } from "@mohou/ui";
 
 import { computeStats, dayHeading, homeView, inOnceRange, inView, onToday, shiftKey, todayKey } from "./shared/model";
-import type { OnceRange, Pack, Priority, SortId, Task, ViewId } from "./shared/types";
+import type { OnceRange, Pack, Priority, SortId, Task, ViewId, Board } from "./shared/types";
 import { Mono, TickBar } from "./ui/atoms";
+import { BoardsCenter, BOARDS_COMPACT_AT } from "./ui/boards";
 import { Capture } from "./ui/capture";
 import { Commands } from "./ui/commands";
 import { FilterButton } from "./ui/filter";
@@ -162,6 +163,17 @@ function StageShell(props: {
 /** 1 = jump to 收集 + open detail after adding an unscheduled task. Default on. */
 const FOLLOW_INBOX_KEY = "kedu-follow-inbox";
 const ONCE_RANGE_KEY = "kedu-once-range";
+const BOARD_KEY = "kedu-board";
+
+function readBoard(): string {
+  try {
+    const value = window.localStorage.getItem(BOARD_KEY);
+    if (value) return value;
+  } catch (e) {
+    /* the choice still applies for this visit */
+  }
+  return "default";
+}
 
 type LayoutMode = "narrow" | "wide" | "desk";
 
@@ -266,8 +278,12 @@ export default function Ui() {
   const callRef = React.useRef(call);
   callRef.current = call;
 
-  const [tasks, setTasks] = React.useState<Task[]>([]);
+  const [allTasks, setAllTasks] = React.useState<Task[]>([]);
   const [tags, setTags] = React.useState<string[]>([]);
+  const [boards, setBoards] = React.useState<Board[]>([{ id: "default", name: "默认", fixed: true }]);
+  const [boardId, setBoardState] = React.useState<string>(readBoard);
+  const boardIdRef = React.useRef(boardId);
+  boardIdRef.current = boardId;
   const [loading, setLoading] = React.useState(true);
   const [loadError, setLoadError] = React.useState<string | null>(null);
   const [lens, setLens] = React.useState<ViewId>("today");
@@ -407,8 +423,41 @@ export default function Ui() {
   }, []);
 
   const apply = React.useCallback(function (pack: Pack) {
-    setTasks(pack.tasks);
+    setAllTasks(pack.tasks);
     setTags(pack.tags);
+    setBoards(pack.boards);
+    // A remembered board may be gone (another device removed it): fall back to 默认.
+    if (!pack.boards.some(function (b) { return b.id === boardIdRef.current; })) {
+      setBoardState("default");
+      boardIdRef.current = "default";
+      try {
+        window.localStorage.setItem(BOARD_KEY, "default");
+      } catch (e) {
+        /* the choice still applies for this visit */
+      }
+    }
+  }, []);
+
+  /** tasks scoped to the current board: everything downstream reads this. */
+  const tasks = React.useMemo(
+    function () {
+      if (boardId === "default") {
+        return allTasks.filter(function (t) { return !t.boardId; });
+      }
+      return allTasks.filter(function (t) { return t.boardId === boardId; });
+    },
+    [allTasks, boardId]
+  );
+
+  const setBoard = React.useCallback(function (id: string) {
+    setBoardState(id);
+    boardIdRef.current = id;
+    setSelectedId(null);
+    try {
+      window.localStorage.setItem(BOARD_KEY, id);
+    } catch (e) {
+      /* the choice still applies for this visit */
+    }
   }, []);
 
   const run = React.useCallback(
@@ -687,6 +736,22 @@ export default function Ui() {
           setChosen([]);
           setLens("today");
         },
+        addBoard: async function (name: string) {
+          const res = await run("boardsAdd", { name });
+          if (!isPack(res)) return null;
+          const hit = res.boards.find(function (b) {
+            return !b.fixed && b.name === name;
+          });
+          return hit ? hit.id : null;
+        },
+        renameBoard: async function (id: string, name: string) {
+          const res = await run("boardsRename", { id, name });
+          return isPack(res);
+        },
+        removeBoard: async function (id: string) {
+          const res = await run("boardsRemove", { id });
+          return isPack(res);
+        },
       };
     },
     [run, tasks, undo, revealLeftInbox]
@@ -724,6 +789,16 @@ export default function Ui() {
           setPaletteOpen(function (v) {
             return !v;
           });
+          return;
+        }
+        if (e.altKey && /^Digit[0-9]$/.test(e.code)) {
+          // ⌥1..⌥9 = 第 n 个板块，⌥0 = 默认。
+          const n = Number(e.code.slice(5));
+          const b = boards[n === 0 ? 0 : n - 1];
+          if (b) {
+            e.preventDefault();
+            setBoard(b.id);
+          }
           return;
         }
         if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
@@ -782,14 +857,18 @@ export default function Ui() {
         window.removeEventListener("keydown", onKey);
       };
     },
-    [searchOpen, query, rhythmOpen, selectedId, selectMode, setSelectMode, layout, archiveOpen, tasks, actions]
+    [searchOpen, query, rhythmOpen, selectedId, selectMode, setSelectMode, layout, archiveOpen, tasks, actions, boards, setBoard]
   );
 
   const store: Store = React.useMemo(
     function () {
       return {
         tasks,
+        allTasks,
         tags,
+        boards,
+        boardId,
+        setBoard,
         stats,
         today,
         lens,
@@ -867,6 +946,10 @@ export default function Ui() {
       graceIds,
       rhythmOpen,
       archiveOpen,
+      allTasks,
+      boards,
+      boardId,
+      setBoard,
       actions,
     ]
   );
@@ -1009,7 +1092,8 @@ export default function Ui() {
         >
         <div className="kedu-main relative flex h-full min-h-0 min-w-0 flex-col">
         <header className="shrink-0">
-          <div className="flex items-center gap-3 px-4 pt-4">
+            <div className="relative flex items-center gap-3 px-4 pt-4">
+            <BoardsCenter narrow={frameWidth < BOARDS_COMPACT_AT} />
             <h1 className="min-w-0 truncate text-base font-medium">{dayHeading(today)}</h1>
             <div role="group" aria-label="布局" data-kedu="layout" className="flex shrink-0 items-center">
               {([

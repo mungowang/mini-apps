@@ -1,4 +1,5 @@
 import type { Priority, Subtask, Task, TaskImage } from "../shared/types"
+import type { Board } from "../shared/types"
 
 /** What ctx.storage and the tx inside transaction() both offer. */
 export type Storage = {
@@ -8,7 +9,7 @@ export type Storage = {
 }
 
 const TASK_COLS =
-  "id, title, notes, done, priority, starts, due, start_time, end_time, sort_order, created_at, completed_at, doing, doing_at"
+  "id, title, notes, done, priority, starts, due, start_time, end_time, sort_order, created_at, completed_at, doing, doing_at, board_id"
 
 function bool(v: unknown): boolean {
   return v === 1 || v === true
@@ -66,6 +67,7 @@ function assemble(rows: Row[], tags: Row[], subs: Row[], imgs: Row[]): Task[] {
       completedAt: int(r.completed_at),
       doing: doing,
       doingAt: doing ? int(r.doing_at) : null,
+      boardId: text(r.board_id),
     }
   })
 }
@@ -94,6 +96,24 @@ export async function countTasks(store: Storage): Promise<number> {
   return Number(first && first.n !== undefined ? first.n : 0)
 }
 
+/** The fixed 默认 pseudo-board first, then user boards in sort order. */
+export async function loadBoards(store: Storage): Promise<Board[]> {
+  const rows = await store.query("SELECT id, name FROM boards ORDER BY sort_order, created_at")
+  const boards: Board[] = [{ id: "default", name: "默认", fixed: true }]
+  for (let i = 0; i < rows.length; i++) {
+    boards.push({ id: String(rows[i].id), name: String(rows[i].name), fixed: false })
+  }
+  return boards
+}
+
+/** Next sort slot for a new board. */
+export async function nextBoardSort(store: Storage): Promise<number> {
+  const rows = await store.query("SELECT MAX(sort_order) AS m FROM boards")
+  const first = rows[0] as { m?: unknown } | undefined
+  const m = first ? first.m : null
+  return (typeof m === "number" ? m : 0) + 1
+}
+
 export async function minSortOrder(store: Storage): Promise<number> {
   const rows = await store.query("SELECT MIN(sort_order) AS m FROM tasks")
   const first = rows[0] as { m?: unknown } | undefined
@@ -120,7 +140,7 @@ async function writeChildren(store: Storage, task: Task): Promise<void> {
 
 export async function insertTask(store: Storage, task: Task): Promise<void> {
   await store.run(
-    `INSERT INTO tasks (${TASK_COLS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO tasks (${TASK_COLS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       task.id,
       task.title,
@@ -136,6 +156,7 @@ export async function insertTask(store: Storage, task: Task): Promise<void> {
       task.completedAt,
       task.doing && !task.done ? 1 : 0,
       task.doing && !task.done ? task.doingAt : null,
+      task.boardId || null,
     ]
   )
   await writeChildren(store, task)
@@ -143,7 +164,7 @@ export async function insertTask(store: Storage, task: Task): Promise<void> {
 
 export async function persistTask(store: Storage, task: Task): Promise<void> {
   await store.run(
-    "UPDATE tasks SET title = ?, notes = ?, done = ?, priority = ?, starts = ?, due = ?, start_time = ?, end_time = ?, sort_order = ?, completed_at = ?, doing = ?, doing_at = ? WHERE id = ?",
+    "UPDATE tasks SET title = ?, notes = ?, done = ?, priority = ?, starts = ?, due = ?, start_time = ?, end_time = ?, sort_order = ?, completed_at = ?, doing = ?, doing_at = ?, board_id = ? WHERE id = ?",
     [
       task.title,
       task.notes,
@@ -157,6 +178,7 @@ export async function persistTask(store: Storage, task: Task): Promise<void> {
       task.completedAt,
       task.doing && !task.done ? 1 : 0,
       task.doing && !task.done ? task.doingAt : null,
+      task.boardId || null,
       task.id,
     ]
   )

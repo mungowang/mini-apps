@@ -3,6 +3,7 @@ import { motion } from "motion/react";
 import { Kbd, KbdGroup, toast } from "@mohou/ui";
 
 import { onToday, parseKeduPaste, scheduleOf } from "../shared/model";
+import type { Board } from "../shared/types";
 import { useStore } from "./store";
 
 /** Shortcut strip for capture — Kbd keys + short labels. */
@@ -36,14 +37,14 @@ function CaptureHint(props: { compact?: boolean; className?: string }) {
           <span className="opacity-35" aria-hidden>
             ·
           </span>
-          <span className="text-muted-foreground/80">例如 整理纪要 @周五 !2 #工作</span>
+          <span className="text-muted-foreground/80">例如 整理纪要 @周五 !2 #工作 $Jira</span>
         </>
       ) : null}
     </div>
   );
 }
 
-type Kind = "due" | "tag" | "prio";
+type Kind = "due" | "tag" | "prio" | "board";
 type Assist = { kind: Kind; start: number; end: number; query: string };
 
 const DUE_PRESETS: { label: string; token: string }[] = [
@@ -81,13 +82,24 @@ function assistAt(raw: string, caret: number, suppressed: string | null): Assist
   if (head === "@") kind = "due";
   else if (head === "#") kind = "tag";
   else if (head === "!" || head === "！") kind = "prio";
+  else if (head === "$") kind = "board";
   if (!kind) return null;
   if (suppressed === text) return null;
   return { kind, start, end, query: text.slice(1) };
 }
 
-function optionsFor(assist: Assist, tags: string[]): { label: string; token: string }[] {
+function optionsFor(assist: Assist, tags: string[], boards: Board[]): { label: string; token: string }[] {
   const q = assist.query.toLowerCase();
+  if (assist.kind === "board") {
+    const out: { label: string; token: string }[] = [];
+    for (let i = 0; i < boards.length; i++) {
+      const b = boards[i];
+      if (b.fixed) continue;
+      if (!q || b.name.toLowerCase().indexOf(q) >= 0) out.push({ label: "$" + b.name, token: "$" + b.name });
+      if (out.length >= 8) break;
+    }
+    return out;
+  }
   if (assist.kind === "prio") {
     return PRIO_PRESETS.filter(function (o) {
       return !q || o.label.toLowerCase().indexOf(q) >= 0 || o.token.slice(1).indexOf(q) >= 0;
@@ -112,7 +124,7 @@ function optionsFor(assist: Assist, tags: string[]): { label: string; token: str
 }
 
 export function Capture(props: { inputRef: React.RefObject<HTMLTextAreaElement | null>; dock?: boolean }) {
-  const { actions, tags, today, lens, followInbox, setLens, openTask, setSelectMode } = useStore();
+  const { actions, tags, boards, today, lens, followInbox, setLens, openTask, setSelectMode } = useStore();
   const [raw, setRaw] = React.useState("");
   const [caret, setCaret] = React.useState(0);
   const [focused, setFocused] = React.useState(false);
@@ -134,7 +146,7 @@ export function Capture(props: { inputRef: React.RefObject<HTMLTextAreaElement |
   }, []);
 
   const assist = assistAt(raw, caret, suppress);
-  const options = assist ? optionsFor(assist, tags) : [];
+  const options = assist ? optionsFor(assist, tags, boards) : [];
   // Multi-line 刻度文本: line 1 is DSL; rest is notes / subtasks.
   const paste = raw.trim() ? parseKeduPaste(raw, today) : null;
   const parsed = paste;

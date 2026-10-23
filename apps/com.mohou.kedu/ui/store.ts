@@ -1,7 +1,7 @@
 import { createContext, useContext } from "react";
 
 import type { Stats } from "../shared/model";
-import type { OnceRange, Priority, SortId, Task, ViewId } from "../shared/types";
+import type { Board, OnceRange, Priority, SortId, Task, ViewId } from "../shared/types";
 
 export type AddExtra = {
   notes?: string;
@@ -21,11 +21,20 @@ export type Actions = {
   addImage: (taskId: string, data: string, w: number, h: number) => Promise<void>;
   removeImage: (taskId: string, id: string) => Promise<void>;
   reset: () => Promise<void>;
+  addBoard: (name: string) => Promise<string | null>;
+  renameBoard: (id: string, name: string) => Promise<boolean>;
+  removeBoard: (id: string) => Promise<boolean>;
 };
 
 export type Store = {
   tasks: Task[];
+  /** Every task, ignoring the board filter — pill 计数 and capture assist read this. */
+  allTasks: Task[];
   tags: string[];
+  boards: Board[];
+  /** Current board: "default" or a board id. Scopes tasks / stats / rhythm. */
+  boardId: string;
+  setBoard: (id: string) => void;
   stats: Stats;
   today: string;
   lens: ViewId;

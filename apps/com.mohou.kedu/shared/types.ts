@@ -14,6 +14,9 @@ export type TaskImage = {
   h: number;
 };
 
+/** Pseudo-board id for tasks with no board: the built-in 默认 board. */
+export const DEFAULT_BOARD_ID = "default";
+
 export type Task = {
   id: string;
   title: string;
@@ -21,6 +24,8 @@ export type Task = {
   done: boolean;
   priority: Priority;
   tags: string[];
+  /** Owning board id, or null = 默认 board. */
+  boardId: string | null;
   starts: string | null; // range start (YYYY-MM-DD); equals due for a single day
   due: string | null; // due date, or the END of a range
   startTime: string | null; // "HH:MM"
@@ -46,7 +51,15 @@ export type SortId = "manual" | "due" | "priority" | "created";
 
 export type TaskPatch = Partial<Omit<Task, "id" | "createdAt" | "order">>;
 
-export type Pack = { tasks: Task[]; tags: string[] };
+/** A board row in the pack. `default` (null board_id) is the fixed first entry. */
+export type Board = {
+  id: string;
+  name: string;
+  /** The 默认 pseudo-board cannot be renamed or deleted. */
+  fixed: boolean;
+};
+
+export type Pack = { tasks: Task[]; tags: string[]; boards: Board[] };
 
 export const PRIORITY_ORDER: Priority[] = [1, 2, 3, 4];
 export const PRIORITY_LABEL: Record<Priority, string> = { 1: "P1", 2: "P2", 3: "P3", 4: "P4" };

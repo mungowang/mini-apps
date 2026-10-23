@@ -163,7 +163,7 @@ export function Commands(props: {
   onClearDone: () => void;
   onReset: () => void;
 }) {
-  const { setLens, setSelectMode, setRhythmOpen, openTask, tasks, followInbox, setFollowInbox } = useStore();
+  const { setLens, setSelectMode, setRhythmOpen, openTask, tasks, boards, followInbox, setFollowInbox } = useStore();
   const [query, setQuery] = React.useState("");
   const [index, setIndex] = React.useState(0);
   const [importOpen, setImportOpen] = React.useState(false);
@@ -194,7 +194,10 @@ export function Commands(props: {
     }
     const text = undone
       .map(function (t) {
-        return formatTaskLine(t);
+        const b = boards.find(function (x) {
+          return x.id === (t.boardId || "default");
+        });
+        return formatTaskLine(t, b && !b.fixed ? b.name : null);
       })
       .join("\n");
     void copyText(text).then(function (ok) {

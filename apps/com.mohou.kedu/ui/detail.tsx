@@ -68,21 +68,23 @@ function firstLine(text: string): string {
 }
 
 /** Bottom-bar copy: one click uses the last format; ▾ switches format (and copies). Preview is opt-in. */
-function CopyTaskButton(props: { task: Task }) {
+function CopyTaskButton(props: { task: Task; boardName: string | null }) {
   const [format, setFormat] = React.useState<CopyFormat>(readCopyFormat);
   const [menuOpen, setMenuOpen] = React.useState(false);
   const [previewOpen, setPreviewOpen] = React.useState(false);
 
   const taskRef = React.useRef(props.task);
   const formatRef = React.useRef(format);
+  const boardRef = React.useRef(props.boardName);
   taskRef.current = props.task;
   formatRef.current = format;
+  boardRef.current = props.boardName;
 
   const copyWith = React.useCallback(async function (next: CopyFormat) {
     setFormat(next);
     writeCopyFormat(next);
     formatRef.current = next;
-    const text = formatTaskExport(taskRef.current, next);
+    const text = formatTaskExport(taskRef.current, next, boardRef.current);
     const ok = await copyText(text);
     if (ok) toast.add({ title: "已复制 · " + COPY_FORMAT_LABEL[next] });
     else toast.add({ title: "没有复制成功", description: "浏览器挡住了剪贴板" });
@@ -109,7 +111,7 @@ function CopyTaskButton(props: { task: Task }) {
     [copyWith]
   );
 
-  const previewText = formatTaskExport(props.task, format);
+  const previewText = formatTaskExport(props.task, format, props.boardName);
 
   return (
     <>
@@ -140,7 +142,7 @@ function CopyTaskButton(props: { task: Task }) {
             <div role="menu" aria-label="复制格式">
               {COPY_FORMATS.map(function (id) {
                 const on = format === id;
-                const peek = firstLine(formatTaskExport(props.task, id));
+                const peek = firstLine(formatTaskExport(props.task, id, props.boardName));
                 return (
                   <button
                     key={id}
@@ -570,7 +572,7 @@ function TagField(props: {
 
 export function TaskDetail() {
   const { call } = useApp();
-  const { tasks, tags, stats, selectedId, openTask, actions, today } = useStore();
+  const { tasks, tags, boards, stats, selectedId, openTask, actions, today } = useStore();
   const task = tasks.find(function (t) {
     return t.id === selectedId;
   });
@@ -665,6 +667,15 @@ export function TaskDetail() {
 
   function patch(p: Record<string, unknown>) {
     void actions.patch(current.id, p);
+  }
+
+  /** $板名 in the DSL；默认板块不带名字。 */
+  function boardNameOf(t: Task): string | null {
+    const id = t.boardId || "default";
+    for (let i = 0; i < boards.length; i++) {
+      if (boards[i].id === id) return boards[i].fixed ? null : boards[i].name;
+    }
+    return null;
   }
 
   function commitTitle() {
@@ -1001,6 +1012,27 @@ export function TaskDetail() {
           </section>
 
           <section className="mt-5 border-t border-border pt-3">
+            <p className="text-[11px] tracking-wide text-muted-foreground">板块</p>
+            <div className="mt-2 flex flex-wrap gap-1.5" role="group" aria-label="板块">
+              {boards.map(function (b) {
+                const on = (current.boardId || "default") === b.id;
+                return (
+                  <Chip
+                    key={b.id}
+                    on={on}
+                    part="board"
+                    onClick={function () {
+                      patch({ boardId: b.fixed ? null : b.id });
+                    }}
+                  >
+                    {b.name}
+                  </Chip>
+                );
+              })}
+            </div>
+          </section>
+
+          <section className="mt-5 border-t border-border pt-3">
             <p className="mb-2 text-[11px] tracking-wide text-muted-foreground">标签</p>
             <TagField
               value={current.tags}
@@ -1172,7 +1204,7 @@ export function TaskDetail() {
               删除这件事
             </Button>
             <span className="flex-1" />
-            <CopyTaskButton task={current} />
+            <CopyTaskButton task={current} boardName={boardNameOf(current)} />
           </div>
       </div>
       <ConfirmDialog

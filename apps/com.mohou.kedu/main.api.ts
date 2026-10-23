@@ -2,7 +2,8 @@ import { defineApp } from "@mohou/contract";
 
 import { collectTags, parseKeduPaste, shiftKey, todayKey } from "./shared/model";
 import type { Priority, Task, TaskPatch } from "./shared/types";
-import { clearAllTasks, clearDoneRows, countTasks, deleteTask, insertTask, loadTask, loadTasks, minSortOrder, persistTask, searchTaskIds } from "./api/store";
+import { clearAllTasks, clearDoneRows, countTasks, deleteTask, insertTask, loadBoards, loadTask, loadTasks, minSortOrder, nextBoardSort, persistTask, searchTaskIds } from "./api/store";
+import type { Board } from "./shared/types";
 
 const K_SEEDED = "seeded";
 
@@ -93,6 +94,7 @@ function normalize(raw: any): Task {
     done: Boolean(raw.done),
     priority: raw.priority === 1 || raw.priority === 2 || raw.priority === 3 || raw.priority === 4 ? raw.priority : 3,
     tags: Array.isArray(raw.tags) ? raw.tags.map(String) : [],
+    boardId: typeof raw.boardId === "string" && raw.boardId !== "default" ? raw.boardId : null,
     starts: typeof raw.starts === "string" ? raw.starts : null,
     due: typeof raw.due === "string" ? raw.due : null,
     startTime: typeof raw.startTime === "string" ? raw.startTime : null,
@@ -135,11 +137,26 @@ async function ensureSeeded(ctx): Promise<void> {
   await kv.set(K_SEEDED, true);
 }
 
-function pack(tasks: Task[]) {
+function pack(tasks: Task[], boards: Board[]) {
   const sorted = tasks.slice().sort(function (a, b) {
     return a.order - b.order;
   });
-  return { tasks: sorted, tags: collectTags(sorted) };
+  return { tasks: sorted, tags: collectTags(sorted), boards: boards };
+}
+
+/** The shape every api method returns: tasks + tags + boards. */
+async function snapshot(ctx): Promise<ReturnType<typeof pack>> {
+  return pack(await loadTasks(ctx.storage), await loadBoards(ctx.storage));
+}
+
+/** Board names live inside the `$` DSL token, so no whitespace; "默认" is reserved. */
+function validBoardName(raw: any): string {
+  const name = String(raw === undefined || raw === null ? "" : raw).trim();
+  if (!name) throw new Error("板块名不能为空");
+  if (name.length > 16) throw new Error("板块名最多 16 个字");
+  if (/\s/.test(name)) throw new Error("板块名不能带空格，快记里 $板名 要能当一个词写");
+  if (name === "默认" || name === "default") throw new Error("和内置的「默认」重名了");
+  return name;
 }
 
 function applyPatch(task: Task, patch: TaskPatch | undefined): Task {
@@ -150,6 +167,7 @@ function applyPatch(task: Task, patch: TaskPatch | undefined): Task {
     done: task.done,
     priority: task.priority,
     tags: task.tags.slice(),
+    boardId: task.boardId,
     starts: task.starts,
     due: task.due,
     startTime: task.startTime,
@@ -198,6 +216,8 @@ function applyPatch(task: Task, patch: TaskPatch | undefined): Task {
     next.priority = patch.priority;
   }
   if (Array.isArray(patch.tags)) next.tags = patch.tags.map(String).slice(0, 8);
+  if (patch.boardId === null) next.boardId = null;
+  if (typeof patch.boardId === "string") next.boardId = patch.boardId;
   if (patch.due === null) next.due = null;
   if (typeof patch.due === "string") next.due = patch.due;
   if (patch.starts === null) next.starts = null;
@@ -247,7 +267,7 @@ export default defineApp({
   api: {
     async list(ctx) {
       await ensureSeeded(ctx);
-      return pack(await loadTasks(ctx.storage));
+      return snapshot(ctx);
     },
 
     async add(ctx, args) {
@@ -258,6 +278,13 @@ export default defineApp({
       const parsed = parseKeduPaste(raw, today);
       const title = parsed.title.trim();
       if (!title) throw new Error("除了日期和标签，还要写上要做什么");
+      // $板名 → board id；没有 $ 标记就进「默认」板块。不认识的板名直接拦下。
+      let boardId: string | null = null;
+      if (parsed.boardName) {
+        const boardRows = await ctx.storage.query("SELECT id FROM boards WHERE name = ?", [parsed.boardName]);
+        if (boardRows.length === 0) throw new Error("没有这个板块：$" + parsed.boardName);
+        boardId = String(boardRows[0].id);
+      }
       const minOrder = await minSortOrder(ctx.storage);
       const hasDue = args && Object.prototype.hasOwnProperty.call(args, "due");
       // Prefer explicit args; fall back to body parsed from multi-line paste.
@@ -309,22 +336,30 @@ export default defineApp({
         completedAt: null,
         doing: false,
         doingAt: null,
+        boardId: boardId,
       };
       await ctx.storage.transaction(async function (tx) {
         await insertTask(tx, created);
       });
-      return pack(await loadTasks(ctx.storage));
+      return snapshot(ctx);
     },
 
     async update(ctx, args) {
       const id = String((args && args.id) || "");
       const task = await loadTask(ctx.storage, id);
       if (!task) throw new Error("任务不存在");
+      if (args && args.patch && Object.prototype.hasOwnProperty.call(args.patch, "boardId")) {
+        const v = (args.patch as Record<string, unknown>).boardId;
+        if (typeof v === "string") {
+          const boardRows = await ctx.storage.query("SELECT id FROM boards WHERE id = ?", [v]);
+          if (boardRows.length === 0) throw new Error("板块不存在");
+        }
+      }
       const next = applyPatch(task, args && args.patch);
       await ctx.storage.transaction(async function (tx) {
         await persistTask(tx, next);
       });
-      return pack(await loadTasks(ctx.storage));
+      return snapshot(ctx);
     },
 
     async toggle(ctx, args) {
@@ -340,7 +375,7 @@ export default defineApp({
           " WHERE id = ?",
         [flag, done ? Date.now() : null, flag, flag, id]
       );
-      return pack(await loadTasks(ctx.storage));
+      return snapshot(ctx);
     },
 
     async remove(ctx, args) {
@@ -350,20 +385,20 @@ export default defineApp({
       await ctx.storage.transaction(async function (tx) {
         await deleteTask(tx, id);
       });
-      return pack(await loadTasks(ctx.storage));
+      return snapshot(ctx);
     },
 
     async restore(ctx, args) {
       const task = args && args.task;
       if (!task || !task.id) throw new Error("缺少任务");
       const existing = await loadTask(ctx.storage, String(task.id));
-      if (existing) return pack(await loadTasks(ctx.storage));
+      if (existing) return snapshot(ctx);
       const minOrder = await minSortOrder(ctx.storage);
       const next = Object.assign({}, normalize(task), { order: minOrder - 1 });
       await ctx.storage.transaction(async function (tx) {
         await insertTask(tx, next);
       });
-      return pack(await loadTasks(ctx.storage));
+      return snapshot(ctx);
     },
 
     async reorder(ctx, args) {
@@ -387,7 +422,7 @@ export default defineApp({
           await tx.run("UPDATE tasks SET sort_order = ? WHERE id = ?", [i, out[i]]);
         }
       });
-      return pack(await loadTasks(ctx.storage));
+      return snapshot(ctx);
     },
 
     async bulk(ctx, args) {
@@ -431,14 +466,14 @@ export default defineApp({
           }
         });
       }
-      return pack(await loadTasks(ctx.storage));
+      return snapshot(ctx);
     },
 
     async clearDone(ctx) {
       await ctx.storage.transaction(async function (tx) {
         await clearDoneRows(tx);
       });
-      return pack(await loadTasks(ctx.storage));
+      return snapshot(ctx);
     },
 
     /** SQL-side search over title / notes / tags / subtask titles. */
@@ -458,7 +493,7 @@ export default defineApp({
       const tasks = await loadTasks(ctx.storage);
       const id = uid("i");
       const data = String((args && args.data) || "");
-      if (!data) return pack(tasks);
+      if (!data) return snapshot(ctx);
       const taskId = String(args && args.taskId);
       const w = Number(args && args.w) || 0;
       const h = Number(args && args.h) || 0;
@@ -470,14 +505,14 @@ export default defineApp({
           [id, taskId, taskId, w, h, data]
         );
       }
-      return pack(await loadTasks(ctx.storage));
+      return snapshot(ctx);
     },
 
     async imageRemove(ctx, args) {
       const tasks = await loadTasks(ctx.storage);
       const id = String((args && args.id) || "");
       if (id) await ctx.storage.run("DELETE FROM task_images WHERE id = ?", [id]);
-      return pack(await loadTasks(ctx.storage));
+      return snapshot(ctx);
     },
 
     async imagesGet(ctx, args) {
@@ -503,7 +538,44 @@ export default defineApp({
         for (let i = 0; i < fresh.length; i++) await insertTask(tx, fresh[i]);
       });
       await ctx.storage.kv().set(K_SEEDED, true);
-      return pack(fresh);
+      return snapshot(ctx);
+    },
+
+    async boardsAdd(ctx, args) {
+      const name = validBoardName(args && args.name);
+      const dup = await ctx.storage.query("SELECT id FROM boards WHERE name = ?", [name]);
+      if (dup.length > 0) throw new Error("已有这个板块：" + name);
+      const id = uid("b");
+      const order = await nextBoardSort(ctx.storage);
+      await ctx.storage.run(
+        "INSERT INTO boards (id, name, sort_order, created_at) VALUES (?, ?, ?, ?)",
+        [id, name, order, Date.now()]
+      );
+      return snapshot(ctx);
+    },
+
+    async boardsRename(ctx, args) {
+      const id = String((args && args.id) || "");
+      const name = validBoardName(args && args.name);
+      const row = await ctx.storage.query("SELECT id FROM boards WHERE id = ?", [id]);
+      if (row.length === 0) throw new Error("板块不存在");
+      const dup = await ctx.storage.query("SELECT id FROM boards WHERE name = ? AND id != ?", [name, id]);
+      if (dup.length > 0) throw new Error("已有这个板块：" + name);
+      await ctx.storage.run("UPDATE boards SET name = ? WHERE id = ?", [name, id]);
+      return snapshot(ctx);
+    },
+
+    async boardsRemove(ctx, args) {
+      const id = String((args && args.id) || "");
+      const row = await ctx.storage.query("SELECT id FROM boards WHERE id = ?", [id]);
+      if (row.length === 0) throw new Error("板块不存在");
+      const used = await ctx.storage.query("SELECT COUNT(*) AS n FROM tasks WHERE board_id = ?", [id]);
+      const first = used[0] as { n?: unknown } | undefined;
+      if (Number(first && first.n !== undefined ? first.n : 0) > 0) {
+        throw new Error("板块里还有任务，先移走再删");
+      }
+      await ctx.storage.run("DELETE FROM boards WHERE id = ?", [id]);
+      return snapshot(ctx);
     },
   },
 });
