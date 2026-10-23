@@ -210,16 +210,14 @@ export async function upsertDrafts(
       );
       if (linkRows.length) {
         const link = linkRows[0] as { task_id: unknown; raw_hash: unknown; deleted_at: unknown };
-        if (link.deleted_at != null && connector.options.keepDeleted !== false) {
-          out.skipped += 1;
-          continue; // user deleted it locally; do not resurrect
-        }
         if (link.deleted_at != null) {
-          // keepDeleted off: forget the tombstone and re-import as new.
+          if (connector.options.keepDeleted !== false) {
+            out.skipped += 1;
+            continue; // keepDeleted on: do not resurrect
+          }
+          // keepDeleted off: drop the tombstone and fall through to create-as-new below.
           await store.run("DELETE FROM task_links WHERE connector_id = ? AND external_id = ?", [connector.id, d.externalId]);
-          out.skipped += 1;
-          continue;
-        }
+        } else {
         const taskId = String(link.task_id);
         const task = await deps.loadTask(taskId);
         if (!task) {
@@ -260,7 +258,10 @@ export async function upsertDrafts(
           await store.run("UPDATE tasks SET done = 1, completed_at = ?, doing = 0, doing_at = NULL WHERE id = ?", [now, taskId]);
         }
         out.updated += 1;
-      } else {
+        continue;
+        }
+      }
+      {
         const taskId = "t_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
         const created: Task = {
           id: taskId,
@@ -329,7 +330,7 @@ export const TEMPLATES: ConnectorTemplate[] = [
       },
       rootPath: "jira_issues[]",
       mapping: {
-        externalId: { field: "key" },
+        externalId: { template: [{ field: "key" }] },
         title: { template: [{ field: "key" }, { lit: " " }, { field: "fields.summary" }] },
         priority: {
           field: "fields.priority.name",
@@ -362,7 +363,7 @@ export const TEMPLATES: ConnectorTemplate[] = [
       params: { filter: "assigned", state: "open", per_page: "50" },
       rootPath: "$",
       mapping: {
-        externalId: { field: "id" },
+        externalId: { template: [{ field: "id" }] },
         title: { template: [{ field: "title" }] },
         notes: { field: "body" },
         tags: [{ lit: "github" }],

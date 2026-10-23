@@ -12,7 +12,6 @@ import {
   EmptyMedia,
   EmptyTitle,
   IlluEmpty,
-  JsonViewer,
   Kbd,
   ScrollArea,
   toast,
@@ -52,6 +51,23 @@ type Draft = {
   keepDeleted: boolean;
 };
 
+/** title/externalId UI 只认 template|const；把遗留 field 形态归一成单 token 模板。 */
+function normalizeMapping(m: ConnectorMapping): ConnectorMapping {
+  const next: ConnectorMapping = JSON.parse(JSON.stringify(m));
+  function toTpl(spec: ValueSpec | undefined): ValueSpec {
+    if (!spec) return { template: [] };
+    if ("const" in spec) return spec;
+    if ("template" in spec && Array.isArray(spec.template)) return spec;
+    if ("field" in spec && typeof spec.field === "string" && spec.field) {
+      return { template: [{ field: spec.field }] };
+    }
+    return { template: [] };
+  }
+  next.externalId = toTpl(next.externalId) as ConnectorMapping["externalId"];
+  next.title = toTpl(next.title) as ConnectorMapping["title"];
+  return next;
+}
+
 function draftFromTemplate(t: ConnectorTemplate): Draft {
   const c = t.connector;
   const src = c.source;
@@ -65,7 +81,7 @@ function draftFromTemplate(t: ConnectorTemplate): Draft {
     method: "url" in src && src.method ? src.method : "GET",
     params: Object.assign({}, c.params),
     rootPath: c.rootPath,
-    mapping: JSON.parse(JSON.stringify(c.mapping)),
+    mapping: normalizeMapping(c.mapping),
     boardId: c.options.boardId,
     syncDone: c.options.syncDone,
     keepDeleted: c.options.keepDeleted !== false,
@@ -84,7 +100,7 @@ function draftFromConnector(c: Connector): Draft {
     method: "url" in src && src.method ? src.method : "GET",
     params: Object.assign({}, c.params),
     rootPath: c.rootPath,
-    mapping: JSON.parse(JSON.stringify(c.mapping)),
+    mapping: normalizeMapping(c.mapping),
     boardId: c.options.boardId,
     syncDone: c.options.syncDone,
     keepDeleted: c.options.keepDeleted !== false,
@@ -223,20 +239,138 @@ function fieldsFromSample(rows: unknown[]): string[] {
 }
 
 /**
+ * Clickable JSON tree. path uses dot + [] for arrays, e.g. fields.priority.name / fields.subtasks[].
+ * - leaf/object click → onPickPath(fullPath)
+ * - keys under fields.* also offer onToggleField(topLevelName) for the fields[] param
+ */
+function SampleTreeNode(props: {
+  label?: string;
+  value: unknown;
+  path: string;
+  depth: number;
+  selectedFields: string[];
+  onPickPath: (path: string) => void;
+  onToggleField?: (name: string) => void;
+}) {
+  const isObj = props.value !== null && typeof props.value === "object";
+  const [open, setOpen] = React.useState(props.depth < 3);
+  const entries = isObj ? Object.entries(props.value as Record<string, unknown>) : [];
+
+  // fields.foo → foo；fields.foo.bar 仍只 toggle foo
+  const fieldsTop =
+    props.path.indexOf("fields.") === 0
+      ? props.path.slice("fields.".length).split(".")[0].replace(/\[\]$/, "")
+      : null;
+  const fieldOn = fieldsTop ? props.selectedFields.indexOf(fieldsTop) >= 0 : false;
+
+  if (!isObj) {
+    return (
+      <div className="flex items-start gap-1 font-mono text-[11px]" style={{ paddingLeft: props.depth * 12 }}>
+        <button
+          type="button"
+          title={"选用路径 " + props.path}
+          onClick={function () { props.onPickPath(props.path); }}
+          className="min-w-0 flex-1 truncate text-left hover:underline"
+        >
+          {props.label ? props.label + ": " : ""}
+          <span className="text-muted-foreground">{JSON.stringify(props.value)}</span>
+        </button>
+        {fieldsTop && props.onToggleField ? (
+          <button
+            type="button"
+            onClick={function () { props.onToggleField!(fieldsTop); }}
+            className={"shrink-0 rounded border px-1 text-[9px] " + (fieldOn ? "border-foreground text-foreground" : "border-border text-muted-foreground")}
+            title="加入/移出 fields 参数"
+          >
+            {fieldOn ? "fields✓" : "+fields"}
+          </button>
+        ) : null}
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ paddingLeft: props.depth ? props.depth * 12 : 0 }}>
+      <div className="flex items-center gap-1">
+        <button type="button" className="font-mono text-[11px] text-left" onClick={function () { setOpen(function (v) { return !v; }); }}>
+          {open ? "▾" : "▸"} {props.label ? props.label + ": " : ""}
+          {Array.isArray(props.value) ? "Array(" + String(entries.length) + ")" : "Object"}
+        </button>
+        {props.path ? (
+          <button
+            type="button"
+            title={"选用路径 " + props.path}
+            onClick={function () { props.onPickPath(props.path); }}
+            className="rounded border border-border px-1 font-mono text-[9px] text-muted-foreground hover:text-foreground"
+          >
+            路径
+          </button>
+        ) : null}
+        {fieldsTop && props.onToggleField ? (
+          <button
+            type="button"
+            onClick={function () { props.onToggleField!(fieldsTop); }}
+            className={"rounded border px-1 text-[9px] " + (fieldOn ? "border-foreground text-foreground" : "border-border text-muted-foreground")}
+          >
+            {fieldOn ? "fields✓" : "+fields"}
+          </button>
+        ) : null}
+      </div>
+      {open
+        ? entries.map(function (pair) {
+            const key = pair[0];
+            const child = pair[1];
+            const childPath = Array.isArray(props.value)
+              ? props.path
+                ? props.path + "[]"
+                : "[]"
+              : props.path
+                ? props.path + "." + key
+                : key;
+            // arrays: only show first element as shape sample
+            if (Array.isArray(props.value) && Number(key) > 0) return null;
+            return (
+              <SampleTreeNode
+                key={key}
+                label={Array.isArray(props.value) ? "[0]" : key}
+                value={child}
+                path={childPath}
+                depth={props.depth + 1}
+                selectedFields={props.selectedFields}
+                onPickPath={props.onPickPath}
+                onToggleField={props.onToggleField}
+              />
+            );
+          })
+        : null}
+    </div>
+  );
+}
+
+/**
  * Right-side sample pane for step 范围:
- * - shows first sample row as JsonViewer
- * - if a fields[] param is focused/exists, click keys under fields.* to toggle them
+ * - full expandable sample tree (depth 3 open)
+ * - click value → pick path (toast + optional callback)
+ * - +fields on keys under fields.* toggles the fields[] param
  */
 function SamplePane(props: {
   sample: SampleState;
   fieldsParam: string[] | null;
   onToggleField?: (name: string) => void;
+  onPickPath?: (path: string) => void;
   onSample: () => void;
+  /** 临时去掉 fields 参数再取，用来发现默认/更多字段 */
+  onWideSample?: () => void;
   canSample: boolean;
 }) {
   const row = props.sample.rows[0];
   const candidates = fieldsFromSample(props.sample.rows);
   const selected = props.fieldsParam || [];
+
+  function pick(path: string) {
+    if (props.onPickPath) props.onPickPath(path);
+    toast.add({ title: "已选路径", description: path });
+  }
 
   return (
     <div className="flex h-full min-h-0 flex-col rounded-xl border border-border bg-muted/20">
@@ -245,15 +379,16 @@ function SamplePane(props: {
         <span className="text-[11px] text-muted-foreground">
           {props.sample.rows.length ? String(props.sample.count) + " 条 · 看第 1 条" : "还没有"}
         </span>
-        <Button
-          size="sm"
-          variant="ghost"
-          className="ml-auto h-7"
-          disabled={!props.canSample || props.sample.loading}
-          onClick={props.onSample}
-        >
-          {props.sample.loading ? "拉取中…" : props.sample.rows.length ? "重取" : "取样本"}
-        </Button>
+        <div className="ml-auto flex items-center gap-1">
+          {props.onWideSample ? (
+            <Button size="sm" variant="ghost" className="h-7" disabled={!props.canSample || props.sample.loading} onClick={props.onWideSample} title="不传 fields，看源头默认返回哪些字段">
+              宽取
+            </Button>
+          ) : null}
+          <Button size="sm" variant="ghost" className="h-7" disabled={!props.canSample || props.sample.loading} onClick={props.onSample}>
+            {props.sample.loading ? "拉取中…" : props.sample.rows.length ? "重取" : "取样本"}
+          </Button>
+        </div>
       </div>
       {props.sample.error ? (
         <p className="px-3 py-2 text-xs text-destructive">{props.sample.error}</p>
@@ -266,16 +401,20 @@ function SamplePane(props: {
                 <IlluEmpty className="size-24" />
               </EmptyMedia>
               <EmptyTitle>先取一条样本</EmptyTitle>
-              <EmptyDescription>右侧会展开真实字段，点选进 fields。</EmptyDescription>
+              <EmptyDescription>右侧展开真实字段；点叶子取路径，+fields 写入参数。</EmptyDescription>
             </EmptyHeader>
           </Empty>
         </div>
       ) : (
         <ScrollArea className="min-h-0 flex-1">
           <div className="space-y-3 p-3">
+            <p className="text-[10.5px] leading-relaxed text-muted-foreground">
+              样本里只会出现「fields 参数」点过名的字段。自定义字段先在左侧 fields 写 id（如 customfield_12345）再重取。
+              点叶子/「路径」→ 得到映射路径（如 fields.priority.name）；+fields → 写入请求参数。
+            </p>
             {props.fieldsParam !== null && candidates.length ? (
               <div>
-                <p className="mb-1.5 text-[11px] text-muted-foreground">点选加入 fields 参数</p>
+                <p className="mb-1.5 text-[11px] text-muted-foreground">样本里出现的 fields.*（点选进参数）</p>
                 <div className="flex flex-wrap gap-1">
                   {candidates.map(function (f) {
                     const on = selected.indexOf(f) >= 0;
@@ -296,12 +435,18 @@ function SamplePane(props: {
                     );
                   })}
                 </div>
-                <p className="mt-1.5 text-[10px] text-muted-foreground">没有的字段可在左侧 textarea 手写一行</p>
               </div>
             ) : null}
             {row !== undefined ? (
               <div className="overflow-hidden rounded-lg border border-border bg-background p-2">
-                <JsonViewer value={row} />
+                <SampleTreeNode
+                  value={row}
+                  path=""
+                  depth={0}
+                  selectedFields={selected}
+                  onPickPath={pick}
+                  onToggleField={props.onToggleField}
+                />
               </div>
             ) : null}
           </div>
@@ -333,11 +478,16 @@ type Active =
 function specFilled(spec: ValueSpec | TplToken[] | undefined): boolean {
   if (!spec) return false;
   if (Array.isArray(spec)) return spec.length > 0;
-  if (typeof (spec as { const?: unknown }).const === "string") return Boolean((spec as { const: string }).const);
+  if ("const" in (spec as object) && typeof (spec as { const?: unknown }).const === "string") {
+    // 空字符串不算已设（空白模板的 const:""）
+    return Boolean((spec as { const: string }).const);
+  }
+  if ("template" in (spec as object)) {
+    const t = (spec as { template?: TplToken[] }).template;
+    return Array.isArray(t) && t.length > 0;
+  }
   const f = (spec as { field?: string }).field;
   if (typeof f === "string") return Boolean(f);
-  const t = (spec as { template?: TplToken[] }).template;
-  if (Array.isArray(t)) return t.length > 0;
   return false;
 }
 
@@ -639,6 +789,8 @@ export function Connect(props: { onPack: (res: unknown) => void; onClose: () => 
   const [active, setActive] = React.useState<Active | null>(null);
   const [catQuery, setCatQuery] = React.useState("");
   const [running, setRunning] = React.useState<string | null>(null);
+  /** 面板内联同步结果（试运行留下看；全量成功会关 dialog 改走主界面 toast） */
+  const [runNote, setRunNote] = React.useState<null | { kind: "trial" | "full"; status: "running" | "ok" | "err"; text: string }>(null);
   const [tried, setTried] = React.useState(false);
   const [focusParam, setFocusParam] = React.useState<string | null>(null);
 
@@ -740,15 +892,32 @@ export function Connect(props: { onPack: (res: unknown) => void; onClose: () => 
   }
 
   async function runConnector(c: Connector, limit: number) {
+    const kind = limit ? ("trial" as const) : ("full" as const);
     setRunning(c.id + ":" + String(limit));
+    setRunNote({ kind: kind, status: "running", text: kind === "trial" ? "试运行中…" : "同步中…" });
     try {
       const res = await call("connectorRun", { id: c.id, limit: limit });
       props.onPack(res);
-      const s = (res as { summary?: string }).summary;
-      toast.add({ title: limit ? "试运行完成" : "同步完成", description: s || undefined });
+      const s = String((res as { summary?: string }).summary || "完成");
       void load();
+      if (kind === "full") {
+        // 全量：关面板，让主界面 toast 不被 dialog 挡住，用户直接看到清单变化
+        setRunNote(null);
+        props.onClose();
+        // 关后再弹，避免仍挂在 dialog 层下
+        window.setTimeout(function () {
+          toast.add({ title: "同步完成 · " + c.name, description: s });
+        }, 80);
+      } else {
+        setRunNote({ kind: "trial", status: "ok", text: s });
+      }
     } catch (e) {
-      toast.add({ title: "同步没有完成", description: String((e as { message?: string }).message || e) });
+      const msg = String((e as { message?: string }).message || e);
+      setRunNote({ kind: kind, status: "err", text: msg });
+      if (kind === "full") {
+        // 失败留在面板看错误，不关
+        toast.add({ title: "同步没有完成", description: msg });
+      }
     } finally {
       setRunning(null);
     }
@@ -823,6 +992,28 @@ export function Connect(props: { onPack: (res: unknown) => void; onClose: () => 
   function renderList() {
     return (
       <div className="flex min-h-0 flex-1 flex-col px-5 pb-5 pt-2">
+        {runNote ? (
+          <div
+            className={
+              "mb-3 rounded-lg border px-3 py-2 text-xs " +
+              (runNote.status === "err"
+                ? "border-destructive/40 bg-destructive/5 text-destructive"
+                : runNote.status === "running"
+                  ? "border-border bg-muted text-muted-foreground"
+                  : "border-border bg-muted text-foreground")
+            }
+            role="status"
+          >
+            <span className="font-medium">{runNote.kind === "trial" ? "试运行" : "同步"}</span>
+            <span className="mx-1.5 text-muted-foreground">·</span>
+            <span>{runNote.text}</span>
+            {runNote.status !== "running" ? (
+              <button type="button" className="ml-2 underline underline-offset-2" onClick={function () { setRunNote(null); }}>
+                知道了
+              </button>
+            ) : null}
+          </div>
+        ) : null}
         {connectors.length === 0 ? (
           <div className="mb-4">
             <p className="mb-3 text-sm text-muted-foreground">从模板开始，五步配好一个数据源。</p>
@@ -1116,6 +1307,12 @@ export function Connect(props: { onPack: (res: unknown) => void; onClose: () => 
           fieldsParam={fieldsVal}
           onToggleField={toggleField}
           onSample={function () { void takeSample(draft); }}
+          onWideSample={function () {
+            // 临时去掉 fields，发现源头默认字段集（不改 draft.params）
+            const d: Draft = JSON.parse(JSON.stringify(draft));
+            delete d.params.fields;
+            void takeSample(d);
+          }}
           canSample={canSample}
         />
       </div>
@@ -1244,6 +1441,7 @@ export function Connect(props: { onPack: (res: unknown) => void; onClose: () => 
           <input type="checkbox" checked={draft.keepDeleted} onChange={function (e) { patch(function (d) { d.keepDeleted = e.target.checked; }); }} className="size-3.5 accent-foreground" />
           本地删过的外部任务不再导入
         </label>
+        <p className="mt-1 text-[11px] text-muted-foreground">关掉后下次同步会清掉墓碑并重新导入。须先「保存」或「试运行」才会写进连接器；列表页直接点同步用的是已保存的配置。</p>
         <p className="mt-3 text-xs leading-relaxed text-muted-foreground">导入的任务先进板块，之后随你怎么挪——同步不会把它搬回去。</p>
         <div className="mt-5 rounded-xl border border-dashed border-border p-3.5">
           <p className="mb-2 text-xs text-muted-foreground">先真实导入 3 条看看</p>
