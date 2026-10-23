@@ -120,6 +120,109 @@ const PARAM_HINTS: Record<string, { name: string; note: string }[]> = {
   ],
 };
 
+/** Jira 字段挑选兜底：默认返回集 + 映射常用的 duedate/subtasks。采样目录里出现过的字段优先展示。 */
+const JIRA_FIELDS = [
+  "summary", "description", "status", "priority", "assignee", "reporter",
+  "created", "updated", "duedate", "resolution", "labels", "components",
+  "subtasks", "issuetype", "issuelinks", "parent", "epic", "sprint",
+  "environment", "creator", "project", "fixVersions", "versions", "attachment",
+];
+
+/** "{key}: {fields.summary}" → 模板 tokens；大括号里的路径，其余原样。 */
+function parseTemplateString(s: string): TplToken[] {
+  const out: TplToken[] = [];
+  const re = /\{([^{}]+)\}/g;
+  let last = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(s)) !== null) {
+    if (m.index > last) out.push({ lit: s.slice(last, m.index) });
+    out.push({ field: m[1].trim() });
+    last = m.index + m[0].length;
+  }
+  if (last < s.length) out.push({ lit: s.slice(last) });
+  return out.filter(function (t) { return t.lit !== undefined ? t.lit !== "" : true; });
+}
+
+/** tokens → "{key}: {fields.summary}" 字符串。 */
+function templateToString(spec: ValueSpec): string {
+  const t = "template" in spec && Array.isArray(spec.template) ? spec.template : [];
+  return t
+    .map(function (tok) {
+      return tok.lit !== undefined ? tok.lit : "{" + String(tok.field) + "}";
+    })
+    .join("");
+}
+
+/**
+ * fields 参数挑选器：候选 = 样本目录里出现过的字段（优先）+ 静态常见集（jira）；
+ * 搜不到的手敲回车直接加。样本里没出现 ≠ 不能用：勾上后取一次样本就会出现在目录里。
+ */
+function FieldsPicker(props: { values: string[]; catalog: CatalogEntry[]; isJira: boolean; toggle: (f: string) => void; add: (f: string) => void }) {
+  const [q, setQ] = React.useState("");
+  const fromCatalog = props.catalog
+    .map(function (c) { return c.path; })
+    .filter(function (p) { return p.indexOf("fields.") === 0; })
+    .map(function (p) { return p.slice("fields.".length); })
+    .filter(function (p) { return p.indexOf("[]") < 0 && p.indexOf(".") < 0; });
+  const base = props.isJira ? JIRA_FIELDS : [];
+  const seen: Record<string, boolean> = {};
+  const all: string[] = [];
+  fromCatalog.concat(base).forEach(function (f) {
+    if (!seen[f]) {
+      seen[f] = true;
+      all.push(f);
+    }
+  });
+  // values not in candidates (hand-typed or unknown) still shown first as on-chips
+  props.values.forEach(function (f) {
+    if (!seen[f]) {
+      seen[f] = true;
+      all.unshift(f);
+    }
+  });
+  const shown = all.filter(function (f) { return !q || f.toLowerCase().indexOf(q.toLowerCase()) >= 0; });
+  return (
+    <div className="mt-1.5 rounded-md border border-border p-2">
+      <div className="mb-1.5 flex items-center gap-2">
+        <input
+          value={q}
+          onChange={function (e) { setQ(e.target.value); }}
+          onKeyDown={function (e) {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              const f = q.trim();
+              if (f && props.values.indexOf(f) < 0) props.add(f);
+              setQ("");
+            }
+          }}
+          placeholder="搜字段；没有的敲回车直接加（如 customfield_12345）"
+          className="h-7 flex-1 rounded-md border border-border bg-transparent px-2 text-[11px] outline-none focus:border-foreground"
+        />
+      </div>
+      <div className="flex max-h-32 flex-wrap gap-1 overflow-y-auto">
+        {shown.map(function (f) {
+          const on = props.values.indexOf(f) >= 0;
+          const fromCat = fromCatalog.indexOf(f) >= 0;
+          return (
+            <button
+              key={f}
+              type="button"
+              onClick={function () { props.toggle(f); }}
+              className={
+                "rounded-full border px-2 py-0.5 font-mono text-[10.5px] " +
+                (on ? "border-foreground bg-muted text-foreground" : "border-border text-muted-foreground hover:text-foreground")
+              }
+              title={fromCat ? "样本里出现过" : "常见字段；勾上后取一次样本确认"}
+            >
+              {f}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 /* ───────────────────────── small pieces ───────────────────────── */
 
 function StepChip(props: { n: number; label: string; on: boolean; done: boolean; go: () => void }) {
@@ -273,23 +376,36 @@ function SlotEditor(props: {
             placeholder={slot === "title" ? "所有任务同一标题（一般不建议）" : "如外部系统没有唯一键"}
           />
         ) : (
-          <div className="flex flex-wrap items-center gap-1.5">
-            {tokens.map(function (tok, i) {
-              return tok.lit !== undefined ? (
-                <span key={i} className="text-xs text-muted-foreground">{tok.lit}</span>
-              ) : (
-                <FieldChip
-                  key={i}
-                  path={String(tok.field)}
-                  onRemove={function () {
-                    patch(function (d) {
-                      const s = slot === "title" ? d.mapping.title : d.mapping.externalId;
-                      s.template.splice(i, 1);
-                    });
-                  }}
-                />
-              );
-            })}
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center gap-1.5">
+              {tokens.map(function (tok, i) {
+                return tok.lit !== undefined ? (
+                  <span key={i} className="text-xs text-muted-foreground">{tok.lit}</span>
+                ) : (
+                  <FieldChip
+                    key={i}
+                    path={String(tok.field)}
+                    onRemove={function () {
+                      patch(function (d) {
+                        const s = slot === "title" ? d.mapping.title : d.mapping.externalId;
+                        s.template.splice(i, 1);
+                      });
+                    }}
+                  />
+                );
+              })}
+            </div>
+            <input
+              value={templateToString(spec)}
+              onChange={function (e) {
+                const tokens = parseTemplateString(e.target.value);
+                setSpec({ template: tokens });
+              }}
+              className={inputCls + " h-8 font-mono text-[11.5px]"}
+              placeholder={"{key}: {fields.summary}"}
+              aria-label="模板字符串"
+            />
+            <p className="text-[11px] text-muted-foreground">{"{字段路径}"} 引用字段，其余原样保留；也可在右边目录里点字段追加</p>
           </div>
         )}
         <p className="mt-2 text-[11px] text-muted-foreground">在字段目录里点一个字段，加进这里</p>
@@ -875,15 +991,40 @@ export function Connect(props: { onPack: (res: unknown) => void }) {
                     )}
                     <div className="col-span-3 flex items-center justify-between">
                       {isArr ? (
-                        <textarea
-                          value={(v as unknown[]).map(String).join("\n")}
-                          onChange={function (e) {
-                            const lines = e.target.value.split("\n");
-                            patch(function (d) { d.params[k] = lines; });
-                          }}
-                          rows={Math.min(6, (v as unknown[]).length + 1)}
-                          className="w-full rounded-md border border-input bg-transparent px-2 py-1 font-mono text-[11px] outline-none focus:border-foreground"
-                        />
+                        <div className="min-w-0 flex-1">
+                          <textarea
+                            value={(v as unknown[]).map(String).join("\n")}
+                            onChange={function (e) {
+                              const lines = e.target.value.split("\n");
+                              patch(function (d) { d.params[k] = lines; });
+                            }}
+                            rows={Math.min(6, (v as unknown[]).length + 1)}
+                            className="w-full rounded-md border border-input bg-transparent px-2 py-1 font-mono text-[11px] outline-none focus:border-foreground"
+                          />
+                          {k === "fields" ? (
+                            <FieldsPicker
+                              values={(v as unknown[]).map(String)}
+                              catalog={sample.catalog}
+                              isJira={draft.kind === "mcp" && /jira/i.test(draft.serverId + draft.toolName)}
+                              toggle={function (f) {
+                                patch(function (d) {
+                                  const arr = (d.params[k] as string[]).map(String);
+                                  const at = arr.indexOf(f);
+                                  if (at >= 0) arr.splice(at, 1);
+                                  else arr.push(f);
+                                  d.params[k] = arr;
+                                });
+                              }}
+                              add={function (f) {
+                                patch(function (d) {
+                                  const arr = (d.params[k] as string[]).map(String);
+                                  arr.push(f);
+                                  d.params[k] = arr;
+                                });
+                              }}
+                            />
+                          ) : null}
+                        </div>
                       ) : (
                         <span className="text-[10px] text-muted-foreground">数组参数一行一个值</span>
                       )}

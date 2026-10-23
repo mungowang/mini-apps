@@ -320,7 +320,12 @@ export const TEMPLATES: ConnectorTemplate[] = [
       params: {
         jql: "assignee = currentUser() AND statusCategory != Done ORDER BY updated DESC",
         num_results: 50,
-        fields: ["summary", "status", "priority", "duedate", "description", "subtasks"],
+        fields: [
+          "summary", "description", "status", "priority", "assignee", "reporter",
+          "created", "updated", "duedate", "resolution", "labels", "components",
+          "subtasks", "issuetype", "issuelinks", "parent", "epic", "sprint",
+          "environment", "project",
+        ],
       },
       rootPath: "jira_issues[]",
       mapping: {
