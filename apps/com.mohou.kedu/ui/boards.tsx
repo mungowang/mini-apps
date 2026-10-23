@@ -89,7 +89,7 @@ export function BoardsCenter(props: { narrow: boolean }) {
       role="group"
       aria-label="板块"
       data-kedu="boards"
-      className="flex max-w-[46%] items-center gap-0.5 overflow-x-auto rounded-full border border-border bg-card p-1 shadow-[0_1px_3px_color-mix(in_oklab,var(--foreground)_8%,transparent)]"
+      className="flex items-center gap-0.5 overflow-x-auto rounded-full border border-border bg-card p-1 shadow-[0_1px_3px_color-mix(in_oklab,var(--foreground)_8%,transparent)]"
     >
       {boards.map(function (b) {
         const on = b.id === boardId;
@@ -266,9 +266,12 @@ export function BoardsCenter(props: { narrow: boolean }) {
   })();
 
   return (
-    <div className="absolute left-1/2 top-3 z-20 -translate-x-1/2">
+    <div
+      data-kedu="boards-anchor"
+      className="pointer-events-none absolute inset-x-0 top-4 bottom-0 z-20 flex items-center justify-center"
+    >
       {props.narrow ? (
-        <div className="relative">
+        <div className="relative pointer-events-auto">
           <button
             type="button"
             data-kedu="boards"
@@ -281,37 +284,34 @@ export function BoardsCenter(props: { narrow: boolean }) {
             className="flex items-center gap-1.5 rounded-full border border-border bg-card px-2.5 py-1 text-xs hover:border-foreground/40"
           >
             {currentName}
-            {count(boards.find(function (b) { return b.id === boardId; }) as Board) ? (
-              <Mono className="text-[10.5px] text-muted-foreground">{count(boards.find(function (b) { return b.id === boardId; }) as Board)}</Mono>
+            {count(boards.find(function (b) { return b.id === boardId; })) ? (
+              <Mono className="text-[10.5px] text-muted-foreground">{count(boards.find(function (b) { return b.id === boardId; }))}</Mono>
             ) : null}
             <span className="text-[9px] text-muted-foreground">▾</span>
           </button>
           {narrowMenu}
+          {adding ? (
+            <input
+              autoFocus
+              value={draft}
+              placeholder="板块名…"
+              onChange={function (e) { setDraft(e.target.value); }}
+              onKeyDown={function (e) {
+                if (e.key === "Enter") void commitAdd();
+                if (e.key === "Escape") {
+                  setAdding(false);
+                  setDraft("");
+                }
+              }}
+              onBlur={function () { void commitAdd(); }}
+              aria-label="新板块名"
+              className="absolute left-1/2 top-[calc(100%+8px)] w-32 -translate-x-1/2 rounded-full border border-border bg-card px-2.5 py-1 text-xs outline-none ring-1 ring-foreground/30"
+            />
+          ) : null}
         </div>
       ) : (
-        wide
+        <div className="pointer-events-auto max-w-[46%]">{wide}</div>
       )}
-      {/* 窄面板里点「新建板块」后回到 pills 形态编辑 */}
-      {props.narrow && adding ? (
-        <div className="absolute left-1/2 top-8 -translate-x-1/2">
-          <input
-            autoFocus
-            value={draft}
-            placeholder="板块名…"
-            onChange={function (e) { setDraft(e.target.value); }}
-            onKeyDown={function (e) {
-              if (e.key === "Enter") void commitAdd();
-              if (e.key === "Escape") {
-                setAdding(false);
-                setDraft("");
-              }
-            }}
-            onBlur={function () { void commitAdd(); }}
-            aria-label="新板块名"
-            className="w-28 rounded-full border border-border bg-card px-2.5 py-1 text-xs outline-none ring-1 ring-foreground/30"
-          />
-        </div>
-      ) : null}
     </div>
   );
 }
