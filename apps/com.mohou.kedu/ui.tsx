@@ -1527,6 +1527,9 @@ export default function Ui() {
           {connectOpen ? (
             <Connect
               key="connect"
+              onClose={function () {
+                setConnectOpen(false);
+              }}
               onPack={function (res) {
                 if (isPack(res)) apply(res);
               }}
