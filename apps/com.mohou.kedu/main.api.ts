@@ -2,10 +2,9 @@ import { defineApp } from "@mohou/contract";
 
 import { collectTags, parseKeduPaste, shiftKey, todayKey } from "./shared/model";
 import type { Priority, Task, TaskPatch } from "./shared/types";
+import { clearAllTasks, clearDoneRows, countTasks, deleteTask, insertTask, loadTask, loadTasks, minSortOrder, persistTask, searchTaskIds } from "./api/store";
 
-const K_TASKS = "tasks";
 const K_SEEDED = "seeded";
-const K_IMG = "img_";
 
 function uid(prefix: string): string {
   return prefix + "_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -124,44 +123,16 @@ function normalize(raw: any): Task {
   };
 }
 
-async function load(ctx): Promise<Task[]> {
+/** First run only: empty table and never seeded -> demo data. */
+async function ensureSeeded(ctx): Promise<void> {
+  if ((await countTasks(ctx.storage)) > 0) return;
   const kv = ctx.storage.kv();
-  const raw = await kv.get(K_TASKS);
-  if (Array.isArray(raw)) {
-    const tasks = raw.map(normalize);
-    // Older done subtasks had no completedAt; backfill once so the list can show a time.
-    let dirty = false;
-    for (let i = 0; i < tasks.length; i++) {
-      const t = tasks[i];
-      let changed = false;
-      const subs = t.subtasks.map(function (s) {
-        if (s.done && s.completedAt == null) {
-          changed = true;
-          dirty = true;
-          return {
-            id: s.id,
-            title: s.title,
-            done: true,
-            completedAt: t.completedAt != null ? t.completedAt : t.createdAt,
-          };
-        }
-        return s;
-      });
-      if (changed) tasks[i] = Object.assign({}, t, { subtasks: subs });
-    }
-    if (dirty) await kv.set(K_TASKS, tasks);
-    return tasks;
-  }
-  const seeded = await kv.get(K_SEEDED);
-  if (seeded) return [];
+  if (await kv.get(K_SEEDED)) return;
   const fresh = seed(todayKey());
-  await kv.set(K_TASKS, fresh);
+  await ctx.storage.transaction(async function (tx) {
+    for (let i = 0; i < fresh.length; i++) await insertTask(tx, fresh[i]);
+  });
   await kv.set(K_SEEDED, true);
-  return fresh;
-}
-
-async function save(ctx, tasks: Task[]): Promise<void> {
-  await ctx.storage.kv().set(K_TASKS, tasks);
 }
 
 function pack(tasks: Task[]) {
@@ -261,6 +232,11 @@ function applyPatch(task: Task, patch: TaskPatch | undefined): Task {
       };
     });
   }
+  if (Array.isArray(patch.images)) {
+    next.images = patch.images.slice(0, 8).map(function (im: any) {
+      return { id: String(im && im.id ? im.id : uid("i")), w: Number(im && im.w) || 0, h: Number(im && im.h) || 0 };
+    });
+  }
   return next;
 }
 
@@ -270,7 +246,8 @@ export default defineApp({
 
   api: {
     async list(ctx) {
-      return pack(await load(ctx));
+      await ensureSeeded(ctx);
+      return pack(await loadTasks(ctx.storage));
     },
 
     async add(ctx, args) {
@@ -281,9 +258,7 @@ export default defineApp({
       const parsed = parseKeduPaste(raw, today);
       const title = parsed.title.trim();
       if (!title) throw new Error("除了日期和标签，还要写上要做什么");
-      const tasks = await load(ctx);
-      let minOrder = 0;
-      for (let i = 0; i < tasks.length; i++) if (tasks[i].order < minOrder) minOrder = tasks[i].order;
+      const minOrder = await minSortOrder(ctx.storage);
       const hasDue = args && Object.prototype.hasOwnProperty.call(args, "due");
       // Prefer explicit args; fall back to body parsed from multi-line paste.
       const notesFromArgs =
@@ -335,192 +310,198 @@ export default defineApp({
         doing: false,
         doingAt: null,
       };
-      tasks.push(created);
-      await save(ctx, tasks);
-      return pack(tasks);
+      await ctx.storage.transaction(async function (tx) {
+        await insertTask(tx, created);
+      });
+      return pack(await loadTasks(ctx.storage));
     },
 
     async update(ctx, args) {
       const id = String((args && args.id) || "");
-      const tasks = await load(ctx);
-      let hit = false;
-      const next = tasks.map(function (t) {
-        if (t.id !== id) return t;
-        hit = true;
-        return applyPatch(t, args && args.patch);
+      const task = await loadTask(ctx.storage, id);
+      if (!task) throw new Error("任务不存在");
+      const next = applyPatch(task, args && args.patch);
+      await ctx.storage.transaction(async function (tx) {
+        await persistTask(tx, next);
       });
-      if (!hit) throw new Error("任务不存在");
-      await save(ctx, next);
-      return pack(next);
+      return pack(await loadTasks(ctx.storage));
     },
 
     async toggle(ctx, args) {
       const id = String((args && args.id) || "");
-      const tasks = await load(ctx);
-      let hit = false;
-      const next = tasks.map(function (t) {
-        if (t.id !== id) return t;
-        hit = true;
-        const done = !t.done;
-        return Object.assign({}, t, {
-          done,
-          completedAt: done ? Date.now() : null,
-          doing: done ? false : t.doing,
-          doingAt: done ? null : t.doingAt,
-        });
-      });
-      if (!hit) throw new Error("任务不存在");
-      await save(ctx, next);
-      return pack(next);
+      const task = await loadTask(ctx.storage, id);
+      if (!task) throw new Error("任务不存在");
+      const done = !task.done;
+      const flag = done ? 1 : 0;
+      await ctx.storage.run(
+        "UPDATE tasks SET done = ?, completed_at = ?," +
+          " doing = CASE WHEN ? = 1 THEN 0 ELSE doing END," +
+          " doing_at = CASE WHEN ? = 1 THEN NULL ELSE doing_at END" +
+          " WHERE id = ?",
+        [flag, done ? Date.now() : null, flag, flag, id]
+      );
+      return pack(await loadTasks(ctx.storage));
     },
 
     async remove(ctx, args) {
       const id = String((args && args.id) || "");
-      const tasks = await load(ctx);
-      const next = tasks.filter(function (t) {
-        return t.id !== id;
+      const task = await loadTask(ctx.storage, id);
+      if (!task) throw new Error("任务不存在");
+      await ctx.storage.transaction(async function (tx) {
+        await deleteTask(tx, id);
       });
-      if (next.length === tasks.length) throw new Error("任务不存在");
-      await save(ctx, next);
-      return pack(next);
+      return pack(await loadTasks(ctx.storage));
     },
 
     async restore(ctx, args) {
       const task = args && args.task;
       if (!task || !task.id) throw new Error("缺少任务");
-      const tasks = await load(ctx);
-      if (
-        tasks.some(function (t) {
-          return t.id === task.id;
-        })
-      ) {
-        return pack(tasks);
-      }
-      let minOrder = 0;
-      for (let i = 0; i < tasks.length; i++) if (tasks[i].order < minOrder) minOrder = tasks[i].order;
-      tasks.push(Object.assign({}, normalize(task), { order: minOrder - 1 }));
-      await save(ctx, tasks);
-      return pack(tasks);
+      const existing = await loadTask(ctx.storage, String(task.id));
+      if (existing) return pack(await loadTasks(ctx.storage));
+      const minOrder = await minSortOrder(ctx.storage);
+      const next = Object.assign({}, normalize(task), { order: minOrder - 1 });
+      await ctx.storage.transaction(async function (tx) {
+        await insertTask(tx, next);
+      });
+      return pack(await loadTasks(ctx.storage));
     },
 
     async reorder(ctx, args) {
       const ids: string[] = Array.isArray(args && args.ids) ? args.ids.map(String) : [];
-      const tasks = await load(ctx);
-      const sorted = tasks.slice().sort(function (a, b) {
-        return a.order - b.order;
-      });
+      const rows = await ctx.storage.query("SELECT id FROM tasks ORDER BY sort_order, created_at");
+      const sortedIds = rows.map(function (r) { return String(r.id); });
       const indexOf: Record<string, number> = {};
-      for (let i = 0; i < sorted.length; i++) indexOf[sorted[i].id] = i;
-      const byId: Record<string, Task> = {};
-      for (let i = 0; i < sorted.length; i++) byId[sorted[i].id] = sorted[i];
+      for (let i = 0; i < sortedIds.length; i++) indexOf[sortedIds[i]] = i;
       const slots: number[] = [];
       for (let i = 0; i < ids.length; i++) {
         const at = indexOf[ids[i]];
         if (at !== undefined) slots.push(at);
       }
-      slots.sort(function (a, b) {
-        return a - b;
-      });
-      const out = sorted.slice();
+      slots.sort(function (a, b) { return a - b; });
+      const out = sortedIds.slice();
       for (let i = 0; i < ids.length; i++) {
-        const t = byId[ids[i]];
-        if (t && slots[i] !== undefined) out[slots[i]] = t;
+        if (indexOf[ids[i]] !== undefined && slots[i] !== undefined) out[slots[i]] = ids[i];
       }
-      const final = out.map(function (t, i) {
-        return Object.assign({}, t, { order: i });
+      await ctx.storage.transaction(async function (tx) {
+        for (let i = 0; i < out.length; i++) {
+          await tx.run("UPDATE tasks SET sort_order = ? WHERE id = ?", [i, out[i]]);
+        }
       });
-      await save(ctx, final);
-      return pack(final);
+      return pack(await loadTasks(ctx.storage));
     },
 
     async bulk(ctx, args) {
       const ids: string[] = Array.isArray(args && args.ids) ? args.ids.map(String) : [];
       const action = String((args && args.action) || "done");
-      const tasks = await load(ctx);
-      let next: Task[];
       if (action === "remove") {
-        next = tasks.filter(function (t) {
-          return ids.indexOf(t.id) < 0;
+        await ctx.storage.transaction(async function (tx) {
+          for (let i = 0; i < ids.length; i++) await deleteTask(tx, ids[i]);
         });
       } else if (action === "schedule") {
         const patch = args && args.patch && typeof args.patch === "object" ? args.patch : {};
-        next = tasks.map(function (t) {
-          if (ids.indexOf(t.id) < 0) return t;
-          const fields: { due?: string | null; starts?: string | null } = {};
-          if (Object.prototype.hasOwnProperty.call(patch, "due")) fields.due = patch.due;
-          if (Object.prototype.hasOwnProperty.call(patch, "starts")) fields.starts = patch.starts;
-          return applyPatch(t, fields);
-        });
+        const sets: string[] = [];
+        const params: unknown[] = [];
+        if (Object.prototype.hasOwnProperty.call(patch, "due")) {
+          sets.push("due = ?");
+          params.push(patch.due);
+        }
+        if (Object.prototype.hasOwnProperty.call(patch, "starts")) {
+          sets.push("starts = ?");
+          params.push(patch.starts);
+        }
+        if (sets.length) {
+          await ctx.storage.transaction(async function (tx) {
+            for (let i = 0; i < ids.length; i++) {
+              await tx.run("UPDATE tasks SET " + sets.join(", ") + " WHERE id = ?", params.concat([ids[i]]));
+            }
+          });
+        }
       } else {
         const target = action === "active" ? false : true;
-        next = tasks.map(function (t) {
-          if (ids.indexOf(t.id) < 0) return t;
-          return Object.assign({}, t, {
-            done: target,
-            completedAt: target ? (t.completedAt === null ? Date.now() : t.completedAt) : null,
-            doing: target ? false : t.doing,
-            doingAt: target ? null : t.doingAt,
-          });
+        await ctx.storage.transaction(async function (tx) {
+          for (let i = 0; i < ids.length; i++) {
+            if (target) {
+              await tx.run(
+                "UPDATE tasks SET done = 1, completed_at = COALESCE(completed_at, ?), doing = 0, doing_at = NULL WHERE id = ?",
+                [Date.now(), ids[i]]
+              );
+            } else {
+              await tx.run("UPDATE tasks SET done = 0, completed_at = NULL WHERE id = ?", [ids[i]]);
+            }
+          }
         });
       }
-      await save(ctx, next);
-      return pack(next);
+      return pack(await loadTasks(ctx.storage));
     },
 
     async clearDone(ctx) {
-      const tasks = await load(ctx);
-      const next = tasks.filter(function (t) {
-        return !t.done;
+      await ctx.storage.transaction(async function (tx) {
+        await clearDoneRows(tx);
       });
-      await save(ctx, next);
-      return pack(next);
+      return pack(await loadTasks(ctx.storage));
+    },
+
+    /** SQL-side search over title / notes / tags / subtask titles. */
+    async search(ctx, args) {
+      const q = String((args && args.q) || "").trim();
+      if (!q) return { tasks: [], tags: [] };
+      const ids = await searchTaskIds(ctx.storage, q);
+      if (ids.length === 0) return { tasks: [], tags: [] };
+      const all = await loadTasks(ctx.storage);
+      const wanted: Record<string, boolean> = {};
+      for (let i = 0; i < ids.length; i++) wanted[ids[i]] = true;
+      const tasks = all.filter(function (t) { return wanted[t.id] === true; });
+      return { tasks: tasks, tags: collectTags(tasks) };
     },
 
     async imageAdd(ctx, args) {
-      const tasks = await load(ctx);
+      const tasks = await loadTasks(ctx.storage);
       const id = uid("i");
       const data = String((args && args.data) || "");
       if (!data) return pack(tasks);
-      await ctx.storage.kv().set(K_IMG + id, data);
-      const meta = { id, w: Number(args && args.w) || 0, h: Number(args && args.h) || 0 };
-      const next = tasks.map(function (t) {
-        if (t.id !== String(args && args.taskId)) return t;
-        return Object.assign({}, t, { images: (t.images || []).concat([meta]).slice(0, 8) });
-      });
-      await save(ctx, next);
-      return pack(next);
+      const taskId = String(args && args.taskId);
+      const w = Number(args && args.w) || 0;
+      const h = Number(args && args.h) || 0;
+      const found = await ctx.storage.query("SELECT 1 AS ok FROM tasks WHERE id = ?", [taskId]);
+      if (found.length > 0) {
+        await ctx.storage.run(
+          "INSERT INTO task_images (id, task_id, pos, w, h, data) VALUES (?, ?," +
+            " (SELECT COALESCE(MAX(pos), 0) + 1 FROM task_images WHERE task_id = ?), ?, ?, ?)",
+          [id, taskId, taskId, w, h, data]
+        );
+      }
+      return pack(await loadTasks(ctx.storage));
     },
 
     async imageRemove(ctx, args) {
-      const tasks = await load(ctx);
+      const tasks = await loadTasks(ctx.storage);
       const id = String((args && args.id) || "");
-      if (id) await ctx.storage.kv().delete(K_IMG + id);
-      const next = tasks.map(function (t) {
-        if (t.id !== String(args && args.taskId)) return t;
-        return Object.assign({}, t, {
-          images: (t.images || []).filter(function (im) {
-            return im.id !== id;
-          }),
-        });
-      });
-      await save(ctx, next);
-      return pack(next);
+      if (id) await ctx.storage.run("DELETE FROM task_images WHERE id = ?", [id]);
+      return pack(await loadTasks(ctx.storage));
     },
 
     async imagesGet(ctx, args) {
       const ids: string[] = Array.isArray(args && args.ids) ? args.ids.map(String) : [];
-      const kv = ctx.storage.kv();
       const out: Record<string, string> = {};
-      for (let i = 0; i < ids.length; i++) {
-        const v = await kv.get(K_IMG + ids[i]);
-        if (typeof v === "string") out[ids[i]] = v;
+      if (ids.length === 0) return out;
+      const marks = ids.map(function () { return "?"; }).join(", ");
+      const rows = await ctx.storage.query(
+        "SELECT id, data FROM task_images WHERE id IN (" + marks + ")",
+        ids
+      );
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i] as { id?: unknown; data?: unknown };
+        if (typeof row.data === "string") out[String(row.id)] = row.data;
       }
       return out;
     },
 
     async reset(ctx) {
       const fresh = seed(todayKey());
-      await save(ctx, fresh);
+      await ctx.storage.transaction(async function (tx) {
+        await clearAllTasks(tx);
+        for (let i = 0; i < fresh.length; i++) await insertTask(tx, fresh[i]);
+      });
       await ctx.storage.kv().set(K_SEEDED, true);
       return pack(fresh);
     },
