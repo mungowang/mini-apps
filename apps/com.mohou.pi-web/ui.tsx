@@ -431,17 +431,17 @@ export default function Ui() {
       <Dialog open={recommendedOpen} onOpenChange={setRecommendedOpen}>
         <DialogContent width="36rem">
           <DialogHeader>
-            <DialogTitle className="flex flex-wrap items-center gap-2">
-              推荐插件
+            <DialogTitle>推荐插件</DialogTitle>
+            <DialogDescription className="flex items-start justify-between gap-3">
+              <span>安装后重启 pi-web 服务即可生效。</span>
               {recommendedTotal > 0 ? (
-                <Badge variant="secondary" className="font-normal tabular-nums">
+                <Badge variant="secondary" className="shrink-0 font-normal tabular-nums">
                   共 {recommendedTotal} 个
                   {recommendedInstalled > 0 ? ` · 已装 ${recommendedInstalled}` : ''}
                   {recommendedMissing > 0 ? ` · 待装 ${recommendedMissing}` : ''}
                 </Badge>
               ) : null}
-            </DialogTitle>
-            <DialogDescription>安装后重启 pi-web 服务即可生效。</DialogDescription>
+            </DialogDescription>
           </DialogHeader>
           <div className="flex max-h-72 flex-col gap-1.5 overflow-y-auto thin-scroll pr-1">
             {recommendedItems.map(item => (
