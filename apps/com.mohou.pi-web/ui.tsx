@@ -304,6 +304,11 @@ export default function Ui() {
     </div>
   )
 
+  const recommendedItems = recommended?.items ?? []
+  const recommendedTotal = recommendedItems.length
+  const recommendedInstalled = recommendedItems.filter(item => item.installed).length
+  const recommendedMissing = recommendedTotal - recommendedInstalled
+
   return (
     <div className="flex h-svh min-h-0 w-full flex-col">
       <Toaster position="bottom-right" timeout={4000} />
@@ -426,11 +431,20 @@ export default function Ui() {
       <Dialog open={recommendedOpen} onOpenChange={setRecommendedOpen}>
         <DialogContent width="36rem">
           <DialogHeader>
-            <DialogTitle>推荐插件</DialogTitle>
+            <DialogTitle className="flex flex-wrap items-center gap-2">
+              推荐插件
+              {recommendedTotal > 0 ? (
+                <Badge variant="secondary" className="font-normal tabular-nums">
+                  共 {recommendedTotal} 个
+                  {recommendedInstalled > 0 ? ` · 已装 ${recommendedInstalled}` : ''}
+                  {recommendedMissing > 0 ? ` · 待装 ${recommendedMissing}` : ''}
+                </Badge>
+              ) : null}
+            </DialogTitle>
             <DialogDescription>安装后重启 pi-web 服务即可生效。</DialogDescription>
           </DialogHeader>
           <div className="flex max-h-72 flex-col gap-1.5 overflow-y-auto thin-scroll pr-1">
-            {(recommended?.items ?? []).map(item => (
+            {recommendedItems.map(item => (
               <div key={item.pkg} className="flex min-w-0 items-center gap-2.5 rounded-md border border-border bg-muted/25 px-2.5 py-2">
                 <div className="flex min-w-0 flex-1 flex-col">
                   <span className="text-sm font-medium text-foreground">{item.name}</span>
@@ -470,7 +484,7 @@ export default function Ui() {
               {busy === 'restart' ? <Spinner className="size-4" /> : <Icon.RotateCw size={16} strokeWidth={2} />}
               重启服务
             </Button>
-            {(recommended?.items ?? []).some(item => !item.installed) ? (
+            {recommendedMissing > 0 ? (
               <Button disabled={pluginBusy !== null} onClick={() => { void installAll() }}>
                 {pluginBusy === '__all__' ? <Spinner className="size-4" /> : <Icon.CheckCheck size={16} strokeWidth={2} />}
                 一键全部安装
