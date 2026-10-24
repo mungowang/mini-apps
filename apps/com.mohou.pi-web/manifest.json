@@ -2,7 +2,7 @@
   "id": "com.mohou.pi-web",
   "name": "Pi Web",
   "description": "检测、安装（国际/国内镜像双源）并托管 pi-web 本地服务；检测 pi 与插件更新、推荐插件一键安装。安装 pi-web 需下载约 500 MB 的全局 npm 包。",
-  "version": "0.4.3",
+  "version": "0.4.4",
   "entry": "ui.tsx",
   "kind": "website",
   "url": "http://127.0.0.1:30141",

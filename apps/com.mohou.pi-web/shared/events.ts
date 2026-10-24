@@ -64,4 +64,9 @@ export const RECOMMENDED: readonly RecommendedPlugin[] = [
     name: 'Glimpse UI',
     description: '弹窗展示 HTML / 表单 / 图表，适合做轻界面',
   },
+  {
+    pkg: 'npm:pi-devops-tools',
+    name: 'DevOps 数据库',
+    description: 'MySQL 查询工作区：schema 缓存、关系图与查询历史',
+  },
 ]
