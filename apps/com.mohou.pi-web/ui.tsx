@@ -214,11 +214,22 @@ export default function Ui() {
     }
   }, [call, restartServer])
 
+  const refreshRecommended = useCallback(async () => {
+    const rec = asRecommended(await call('recommended', {}))
+    if (rec !== undefined) setRecommended({ ...rec, firstRun: false })
+    return rec
+  }, [call])
+
   const installOne = useCallback(async (pkg: string) => {
     await call('installPlugin', { pkg, ...registryChoice === 'npmmirror' ? { registry: 'npmmirror' } : {} })
-    const rec = asRecommended(await call('recommended', {}))
-    setRecommended(rec === undefined ? undefined : { ...rec, firstRun: false })
-  }, [call, registryChoice])
+    await refreshRecommended()
+  }, [call, registryChoice, refreshRecommended])
+
+  const openRecommended = useCallback(() => {
+    setRecommendedOpen(true)
+    // Always re-fetch so a newly shipped RECOMMENDED list is not stuck on an old in-memory 8.
+    void refreshRecommended().catch(() => undefined)
+  }, [refreshRecommended])
 
   const installPlugin = useCallback(async (pkg: string) => {
     setPluginBusy(pkg)
@@ -349,7 +360,7 @@ export default function Ui() {
           variant="outline"
           aria-label="推荐插件"
           title="推荐插件"
-          onClick={() => { setRecommendedOpen(true) }}
+          onClick={() => { openRecommended() }}
         >
           <Icon.Puzzle size={14} strokeWidth={2} />
         </Button>
@@ -428,7 +439,10 @@ export default function Ui() {
       </Dialog>
 
       {/* Recommended plugins: per-item install, restart at the bottom. */}
-      <Dialog open={recommendedOpen} onOpenChange={setRecommendedOpen}>
+      <Dialog open={recommendedOpen} onOpenChange={(open) => {
+        setRecommendedOpen(open)
+        if (open) void refreshRecommended().catch(() => undefined)
+      }}>
         <DialogContent width="36rem">
           <DialogHeader>
             <DialogTitle>推荐插件</DialogTitle>
