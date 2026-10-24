@@ -22,7 +22,7 @@ The default runtime root is `~/.mini-app/runtime`. On Windows it is `%USERPROFIL
 | Themes | `@mohou-apps/themes` | every `theme-<id>.css` in the tree, flat in `package/themes/` whatever the folder it was edited in; outer `mohou.sum` is over those files |
 | Catalog | `@mohou-apps/catalog` | `package.json` only; `mohou.apps` is the list (apps and themes) and `mohou.themePacks` the bundles |
 
-Theme edit tree is `themes/theme-<id>.css` for a theme on its own, and `themes/<bundleId>/theme-<id>.css` for one inside a bundle (灵感 / Inspiration). Id is `^[a-z0-9-]+$` and must stay unique across the whole tree, flat and bundled together: a machine installs one flat `theme-<id>.css` with one lock, so an id reused between two bundles cannot keep both. Formal headers feed the catalog row:
+Theme edit tree is `themes/theme-<id>.css` for a theme on its own, and `themes/<bundleId>/theme-<id>.css` for one inside a bundle (灵感 / Inspiration pack). This repo currently ships **16 packs · 100 themes** under `themes/<bundleId>/` only (no ungrouped flat files). Id is `^[a-z0-9-]+$` and must stay unique across the whole tree: a machine installs one flat `theme-<id>.css` with one lock, so an id reused between two packs cannot keep both. Formal headers feed the catalog row:
 
 ```css
 /* name: Charcoal & Amber */
@@ -78,28 +78,46 @@ rsync -a --exclude storage --exclude .git --exclude node_modules --exclude .auto
 
 ## Catalog
 
-| ID | Name | Path |
-|---|---|---|
-| `com.mohou.kedu` | 刻度清单 | [`apps/com.mohou.kedu`](./apps/com.mohou.kedu) |
-| `com.mohou.llm-ocr` | AI 识图 | [`apps/com.mohou.llm-ocr`](./apps/com.mohou.llm-ocr) |
-| `com.mohou.data-cask` | 数据手账 | [`apps/com.mohou.data-cask`](./apps/com.mohou.data-cask) |
-| `com.mohou.pi-web` | Pi Web | [`apps/com.mohou.pi-web`](./apps/com.mohou.pi-web) |
-| `nichi-moss-rust` | Moss Rust / 苔锈 | [`themes/theme-nichi-moss-rust.css`](./themes/theme-nichi-moss-rust.css) |
-| `nichi-reed-field` | Reed Field / 荻原 | [`themes/theme-nichi-reed-field.css`](./themes/theme-nichi-reed-field.css) |
-| `nichi-lamp` | Corner Lamp / 晚灯 · autumn | [`themes/autumn/theme-nichi-lamp.css`](./themes/autumn/theme-nichi-lamp.css) |
-| `nichi-maple-sky` | Maple Sky / 秋枝 · autumn | [`themes/autumn/theme-nichi-maple-sky.css`](./themes/autumn/theme-nichi-maple-sky.css) |
-| `nichi-momiji` | Momiji / 枫叶 · autumn | [`themes/autumn/theme-nichi-momiji.css`](./themes/autumn/theme-nichi-momiji.css) |
-| `nichi-pumpkin-spice` | Pumpkin Spice / 南瓜肉桂 · autumn | [`themes/autumn/theme-nichi-pumpkin-spice.css`](./themes/autumn/theme-nichi-pumpkin-spice.css) |
-| `nichi-white-gourd` | White Gourd / 白南瓜 · autumn | [`themes/autumn/theme-nichi-white-gourd.css`](./themes/autumn/theme-nichi-white-gourd.css) |
-| `luxe-festive-plate` | Festive Plate / 珠光盘 · dusk | [`themes/dusk/theme-luxe-festive-plate.css`](./themes/dusk/theme-luxe-festive-plate.css) |
-| `luxe-folio` | Warm Folio / 素笺 · dusk | [`themes/dusk/theme-luxe-folio.css`](./themes/dusk/theme-luxe-folio.css) |
-| `luxe-rhythm` | Rhythm / 紫穗 · dusk | [`themes/dusk/theme-luxe-rhythm.css`](./themes/dusk/theme-luxe-rhythm.css) |
-| `luxe-saffron` | Saffron Ink / 藏红 · dusk | [`themes/dusk/theme-luxe-saffron.css`](./themes/dusk/theme-luxe-saffron.css) |
-| `luxe-soft-coral` | Soft Coral / 淡珊瑚 · dusk | [`themes/dusk/theme-luxe-soft-coral.css`](./themes/dusk/theme-luxe-soft-coral.css) |
-| `luxe-sunset` | Sunset Bay / 暮湾 · shore | [`themes/shore/theme-luxe-sunset.css`](./themes/shore/theme-luxe-sunset.css) |
-| `nichi-field` | Field Bus / 田野 · shore | [`themes/shore/theme-nichi-field.css`](./themes/shore/theme-nichi-field.css) |
-| `nichi-sakura` | Sakura Lane / 樱巷 · shore | [`themes/shore/theme-nichi-sakura.css`](./themes/shore/theme-nichi-sakura.css) |
-| `nichi-sea` | Sea Bench / 海边 · shore | [`themes/shore/theme-nichi-sea.css`](./themes/shore/theme-nichi-sea.css) |
+Versions below match the edit tree (`catalog.version` **1.3.7**, `themes.version` **1.1.1**). The packed catalog lists every theme row individually; here packs are summarized so the table stays readable.
+
+### Apps
+
+| ID | Name | Version | Path |
+|---|---|---|---|
+| `com.mohou.kedu` | 刻度清单 | 0.5.5 | [`apps/com.mohou.kedu`](./apps/com.mohou.kedu) |
+| `com.mohou.data-cask` | 数据手账 | 0.3.56 | [`apps/com.mohou.data-cask`](./apps/com.mohou.data-cask) |
+| `com.mohou.pi-web` | Pi Web (`website`) | 0.4.1 | [`apps/com.mohou.pi-web`](./apps/com.mohou.pi-web) |
+| `com.mohou.llm-ocr` | AI 识图 | 0.1.2 | [`apps/com.mohou.llm-ocr`](./apps/com.mohou.llm-ocr) |
+
+- **刻度清单** — task capture, boards, archive, and **connectors** (import external tasks via MCP/HTTP without code changes).
+- **数据手账** — local tables and rows; create, browse, import CSV/Excel.
+- **Pi Web** — detect/install/host the local pi-web service (intl + CN mirrors); plugin updates and one-click recommended installs (~500 MB npm package on first install).
+- **AI 识图** — paste a screenshot, box a region, OCR via LLM into copyable text.
+
+### Theme packs (灵感合集)
+
+16 official packs · **100** themes. Each pack is `themes/<id>/` with `theme.manifest.json` + `theme-*.css`.
+
+| Pack ID | Name | Themes | Path |
+|---|---|---:|---|
+| `blossom-pop` | Blossom Pop / 花期 | 5 | [`themes/blossom-pop`](./themes/blossom-pop) |
+| `cellar-wine` | Cellar Wine / 酒窖 | 6 | [`themes/cellar-wine`](./themes/cellar-wine) |
+| `citrus-parade` | Citrus Parade / 柑橘游行 | 6 | [`themes/citrus-parade`](./themes/citrus-parade) |
+| `clay-bazaar` | Clay Bazaar / 陶土市集 | 7 | [`themes/clay-bazaar`](./themes/clay-bazaar) |
+| `emerald-hall` | Emerald Hall / 翡翠厅 | 5 | [`themes/emerald-hall`](./themes/emerald-hall) |
+| `lilac-quiet` | Lilac Quiet / 丁香静默 | 7 | [`themes/lilac-quiet`](./themes/lilac-quiet) |
+| `linen-hour` | Linen Hour / 亚麻时辰 | 7 | [`themes/linen-hour`](./themes/linen-hour) |
+| `midnight-vigil` | Midnight Vigil / 夜祷 | 6 | [`themes/midnight-vigil`](./themes/midnight-vigil) |
+| `moss-and-rust` | Moss & Rust / 苔与锈 | 6 | [`themes/moss-and-rust`](./themes/moss-and-rust) |
+| `noir-couture` | Noir Couture / 夜装 | 4 | [`themes/noir-couture`](./themes/noir-couture) |
+| `peony-hour` | Peony Hour / 玫瑰灰 | 6 | [`themes/peony-hour`](./themes/peony-hour) |
+| `reef-candy` | Reef Candy / 珊瑚糖 | 6 | [`themes/reef-candy`](./themes/reef-candy) |
+| `sage-choir` | Sage Choir / 鼠尾草 | 6 | [`themes/sage-choir`](./themes/sage-choir) |
+| `sea-glass` | Sea Glass / 海玻璃 | 7 | [`themes/sea-glass`](./themes/sea-glass) |
+| `tide-depth` | Tide Depth / 深潮 | 8 | [`themes/tide-depth`](./themes/tide-depth) |
+| `washi-plain` | Plain Washi / 素纸 | 8 | [`themes/washi-plain`](./themes/washi-plain) |
+
+Older single-file ids (`nichi-*`, `luxe-*`) still exist as themes inside these packs (for example `nichi-moss-rust` lives under `moss-and-rust/`). There is no longer an `autumn` / `dusk` / `shore` folder layout.
 
 ## Add another app
 
