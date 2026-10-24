@@ -593,13 +593,30 @@ export default defineApp({
 
     /* ── 接入：外部数据源 ── */
 
-    /** Connectors + boards + templates, for the 接入 panel. */
+    /** Connectors + boards + templates + host MCP servers, for the 接入 panel. */
     async connectorsList(ctx) {
       const connectors = await loadConnectors(ctx.storage);
+      let mcpServers: Array<{ id: string; status: string; tools?: string[]; error?: { code: string; message?: string } }> = [];
+      try {
+        // includeAll: show failed ones so the picker can explain why a server is missing
+        const listed = await ctx.mcpServers(true);
+        mcpServers = (listed.servers || []).map(function (s) {
+          return {
+            id: s.id,
+            status: s.status,
+            tools: s.tools ? s.tools.slice() : undefined,
+            error: s.error ? { code: s.error.code, message: s.error.message } : undefined,
+          };
+        });
+      } catch (e) {
+        // older host without mcpServers — UI falls back to free text
+        ctx.log("mcpServers list failed", String((e as { message?: string }).message || e));
+      }
       return {
         connectors: connectors,
         boards: await loadBoards(ctx.storage),
         templates: TEMPLATES,
+        mcpServers: mcpServers,
       };
     },
 

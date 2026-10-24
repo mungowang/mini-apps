@@ -784,6 +784,8 @@ export function Connect(props: { onPack: (res: unknown) => void; onClose: () => 
   const [step, setStep] = React.useState(0);
   const [connectors, setConnectors] = React.useState<Connector[]>([]);
   const [templates, setTemplates] = React.useState<ConnectorTemplate[]>([]);
+  type McpServerRow = { id: string; status: string; tools?: string[]; error?: { code: string; message?: string } };
+  const [mcpServers, setMcpServers] = React.useState<McpServerRow[]>([]);
   const [draft, setDraft] = React.useState<Draft | null>(null);
   const [sample, setSample] = React.useState<SampleState>(EMPTY_SAMPLE);
   const [active, setActive] = React.useState<Active | null>(null);
@@ -801,6 +803,7 @@ export function Connect(props: { onPack: (res: unknown) => void; onClose: () => 
         if (res && typeof res === "object" && Array.isArray((res as { connectors?: Connector[] }).connectors)) {
           setConnectors((res as { connectors: Connector[] }).connectors);
           setTemplates(((res as { templates?: ConnectorTemplate[] }).templates || []) as ConnectorTemplate[]);
+          setMcpServers(((res as { mcpServers?: McpServerRow[] }).mcpServers || []) as McpServerRow[]);
         }
       } catch (e) {
         toast.add({ title: "接入面板没打开", description: String((e as { message?: string }).message || e) });
@@ -1144,27 +1147,94 @@ export function Connect(props: { onPack: (res: unknown) => void; onClose: () => 
         </div>
         {draft.kind === "mcp" ? (
           <div className="mt-3 grid grid-cols-2 gap-2.5">
-            <Labeled label="MCP Server id">
-              {/* Host 加 list API 后改成 Select；现在仍手填，占位提示本机常见 id */}
-              <input
-                value={draft.serverId}
-                onChange={function (e) { patch(function (d) { d.serverId = e.target.value; }); }}
-                className={inputCls}
-                placeholder="已接入的 server id"
-                list="kedu-mcp-hint"
-              />
-              <datalist id="kedu-mcp-hint">
-                <option value="jira" />
-                <option value="calendar" />
-                <option value="global-confluence" />
-                <option value="microsoft-teams" />
-                <option value="splunk-cn" />
-              </datalist>
+            <Labeled label="MCP Server">
+              {mcpServers.length ? (
+                <select
+                  value={draft.serverId}
+                  onChange={function (e) {
+                    const id = e.target.value;
+                    patch(function (d) {
+                      d.serverId = id;
+                      const row = mcpServers.find(function (s) { return s.id === id; });
+                      const tools = (row && row.tools) || [];
+                      // 换 server 时：若当前 tool 不在新列表里，清掉或落到第一个
+                      if (tools.length && tools.indexOf(d.toolName) < 0) d.toolName = tools[0] || "";
+                    });
+                  }}
+                  className={inputCls}
+                >
+                  <option value="">选一个已接入的 server…</option>
+                  {mcpServers.map(function (s) {
+                    const label =
+                      s.status === "alive"
+                        ? s.id + (s.tools && s.tools.length ? " · " + String(s.tools.length) + " tools" : "")
+                        : s.id + " · 不可用" + (s.error && s.error.code ? " (" + s.error.code + ")" : "");
+                    return (
+                      <option key={s.id} value={s.id} disabled={s.status !== "alive"}>
+                        {label}
+                      </option>
+                    );
+                  })}
+                </select>
+              ) : (
+                <input
+                  value={draft.serverId}
+                  onChange={function (e) { patch(function (d) { d.serverId = e.target.value; }); }}
+                  className={inputCls}
+                  placeholder="host 未返回列表时手填 server id"
+                />
+              )}
             </Labeled>
-            <Labeled label="工具名">
-              <input value={draft.toolName} onChange={function (e) { patch(function (d) { d.toolName = e.target.value; }); }} className={inputCls} placeholder="工具名，如 JiraQuery" />
+            <Labeled label="工具">
+              {function () {
+                const row = mcpServers.find(function (s) { return s.id === draft.serverId; });
+                const tools = (row && row.tools) || [];
+                if (tools.length) {
+                  return (
+                    <select
+                      value={draft.toolName}
+                      onChange={function (e) { patch(function (d) { d.toolName = e.target.value; }); }}
+                      className={inputCls}
+                    >
+                      <option value="">选工具…</option>
+                      {tools.map(function (t) {
+                        return (
+                          <option key={t} value={t}>
+                            {t}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  );
+                }
+                return (
+                  <input
+                    value={draft.toolName}
+                    onChange={function (e) { patch(function (d) { d.toolName = e.target.value; }); }}
+                    className={inputCls}
+                    placeholder={draft.serverId ? "该 server 无工具列表，手填" : "先选 server"}
+                  />
+                );
+              }()}
             </Labeled>
-            <p className="col-span-2 text-[11px] text-muted-foreground">server 列表等 host 提供 list API 后会改成下拉。</p>
+            {function () {
+              const row = mcpServers.find(function (s) { return s.id === draft.serverId; });
+              if (row && row.status !== "alive") {
+                return (
+                  <p className="col-span-2 text-[11px] text-destructive">
+                    {row.id} 不可用{row.error ? "：" + (row.error.message || row.error.code) : ""}
+                  </p>
+                );
+              }
+              if (!mcpServers.length) {
+                return <p className="col-span-2 text-[11px] text-muted-foreground">没有从 host 拉到 MCP 列表，可手填。</p>;
+              }
+              return (
+                <p className="col-span-2 text-[11px] text-muted-foreground">
+                  共 {String(mcpServers.filter(function (s) { return s.status === "alive"; }).length)} 个可用 server（host mcpServers）
+                </p>
+              );
+            }()}
           </div>
         ) : (
           <div className="mt-3 grid grid-cols-3 gap-2.5">
