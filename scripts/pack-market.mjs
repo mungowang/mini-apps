@@ -253,6 +253,7 @@ function readApp(dirName) {
     dir,
     tags: Array.isArray(manifest.tags) ? manifest.tags.filter(item => typeof item === 'string') : undefined,
     appKind: manifest.kind === 'workbench' || manifest.appKind === 'workbench' ? 'workbench' : undefined,
+    requires: typeof manifest.requires === 'string' && manifest.requires.length > 0 ? manifest.requires : undefined,
   }
 }
 
@@ -289,6 +290,7 @@ function packApp(app) {
       official: true,
       author: 'Mohou',
       ...app.appKind === undefined ? {} : { appKind: app.appKind },
+      ...app.requires === undefined ? {} : { requires: app.requires },
       ...app.tags === undefined || app.tags.length === 0 ? {} : { tags: app.tags },
       tarballPath,
     },

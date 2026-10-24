@@ -109,6 +109,7 @@ export default function Ui() {
   const [recommended, setRecommended] = useState<{ firstRun: boolean; items: RecommendedItem[] } | undefined>(undefined)
   const [recommendedOpen, setRecommendedOpen] = useState(false)
   const [pluginBusy, setPluginBusy] = useState<string | null>(null)
+  const [installingStep, setInstallingStep] = useState<string | null>(null)
   const [registryChoice, setRegistryChoice] = useState<'direct' | 'npmmirror'>('direct')
 
   const probe = useCallback(async () => {
@@ -211,19 +212,45 @@ export default function Ui() {
     }
   }, [call, restartServer])
 
+  const installOne = useCallback(async (pkg: string) => {
+    await call('installPlugin', { pkg, ...registryChoice === 'npmmirror' ? { registry: 'npmmirror' } : {} })
+    const rec = asRecommended(await call('recommended', {}))
+    setRecommended(rec === undefined ? undefined : { ...rec, firstRun: false })
+  }, [call, registryChoice])
+
   const installPlugin = useCallback(async (pkg: string) => {
     setPluginBusy(pkg)
     try {
-      await call('installPlugin', { pkg, ...registryChoice === 'npmmirror' ? { registry: 'npmmirror' } : {} })
-      const rec = asRecommended(await call('recommended', {}))
-      setRecommended(rec === undefined ? undefined : { ...rec, firstRun: false })
+      await installOne(pkg)
       toast.add({ title: '插件已安装', description: pkg })
     } catch (caught) {
       toast.add({ title: '插件安装失败', description: messageOf(caught), type: 'error' })
     } finally {
       setPluginBusy(null)
     }
-  }, [call])
+  }, [installOne])
+
+  const installAll = useCallback(async () => {
+    const missing = (recommended?.items ?? []).filter(item => !item.installed)
+    if (missing.length === 0) return
+    setPluginBusy('__all__')
+    let done = 0
+    let failed = 0
+    for (const item of missing) {
+      setInstallingStep(`${item.name}（${done + failed + 1}/${missing.length}）`)
+      try {
+        await installOne(item.pkg)
+        done += 1
+      } catch {
+        failed += 1
+      }
+    }
+    setInstallingStep(null)
+    toast.add({
+      title: failed === 0 ? '全部插件已安装' : '安装完成（部分失败）',
+      description: `成功 ${done} 个${failed > 0 ? `，失败 ${failed} 个` : ''}。可重启 pi-web 服务生效`,
+    })
+  }, [recommended, installOne])
 
   const showFrame = (site.phase === 'ready' || site.phase === 'refreshing') && site.url !== undefined
   const needsPanel = status !== undefined && (!status.installed || status.updateAvailable === true)
@@ -360,7 +387,7 @@ export default function Ui() {
 
       {/* Updates: pi itself plus plugins, with one-click update + restart. */}
       <Dialog open={updateOpen} onOpenChange={setUpdateOpen}>
-        <DialogContent>
+        <DialogContent width="34rem">
           <DialogHeader>
             <DialogTitle>有可用更新</DialogTitle>
             <DialogDescription>更新 pi 与插件后需要重启 pi-web 服务才能生效。</DialogDescription>
@@ -376,33 +403,33 @@ export default function Ui() {
               </div>
             ) : null}
             {(updateInfo?.packages ?? []).map(row => (
-              <div key={row.pkg} className="flex items-center gap-2 rounded-md border border-border bg-muted/25 px-2.5 py-2 text-sm">
+              <div key={row.pkg} className="flex min-w-0 items-center gap-2 rounded-md border border-border bg-muted/25 px-2.5 py-2 text-sm">
                 <Icon.Puzzle size={13} strokeWidth={2} className="shrink-0 text-muted-foreground" />
                 <span className="min-w-0 flex-1 truncate font-mono text-xs">{row.pkg}</span>
                 <span className="font-mono text-xs text-muted-foreground">{row.current ?? '?'} → {row.latest ?? '?'}</span>
               </div>
             ))}
           </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => { setUpdateOpen(false) }}>稍后</Button>
+          <DialogFooter className="items-center gap-2">
             <Button disabled={updating} onClick={() => { void runUpdateAll() }}>
-              {updating ? <Spinner className="size-3.5" /> : <Icon.Download size={14} strokeWidth={2} />}
+              {updating ? <Spinner className="size-4" /> : <Icon.Download size={16} strokeWidth={2} />}
               一键更新并重启
             </Button>
+            <Button variant="ghost" onClick={() => { setUpdateOpen(false) }}>稍后</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Recommended plugins: per-item install, restart at the bottom. */}
       <Dialog open={recommendedOpen} onOpenChange={setRecommendedOpen}>
-        <DialogContent>
+        <DialogContent width="36rem">
           <DialogHeader>
             <DialogTitle>推荐插件</DialogTitle>
             <DialogDescription>安装后重启 pi-web 服务即可生效。</DialogDescription>
           </DialogHeader>
           <div className="flex max-h-72 flex-col gap-1.5 overflow-y-auto thin-scroll pr-1">
             {(recommended?.items ?? []).map(item => (
-              <div key={item.pkg} className="flex items-center gap-2.5 rounded-md border border-border bg-muted/25 px-2.5 py-2">
+              <div key={item.pkg} className="flex min-w-0 items-center gap-2.5 rounded-md border border-border bg-muted/25 px-2.5 py-2">
                 <div className="flex min-w-0 flex-1 flex-col">
                   <span className="text-sm font-medium text-foreground">{item.name}</span>
                   <span className="truncate text-xs text-muted-foreground">{item.description}</span>
@@ -418,23 +445,36 @@ export default function Ui() {
               </div>
             ))}
           </div>
-          <DialogFooter>
-            <label className="mr-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+          <DialogFooter className="flex-wrap items-center gap-2">
+            <label className="mr-auto flex items-center gap-1.5 text-xs text-muted-foreground">
               安装源
               <select
                 className="h-7 rounded-md border border-input bg-background px-1.5 text-xs"
                 value={registryChoice}
                 onChange={(e) => { setRegistryChoice(e.target.value === 'npmmirror' ? 'npmmirror' : 'direct') }}
+                disabled={pluginBusy !== null}
               >
                 <option value="direct">国际</option>
                 <option value="npmmirror">国内镜像</option>
               </select>
             </label>
-            <Button variant="ghost" onClick={() => { setRecommendedOpen(false) }}>关闭</Button>
+            {installingStep !== null ? (
+              <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Spinner className="size-3" />
+                {installingStep}
+              </span>
+            ) : null}
             <Button disabled={busy !== null} onClick={() => { void restartServer() }}>
-              {busy === 'restart' ? <Spinner className="size-3.5" /> : <Icon.RotateCw size={14} strokeWidth={2} />}
-              重启 pi-web 服务
+              {busy === 'restart' ? <Spinner className="size-4" /> : <Icon.RotateCw size={16} strokeWidth={2} />}
+              重启服务
             </Button>
+            {(recommended?.items ?? []).some(item => !item.installed) ? (
+              <Button disabled={pluginBusy !== null} onClick={() => { void installAll() }}>
+                {pluginBusy === '__all__' ? <Spinner className="size-4" /> : <Icon.CheckCheck size={16} strokeWidth={2} />}
+                一键全部安装
+              </Button>
+            ) : null}
+            <Button variant="ghost" onClick={() => { setRecommendedOpen(false) }}>关闭</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

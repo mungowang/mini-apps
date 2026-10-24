@@ -25,14 +25,29 @@ export interface RecommendedPlugin {
 
 export const RECOMMENDED: readonly RecommendedPlugin[] = [
   {
-    pkg: 'npm:tau-mirror',
-    name: 'Tau Mirror',
-    description: '内网工具镜像服务，浏览器直取 Tesla 内部资源',
-  },
-  {
     pkg: 'npm:pi-mermaid',
     name: 'Mermaid 图表',
     description: '在对话里渲染和导出 Mermaid 图表',
+  },
+  {
+    pkg: 'npm:pi-web-access',
+    name: 'Web Access',
+    description: '网页搜索与阅读能力，让 pi 能查资料',
+  },
+  {
+    pkg: 'npm:pi-workspace-history',
+    name: '工作区历史',
+    description: '按工作区记录会话历史，快速回到上下文',
+  },
+  {
+    pkg: 'npm:@juicesharp/rpiv-ask-user-question',
+    name: '结构化提问',
+    description: '关键分叉处给用户结构化选项，而不是开放式追问',
+  },
+  {
+    pkg: 'npm:superpowers-zh',
+    name: 'Superpowers 中文版',
+    description: '常用工作流技能包（中文）',
   },
   {
     pkg: 'npm:pi-hermes-memory',
