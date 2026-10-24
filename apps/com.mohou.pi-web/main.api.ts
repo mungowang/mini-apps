@@ -1,4 +1,5 @@
 import { existsSync, readFileSync } from 'node:fs'
+import { createServer } from 'node:net'
 import path from 'node:path'
 
 import { defineApp, type AppContext, type AppSpawnHandle } from '@mohou/contract'
@@ -39,10 +40,14 @@ function npmName(pkg: string): string | null {
 }
 
 const HOST = '127.0.0.1'
-const PORT = 30141
-const URL_ROOT = `http://${HOST}:${PORT}`
+/** Preferred port from the manifest url; may yield to a free port when occupied externally. */
+const PREFERRED_PORT = 30141
 const PACKAGE = '@agegr/pi-web'
 const PI_PACKAGE = '@earendil-works/pi-coding-agent'
+
+function urlFor(port: number): string {
+  return `http://${HOST}:${port}`
+}
 
 /** npm/pi long-command budget. Runs on a spawn (no host timeout); this is ours. */
 const COMMAND_BUDGET_MS = 3_600_000
@@ -208,27 +213,72 @@ function serverOf(bag: Record<string, unknown>): AppSpawnHandle | undefined {
   return bag.server as AppSpawnHandle | undefined
 }
 
+/** True when nothing is listening so we can bind this port. */
+function canBind(port: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const server = createServer()
+    server.once('error', () => resolve(false))
+    server.listen(port, HOST, () => {
+      server.close(() => resolve(true))
+    })
+  })
+}
+
+/** Prefer the default port; if taken (external process), ask the OS for a free one. */
+async function allocatePort(preferred: number): Promise<number> {
+  if (await canBind(preferred)) return preferred
+  return await new Promise((resolve, reject) => {
+    const server = createServer()
+    server.once('error', reject)
+    server.listen(0, HOST, () => {
+      const address = server.address()
+      const port = typeof address === 'object' && address !== null ? address.port : 0
+      server.close((error) => {
+        if (error !== undefined) reject(error)
+        else if (port <= 0) reject(new Error('无法分配端口'))
+        else resolve(port)
+      })
+    })
+  })
+}
+
 async function startServer(ctx: AppContext, restart: boolean): Promise<{ readonly url: string }> {
   const bag = sessionBag(ctx)
+  const heldUrl = typeof bag.url === 'string' ? bag.url : undefined
+
   if (restart) {
     const held = serverOf(bag)
     if (held !== undefined) {
       await held.kill().catch(() => undefined)
       bag.server = undefined
     }
+    bag.url = undefined
   } else {
-    try {
-      const alive = (await ctx.http(URL_ROOT, { timeout: 1_500 })).ok
-      if (alive) return { url: URL_ROOT }
-    } catch {
-      // not up; start below
+    // Reuse our own held child when it still answers.
+    if (heldUrl !== undefined && serverOf(bag) !== undefined) {
+      try {
+        if ((await ctx.http(heldUrl, { timeout: 1_500 })).ok) return { url: heldUrl }
+      } catch {
+        // fall through and respawn
+      }
     }
   }
+
   if (await piWebVersion(ctx) === null) throw new Error('pi-web 未安装')
-  const child = await spawnCommand(ctx, 'pi-web', ['--no-open', '--port', String(PORT)])
+
+  // Preferred port busy and not our child → external process; pick another port and log.
+  // We never kill a process we did not spawn.
+  const port = await allocatePort(PREFERRED_PORT)
+  const url = urlFor(port)
+  if (port !== PREFERRED_PORT) {
+    ctx.log(`pi-web: 端口 ${PREFERRED_PORT} 已被占用，改用 ${port}`)
+  }
+
+  const child = await spawnCommand(ctx, 'pi-web', ['--no-open', '--port', String(port)])
   bag.server = child
-  await child.ready({ url: URL_ROOT, timeoutMs: 120_000 })
-  return { url: URL_ROOT }
+  bag.url = url
+  await child.ready({ url, timeoutMs: 120_000 })
+  return { url }
 }
 
 export default defineApp({
