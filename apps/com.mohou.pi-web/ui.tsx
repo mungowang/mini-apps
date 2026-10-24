@@ -205,6 +205,8 @@ export default function Ui() {
       await restartServer()
       const updates = asUpdateCheck(await call('updateCheck', {}))
       setUpdateInfo(updates)
+      // Close when the recheck is clean; keep the dialog open only with leftovers.
+      if (updates.pi?.updateAvailable !== true && updates.packages.length === 0) setUpdateOpen(false)
     } catch (caught) {
       toast.add({ title: '更新失败', description: messageOf(caught), type: 'error' })
     } finally {
