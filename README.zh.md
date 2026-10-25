@@ -78,13 +78,13 @@ rsync -a --exclude storage --exclude .git --exclude node_modules --exclude .auto
 
 ## 目录
 
-下面版本对齐编辑树（`catalog.version` **1.3.13**，`themes.version` **1.1.1**）。打包后的 catalog 会逐条列出每个 theme；这里按合集汇总，避免一百行表格。
+下面版本对齐编辑树（`catalog.version` **1.3.14**，`themes.version` **1.1.1**）。打包后的 catalog 会逐条列出每个 theme；这里按合集汇总，避免一百行表格。
 
 ### Apps
 
 | ID | 名称 | 版本 | 路径 |
 |---|---|---|---|
-| `com.mohou.kedu` | 刻度清单 | 0.6.0 | [`apps/com.mohou.kedu`](./apps/com.mohou.kedu) |
+| `com.mohou.kedu` | 刻度清单 | 0.6.1 | [`apps/com.mohou.kedu`](./apps/com.mohou.kedu) |
 | `com.mohou.data-cask` | 数据手账 | 0.3.56 | [`apps/com.mohou.data-cask`](./apps/com.mohou.data-cask) |
 | `com.mohou.pi-web` | Pi Web（`website`） | 0.4.6 | [`apps/com.mohou.pi-web`](./apps/com.mohou.pi-web) |
 | `com.mohou.llm-ocr` | AI 识图 | 0.1.2 | [`apps/com.mohou.llm-ocr`](./apps/com.mohou.llm-ocr) |

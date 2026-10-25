@@ -72,7 +72,12 @@ export const JIRA_MAPPING: ConnectorMapping = {
   externalId: { template: [{ field: "key" }] },
   title: { template: [{ field: "key" }, { lit: " " }, { field: "fields.summary" }] },
   notes: { field: "fields.description" },
-  due: { field: "fields.duedate", transform: "date" },
+  // Scheduled into the current week rather than the issue's duedate: most Jira
+  // issues leave duedate empty, and an empty date keeps the import invisible in
+  // the today/this-week lens. `due` resolves first, then `starts` overrides the
+  // Monday it implies, so the span is today -> end of this week.
+  starts: { const: "today" },
+  due: { const: "this-week" },
   // statusCategory.name is To Do / In Progress / Done; "done" is in DONE_WORDS.
   done: { field: "fields.status.statusCategory.name" },
   priority: { field: "fields.priority.name", transform: "enum", map: JIRA_PRIORITY_MAP },

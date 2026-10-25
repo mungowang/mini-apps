@@ -6,6 +6,7 @@ import type {
   ConnectorSource,
   ConnectorTemplate,
   TaskDraft,
+  ValueSpec,
 } from "../shared/connectors";
 import { detectRoots, getPath } from "../shared/connectors";
 import { JIRA_MAPPING } from "../shared/dialects";
@@ -168,8 +169,29 @@ export function connectorUid(): string {
 
 /* ───────────────────────── upsert ───────────────────────── */
 
-function draftHash(d: TaskDraft): string {
-  return JSON.stringify([d.title, d.notes || "", d.priority || 0, d.starts || "", d.due || "", (d.tags || []).join(","), (d.subtasks || []).join("␟")]);
+/**
+ * A date slot filled with a fixed preset is decided once, at import time — it is
+ * not data from the source. So it must not enter the content hash, or a rolling
+ * preset ("today", "this-week") would look like a change every day and rewrite
+ * the task on every sync. Slots that read a field keep participating exactly as
+ * before, which leaves every other connector untouched.
+ */
+function isFixedDateSpec(spec: ValueSpec | undefined): boolean {
+  return Boolean(spec && typeof (spec as { const?: unknown }).const === "string");
+}
+
+function draftHash(d: TaskDraft, mapping?: ConnectorMapping): string {
+  const fixedStarts = mapping ? isFixedDateSpec(mapping.starts) : false;
+  const fixedDue = mapping ? isFixedDateSpec(mapping.due) : false;
+  return JSON.stringify([
+    d.title,
+    d.notes || "",
+    d.priority || 0,
+    fixedStarts ? "" : d.starts || "",
+    fixedDue ? "" : d.due || "",
+    (d.tags || []).join(","),
+    (d.subtasks || []).join("␟"),
+  ]);
 }
 
 export type UpsertDeps = {
@@ -225,8 +247,12 @@ export async function upsertDrafts(
           out.skipped += 1;
           continue;
         }
-        const hash = draftHash(d);
+        const hash = draftHash(d, connector.mapping);
         if (String(link.raw_hash || "") !== hash) {
+          // A fixed date was set when the task was created; a later content
+          // change must not pull it forward to today.
+          const fixedStarts = isFixedDateSpec(connector.mapping.starts);
+          const fixedDue = isFixedDateSpec(connector.mapping.due);
           const next: Task = {
             id: task.id,
             title: d.title.slice(0, 200),
@@ -235,8 +261,8 @@ export async function upsertDrafts(
             priority: d.priority || 3,
             tags: d.tags || [],
             boardId: task.boardId,
-            starts: d.starts || null,
-            due: d.due || null,
+            starts: fixedStarts ? task.starts : d.starts || null,
+            due: fixedDue ? task.due : d.due || null,
             startTime: task.startTime,
             endTime: task.endTime,
             subtasks: (d.subtasks || []).map(function (t, k) {
@@ -289,7 +315,7 @@ export async function upsertDrafts(
         await deps.insertTask(created);
         await store.run(
           "INSERT INTO task_links (connector_id, external_id, task_id, raw_hash, deleted_at) VALUES (?, ?, ?, ?, NULL)",
-          [connector.id, d.externalId, taskId, draftHash(d)]
+          [connector.id, d.externalId, taskId, draftHash(d, connector.mapping)]
         );
         out.added += 1;
       }

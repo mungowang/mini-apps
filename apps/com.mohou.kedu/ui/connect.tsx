@@ -698,6 +698,9 @@ function SlotEditor(props: {
                 })}
             </div>
           ) : null}
+          {spec && "const" in spec ? (
+            <p className="mt-1 text-[11px] text-muted-foreground">固定日期只在导入时写入，之后同步不会改它。</p>
+          ) : null}
         </div>
       );
     };
