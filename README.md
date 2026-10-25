@@ -78,15 +78,15 @@ rsync -a --exclude storage --exclude .git --exclude node_modules --exclude .auto
 
 ## Catalog
 
-Versions below match the edit tree (`catalog.version` **1.3.7**, `themes.version` **1.1.1**). The packed catalog lists every theme row individually; here packs are summarized so the table stays readable.
+Versions below match the edit tree (`catalog.version` **1.3.13**, `themes.version` **1.1.1**). The packed catalog lists every theme row individually; here packs are summarized so the table stays readable.
 
 ### Apps
 
 | ID | Name | Version | Path |
 |---|---|---|---|
-| `com.mohou.kedu` | 刻度清单 | 0.5.5 | [`apps/com.mohou.kedu`](./apps/com.mohou.kedu) |
+| `com.mohou.kedu` | 刻度清单 | 0.6.0 | [`apps/com.mohou.kedu`](./apps/com.mohou.kedu) |
 | `com.mohou.data-cask` | 数据手账 | 0.3.56 | [`apps/com.mohou.data-cask`](./apps/com.mohou.data-cask) |
-| `com.mohou.pi-web` | Pi Web (`website`) | 0.4.1 | [`apps/com.mohou.pi-web`](./apps/com.mohou.pi-web) |
+| `com.mohou.pi-web` | Pi Web (`website`) | 0.4.6 | [`apps/com.mohou.pi-web`](./apps/com.mohou.pi-web) |
 | `com.mohou.llm-ocr` | AI 识图 | 0.1.2 | [`apps/com.mohou.llm-ocr`](./apps/com.mohou.llm-ocr) |
 
 - **刻度清单** — task capture, boards, archive, and **connectors** (import external tasks via MCP/HTTP without code changes).

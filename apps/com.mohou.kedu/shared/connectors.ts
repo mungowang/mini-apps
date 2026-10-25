@@ -96,6 +96,11 @@ export type ConnectorTemplate = {
   id: string;
   name: string;
   description: string;
+  /**
+   * What the template is, rather than which server it talks to. The wizard
+   * resolves the server, the tool, and the parameters from the live schema.
+   */
+  hints?: { dialect?: string };
   connector: {
     name: string;
     kind: ConnectorKind;
@@ -239,6 +244,24 @@ function evalToken(rec: unknown, token: TplToken | undefined): string {
   return "";
 }
 
+/**
+ * One token as a list of tags. A field holding an array (Jira `fields.labels[]`)
+ * contributes one tag per element instead of a single joined string.
+ */
+function evalTokenList(rec: unknown, token: TplToken | undefined): string[] {
+  if (!token) return [];
+  if (token.lit !== undefined) return [token.lit];
+  if (token.field !== undefined) {
+    const v = getPath(rec, token.field);
+    if (v === undefined || v === null) return [];
+    if (Array.isArray(v)) {
+      return v.map(function (x) { return String(x); }).filter(function (s) { return s !== ""; });
+    }
+    return [String(v)];
+  }
+  return [];
+}
+
 /** "2026-10-24T16:00:00.000+0800" -> "2026-10-24". */
 export function datePart(v: string): string {
   const m = v.match(/^(\d{4}-\d{2}-\d{2})/);
@@ -336,11 +359,15 @@ export function evalMapping(mapping: ConnectorMapping, rec: unknown, today: stri
   // A from without a to does not span; single-day tasks keep starts = due.
   if (draft.starts && !draft.due) draft.due = draft.starts;
   if (Array.isArray(mapping.tags)) {
-    draft.tags = mapping.tags
-      .map(function (tok) { return evalToken(rec, tok); })
-      .map(function (s) { return s.trim(); })
-      .filter(Boolean)
-      .slice(0, 8);
+    const flat: string[] = [];
+    for (let i = 0; i < mapping.tags.length; i++) {
+      const parts = evalTokenList(rec, mapping.tags[i]);
+      for (let k = 0; k < parts.length; k++) {
+        const s = parts[k].trim();
+        if (s && flat.indexOf(s) < 0) flat.push(s);
+      }
+    }
+    draft.tags = flat.slice(0, 8);
   }
   if (mapping.subtasks) {
     const v = getPath(rec, (mapping.subtasks as { field?: string }).field || "");

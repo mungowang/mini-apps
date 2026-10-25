@@ -11,6 +11,7 @@ import {
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
+  Icon,
   IlluEmpty,
   Kbd,
   ScrollArea,
@@ -31,6 +32,20 @@ import type {
   ValueSpec,
 } from "../shared/connectors";
 import { evalMapping } from "../shared/connectors";
+import {
+  STOCK_JIRA_FIELDS,
+  defaultParamsFor,
+  detectDialect,
+  missingRequired,
+  AUTO_PICK_MIN_SCORE,
+  autoPickTool,
+  rankTools,
+  recommendTool,
+  unknownParamKeys,
+} from "../shared/dialects";
+import type { McpToolSchema } from "../shared/schema";
+import { arrayPaths, allowsExtraParams, schemaProps } from "../shared/schema";
+import { SchemaParamsForm } from "./schema-form";
 import { useStore } from "./store";
 
 /* ───────────────────────── draft ───────────────────────── */
@@ -776,7 +791,7 @@ function SlotEditor(props: {
 
 export function Connect(props: { onPack: (res: unknown) => void; onClose: () => void }) {
   const { call } = useApp();
-  const { boards, today } = useStore();
+  const { boards, today, actions } = useStore();
   const defaultBoard = boards[0] ? boards[0].id : "default";
 
   const [view, setView] = React.useState<"list" | "wizard">("list");
@@ -795,6 +810,132 @@ export function Connect(props: { onPack: (res: unknown) => void; onClose: () => 
   const [runNote, setRunNote] = React.useState<null | { kind: "trial" | "full"; status: "running" | "ok" | "err"; text: string }>(null);
   const [tried, setTried] = React.useState(false);
   const [focusParam, setFocusParam] = React.useState<string | null>(null);
+
+  /* ── tool schemas: fetched per server, on demand ── */
+  type CatalogEntryState = { loading: boolean; error: string | null; unsupported: boolean; tools: McpToolSchema[] };
+  const [catalog, setCatalog] = React.useState<Record<string, CatalogEntryState>>({});
+  const catalogAsked = React.useRef<Record<string, boolean>>({});
+  /** Jira's real field ids, loaded only when the user asks for them. */
+  const [instanceFields, setInstanceFields] = React.useState<Record<string, string[]>>({});
+  const [fieldsLoading, setFieldsLoading] = React.useState(false);
+  /** Inline board creation on the 落点 step: the board a user needs may not exist yet. */
+  const [boardAdding, setBoardAdding] = React.useState(false);
+  const [boardDraft, setBoardDraft] = React.useState("");
+  const [boardBusy, setBoardBusy] = React.useState(false);
+
+  const ensureCatalog = React.useCallback(
+    async function (serverId: string, refresh?: boolean) {
+      if (!serverId) return;
+      if (catalogAsked.current[serverId] && !refresh) return;
+      catalogAsked.current[serverId] = true;
+      setCatalog(function (prev) {
+        const next: Record<string, CatalogEntryState> = Object.assign({}, prev);
+        next[serverId] = { loading: true, error: null, unsupported: false, tools: (prev[serverId] || { tools: [] }).tools };
+        return next;
+      });
+      try {
+        const res = await call("mcpToolCatalog", { serverId: serverId, refresh: refresh === true });
+        const r = res as { tools?: McpToolSchema[]; unsupported?: boolean };
+        setCatalog(function (prev) {
+          const next: Record<string, CatalogEntryState> = Object.assign({}, prev);
+          next[serverId] = { loading: false, error: null, unsupported: r.unsupported === true, tools: r.tools || [] };
+          return next;
+        });
+      } catch (e) {
+        catalogAsked.current[serverId] = false;
+        setCatalog(function (prev) {
+          const next: Record<string, CatalogEntryState> = Object.assign({}, prev);
+          next[serverId] = { loading: false, error: String((e as { message?: string }).message || e), unsupported: false, tools: [] };
+          return next;
+        });
+      }
+    },
+    [call]
+  );
+
+  /** The schema the wizard is currently working against, if the server listed it. */
+  function toolSchema(d: Draft): McpToolSchema | null {
+    const entry = catalog[d.serverId];
+    if (!entry || !entry.tools.length) return null;
+    for (let i = 0; i < entry.tools.length; i++) {
+      if (entry.tools[i].name === d.toolName) return entry.tools[i];
+    }
+    return null;
+  }
+
+  /** Pull the schema as soon as a server is picked, and once on entry. */
+  React.useEffect(
+    function () {
+      if (!draft || draft.kind !== "mcp" || !draft.serverId) return;
+      if (step !== 1 && step !== 2) return;
+      void ensureCatalog(draft.serverId);
+    },
+    [draft, step, ensureCatalog]
+  );
+
+  /**
+   * Pick the tool for an empty template. Ranking reads the schema, so a server
+   * renamed or swapped for a different Jira build still resolves correctly.
+   */
+  React.useEffect(
+    function () {
+      if (!draft || draft.kind !== "mcp" || !draft.serverId) return;
+      const entry = catalog[draft.serverId];
+      if (!entry || entry.loading || !entry.tools.length) return;
+      const known = draft.toolName && entry.tools.some(function (t) { return t.name === draft.toolName; });
+      if (known) return;
+      const pick = autoPickTool(entry.tools);
+      if (!pick) return;
+      setDraft(function (prev) {
+        if (!prev) return prev;
+        const next: Draft = JSON.parse(JSON.stringify(prev));
+        next.toolName = pick.tool.name;
+        if (Object.keys(next.params).length === 0) next.params = defaultParamsFor(pick.tool);
+        return next;
+      });
+    },
+    [draft, catalog]
+  );
+
+  async function loadInstanceFields(serverId: string) {
+    if (!serverId || fieldsLoading) return;
+    setFieldsLoading(true);
+    try {
+      const res = await call("jiraFields", { serverId: serverId });
+      const r = res as { fields?: Array<{ id?: string }> };
+      const ids = (r.fields || []).map(function (f) { return String(f.id || ""); }).filter(Boolean);
+      setInstanceFields(function (prev) {
+        const next = Object.assign({}, prev);
+        next[serverId] = ids;
+        return next;
+      });
+    } catch (e) {
+      toast.add({ title: "拉字段失败", description: String((e as { message?: string }).message || e) });
+    } finally {
+      setFieldsLoading(false);
+    }
+  }
+
+  /**
+   * Create a board from the 落点 step and select it. A failed create (duplicate
+   * name is the usual one) leaves the field open so the name can be fixed.
+   */
+  async function commitBoardAdd() {
+    const name = boardDraft.trim();
+    if (!name || boardBusy) return;
+    setBoardBusy(true);
+    try {
+      const id = await actions.addBoard(name);
+      if (!id) return;
+      patch(function (d) { d.boardId = id; });
+      setBoardAdding(false);
+      setBoardDraft("");
+    } catch (e) {
+      toast.add({ title: "建板块失败", description: String((e as { message?: string }).message || e) });
+    } finally {
+      setBoardBusy(false);
+    }
+  }
 
   const load = React.useCallback(
     async function () {
@@ -1155,11 +1296,11 @@ export function Connect(props: { onPack: (res: unknown) => void; onClose: () => 
                     const id = e.target.value;
                     patch(function (d) {
                       d.serverId = id;
-                      const row = mcpServers.find(function (s) { return s.id === id; });
-                      const tools = (row && row.tools) || [];
-                      // 换 server 时：若当前 tool 不在新列表里，清掉或落到第一个
-                      if (tools.length && tools.indexOf(d.toolName) < 0) d.toolName = tools[0] || "";
+                      // The tool and its parameters belong to the old server.
+                      d.toolName = "";
+                      d.params = {};
                     });
+                    void ensureCatalog(id);
                   }}
                   className={inputCls}
                 >
@@ -1193,7 +1334,17 @@ export function Connect(props: { onPack: (res: unknown) => void; onClose: () => 
                   return (
                     <select
                       value={draft.toolName}
-                      onChange={function (e) { patch(function (d) { d.toolName = e.target.value; }); }}
+                      onChange={function (e) {
+                        const name = e.target.value;
+                        patch(function (d) {
+                          d.toolName = name;
+                          const entry = catalog[d.serverId];
+                          const t = entry
+                            ? entry.tools.find(function (x) { return x.name === name; })
+                            : undefined;
+                          d.params = t ? defaultParamsFor(t) : {};
+                        });
+                      }}
                       className={inputCls}
                     >
                       <option value="">选工具…</option>
@@ -1235,6 +1386,43 @@ export function Connect(props: { onPack: (res: unknown) => void; onClose: () => 
                 </p>
               );
             }()}
+            {function () {
+              const entry = catalog[draft.serverId];
+              if (draft.kind !== "mcp" || !draft.serverId) return null;
+              if (!entry) return null;
+              if (entry.error) {
+                return <p className="col-span-2 text-[11px] text-destructive">读不到该 server 的工具 schema：{entry.error}</p>;
+              }
+              if (entry.unsupported) {
+                return (
+                  <p className="col-span-2 text-[11px] text-muted-foreground">
+                    当前 host 没有 ctx.mcpTools，参数只能手填（host ≥ 1.0.100 才有 schema）。
+                  </p>
+                );
+              }
+              if (entry.loading) {
+                return <p className="col-span-2 text-[11px] text-muted-foreground">正在读工具 schema…</p>;
+              }
+              const ranked = rankTools(entry.tools);
+              const pick = recommendTool(entry.tools);
+              if (!pick) {
+                return (
+                  <p className="col-span-2 text-[11px] text-muted-foreground">
+                    共 {String(entry.tools.length)} 个工具，没有可推荐的，请手选。
+                  </p>
+                );
+              }
+              const chosen = draft.toolName === pick.tool.name;
+              const strong = pick.score >= AUTO_PICK_MIN_SCORE;
+              return (
+                <p className="col-span-2 text-[11px] text-muted-foreground">
+                  {strong ? "推荐 " : "较像列表的 "}
+                  <span className="font-mono text-foreground">{pick.tool.name}</span>（{pick.reason}）
+                  {chosen ? " · 已选" : strong ? "" : " · 没自动选，请确认"}
+                  {ranked.length > 1 ? " · 另有 " + String(ranked.length - 1) + " 个候选" : ""}
+                </p>
+              );
+            }()}
           </div>
         ) : (
           <div className="mt-3 grid grid-cols-3 gap-2.5">
@@ -1267,6 +1455,26 @@ export function Connect(props: { onPack: (res: unknown) => void; onClose: () => 
     const canSample = draft.kind === "mcp" ? Boolean(draft.serverId && draft.toolName) : Boolean(draft.url);
     const fieldsVal = Array.isArray(draft.params.fields) ? (draft.params.fields as unknown[]).map(String) : null;
 
+    const entry = catalog[draft.serverId];
+    const tool = draft.kind === "mcp" ? toolSchema(draft) : null;
+    const dialect = tool ? detectDialect(tool.inputSchema) : null;
+    const stale = tool ? unknownParamKeys(tool, draft.params) : [];
+    const miss = tool ? missingRequired(tool, draft.params) : [];
+
+    const suggestions: Record<string, string[]> = {};
+    if (dialect && dialect.id === "jira") suggestions.fields = STOCK_JIRA_FIELDS.slice();
+    if (draft.serverId && instanceFields[draft.serverId]) {
+      const base = suggestions.fields || [];
+      const extra = instanceFields[draft.serverId].filter(function (id) { return base.indexOf(id) < 0; });
+      suggestions.fields = base.concat(extra);
+    }
+
+    const schemaRoots = tool && tool.outputSchema ? arrayPaths(tool.outputSchema) : [];
+    const rootChips = schemaRoots
+      .concat(sample.roots)
+      .concat([draft.rootPath || "$"])
+      .filter(function (r, i, all) { return all.indexOf(r) === i; });
+
     function toggleField(f: string) {
       patch(function (d) {
         const cur = Array.isArray(d.params.fields) ? (d.params.fields as unknown[]).map(String) : [];
@@ -1283,7 +1491,55 @@ export function Connect(props: { onPack: (res: unknown) => void; onClose: () => 
           <p className="mb-3 text-sm text-muted-foreground">
             请求参数决定「导入哪些」。导入后本地改动不会被同步覆盖；本地删过的默认不再导入。
           </p>
-          {Object.keys(draft.params).map(function (k) {
+          {!tool && entry && (entry.loading || entry.error || entry.unsupported) ? (
+            <p className="mb-2 text-[11px] text-muted-foreground">
+              {entry.loading
+                ? "正在读工具 schema…"
+                : entry.unsupported
+                  ? "当前 host 没有 ctx.mcpTools，参数只能手填（host ≥ 1.0.100 才有 schema）。"
+                  : "读不到 schema：" + String(entry.error)}
+            </p>
+          ) : null}
+          {tool ? (
+            <div className="mb-3">
+              <div className="mb-2 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+                <span className="font-mono text-foreground">{tool.name}</span>
+                <span>· 参数来自这个工具自己的 inputSchema</span>
+              </div>
+              {stale.length ? (
+                <p className="mb-2 text-[11px] text-destructive">
+                  该工具不认这些参数：<span className="font-mono">{stale.join(", ")}</span>
+                </p>
+              ) : null}
+              {miss.length ? (
+                <p className="mb-2 text-[11px] text-muted-foreground">
+                  还差必填：<span className="font-mono">{miss.join(", ")}</span>
+                </p>
+              ) : null}
+              <SchemaParamsForm
+                schema={tool.inputSchema}
+                values={draft.params}
+                allowExtra={allowsExtraParams(tool.inputSchema)}
+                suggestions={suggestions}
+                onChange={function (next) { patch(function (d) { d.params = next; }); }}
+              />
+              {dialect && dialect.id === "jira" && "fields" in schemaProps(tool.inputSchema) ? (
+                <button
+                  type="button"
+                  disabled={fieldsLoading}
+                  onClick={function () { void loadInstanceFields(draft.serverId); }}
+                  className="mt-2 text-[11px] text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                >
+                  {fieldsLoading
+                    ? "正在读实例字段…"
+                    : instanceFields[draft.serverId]
+                      ? "已载入 " + String(instanceFields[draft.serverId].length) + " 个实例字段"
+                      : "从实例加载字段（含自定义字段）"}
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+          {tool ? null : Object.keys(draft.params).map(function (k) {
             const v = draft.params[k];
             const isArr = Array.isArray(v);
             const focused = focusParam === k;
@@ -1341,20 +1597,22 @@ export function Connect(props: { onPack: (res: unknown) => void; onClose: () => 
               </div>
             );
           })}
-          <button
-            type="button"
-            onClick={function () {
-              const nk = "p" + String(Object.keys(draft.params).length + 1);
-              patch(function (d) { d.params[nk] = ""; });
-            }}
-            className="mb-3 text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
-          >
-            ＋ 加参数
-          </button>
+          {tool ? null : (
+            <button
+              type="button"
+              onClick={function () {
+                const nk = "p" + String(Object.keys(draft.params).length + 1);
+                patch(function (d) { d.params[nk] = ""; });
+              }}
+              className="mb-3 text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+            >
+              ＋ 加参数
+            </button>
+          )}
 
           <p className="mb-1.5 text-xs text-muted-foreground">样本根路径</p>
           <div className="mb-3 flex flex-wrap gap-1.5">
-            {(sample.roots.length ? sample.roots : [draft.rootPath || "$"]).map(function (r) {
+            {rootChips.map(function (r) {
               return (
                 <button
                   key={r || "$"}
@@ -1493,15 +1751,62 @@ export function Connect(props: { onPack: (res: unknown) => void; onClose: () => 
     return (
       <div className="max-w-md">
         <Labeled label="导入到板块">
-          <select value={draft.boardId} onChange={function (e) { patch(function (d) { d.boardId = e.target.value; }); }} className={inputCls}>
-            {boards.map(function (b) {
-              return (
-                <option key={b.id} value={b.id}>
-                  {b.name + (b.fixed ? "（默认）" : "")}
-                </option>
-              );
-            })}
-          </select>
+          {boardAdding ? (
+            <div className="flex items-center gap-2">
+              <input
+                autoFocus
+                value={boardDraft}
+                placeholder="新板块名…"
+                onChange={function (e) { setBoardDraft(e.target.value); }}
+                onKeyDown={function (e) {
+                  if (e.key === "Enter") void commitBoardAdd();
+                  if (e.key === "Escape") {
+                    setBoardAdding(false);
+                    setBoardDraft("");
+                  }
+                }}
+                className={inputCls + " flex-1"}
+              />
+              <Button
+                size="sm"
+                disabled={!boardDraft.trim() || boardBusy}
+                onClick={function () { void commitBoardAdd(); }}
+              >
+                {boardBusy ? "建…" : "建"}
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={function () {
+                  setBoardAdding(false);
+                  setBoardDraft("");
+                }}
+              >
+                取消
+              </Button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <select value={draft.boardId} onChange={function (e) { patch(function (d) { d.boardId = e.target.value; }); }} className={inputCls + " min-w-0 flex-1"}>
+                {boards.map(function (b) {
+                  return (
+                    <option key={b.id} value={b.id}>
+                      {b.name + (b.fixed ? "（默认）" : "")}
+                    </option>
+                  );
+                })}
+              </select>
+              <button
+                type="button"
+                aria-label="新建板块"
+                title="新建板块"
+                onClick={function () { setBoardAdding(true); setBoardDraft(""); }}
+                className="grid size-9 shrink-0 place-items-center rounded-md border border-input text-muted-foreground outline-none transition-colors hover:border-foreground hover:text-foreground focus-visible:border-foreground"
+              >
+                <Icon.Plus size={15} strokeWidth={2} />
+              </button>
+            </div>
+          )}
         </Labeled>
         <label className="mt-3 flex items-center gap-2 text-sm">
           <input type="checkbox" checked={draft.syncDone} onChange={function (e) { patch(function (d) { d.syncDone = e.target.checked; }); }} className="size-3.5 accent-foreground" />

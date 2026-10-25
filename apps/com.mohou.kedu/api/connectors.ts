@@ -8,6 +8,7 @@ import type {
   TaskDraft,
 } from "../shared/connectors";
 import { detectRoots, getPath } from "../shared/connectors";
+import { JIRA_MAPPING } from "../shared/dialects";
 
 /**
  * Connector backend: fetch, persist, upsert. The pure evaluation engine
@@ -35,7 +36,7 @@ function extractList(payload: unknown, rootPath: string): unknown[] {
  * Unwrap MCP tool results: content[].text -> JSON.parse, then single-key
  * JSON-string wrappers like {json_string: "<json>"} (the Jira tool does both).
  */
-function unwrapMcp(res: unknown): unknown {
+export function unwrapMcp(res: unknown): unknown {
   let payload: unknown = res;
   // ctx.mcp may hand back the tool text as a plain string: parse it.
   if (typeof payload === "string") {
@@ -313,38 +314,18 @@ export const TEMPLATES: ConnectorTemplate[] = [
   {
     id: "jira-mcp",
     name: "Jira（MCP）",
-    description: "通过本机已连接的 Jira MCP server，用 JQL 圈范围，字段点选映射。",
+    description: "接入本机任意 Jira MCP server：自动认出搜索工具，用 JQL 圈范围，字段点选映射。",
+    // The template declares what it is. The server, the tool and the parameters
+    // are resolved from the live schema, so this works for any Jira MCP server
+    // and never ships a parameter the tool would reject.
+    hints: { dialect: "jira" },
     connector: {
       name: "工作 Jira",
       kind: "mcp",
-      source: { serverId: "jira", toolName: "JiraQuery" },
-      params: {
-        jql: "assignee = currentUser() AND statusCategory != Done ORDER BY updated DESC",
-        num_results: 50,
-        fields: [
-          "summary", "description", "status", "priority", "assignee", "reporter",
-          "created", "updated", "duedate", "resolution", "labels", "components",
-          "subtasks", "issuetype", "issuelinks", "parent", "epic", "sprint",
-          "environment", "project",
-        ],
-      },
-      rootPath: "jira_issues[]",
-      mapping: {
-        externalId: { template: [{ field: "key" }] },
-        title: { template: [{ field: "key" }, { lit: " " }, { field: "fields.summary" }] },
-        priority: {
-          field: "fields.priority.name",
-          transform: "enum",
-          map: {
-            "P1-Highest": "1", "P2-High": "2", "P3-Medium": "3", "P4-Low": "4",
-            Highest: "1", High: "2", Medium: "3", Low: "4",
-          },
-        },
-        due: { field: "fields.duedate", transform: "date" },
-        notes: { field: "fields.description" },
-        tags: [{ lit: "jira" }, { field: "fields.status.name" }],
-        subtasks: { field: "fields.subtasks[]" },
-      },
+      source: { serverId: "", toolName: "" },
+      params: {},
+      rootPath: "issues[]",
+      mapping: JIRA_MAPPING,
       options: { boardId: "default", syncDone: true, keepDeleted: true },
     },
   },

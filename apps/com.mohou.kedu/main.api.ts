@@ -5,8 +5,9 @@ import type { Priority, Task, TaskPatch } from "./shared/types";
 import { clearAllTasks, clearDoneRows, countTasks, deleteTask, insertTask, loadBoards, loadTask, loadTasks, minSortOrder, nextBoardSort, persistTask, searchTaskIds } from "./api/store";
 import type { Board } from "./shared/types";
 import type { Connector, ConnectorKind, ConnectorMapping, ConnectorSource } from "./shared/connectors";
-import { TEMPLATES, connectorUid, fetchRows, loadConnector, loadConnectors, rowToConnector, tombstoneTaskLinks, upsertDrafts } from "./api/connectors";
+import { TEMPLATES, connectorUid, fetchRows, loadConnector, loadConnectors, rowToConnector, tombstoneTaskLinks, upsertDrafts, unwrapMcp } from "./api/connectors";
 import { buildCatalog, detectRoots, evalMapping } from "./shared/connectors";
+import type { McpToolSchema } from "./shared/schema";
 
 const K_SEEDED = "seeded";
 
@@ -620,8 +621,69 @@ export default defineApp({
       };
     },
 
-    /** Debug: the raw shape a MCP tool returns (for choosing rootPath). */
-    async connectorDebug(ctx, args) {
+    /**
+     * One server's tools with their schemas, for the wizard's parameter form.
+     * Listing opens the session, so the answer is cached per server for a while.
+     * A host older than 1.0.100 has no ctx.mcpTools: answer `unsupported` and
+     * let the UI keep its free-form editor.
+     */
+    async mcpToolCatalog(ctx, args) {
+      const serverId = String((args && args.serverId) || "");
+      if (!serverId) throw new Error("先选一个 MCP server");
+      const refresh = Boolean(args && (args as { refresh?: unknown }).refresh);
+      const cacheKey = "mcp_tools:" + serverId;
+      const kv = ctx.storage.kv();
+      if (!refresh) {
+        const hit = (await kv.get(cacheKey)) as { at?: unknown; tools?: unknown } | null;
+        if (hit && typeof hit.at === "number" && Array.isArray(hit.tools) && Date.now() - hit.at < 10 * 60 * 1000) {
+          return { tools: hit.tools as McpToolSchema[], cached: true, unsupported: false };
+        }
+      }
+      const host = ctx as unknown as {
+        mcpTools?: (id: string) => Promise<{ tools: readonly McpToolSchema[] }>;
+      };
+      if (typeof host.mcpTools !== "function") return { tools: [], cached: false, unsupported: true };
+      const listed = await host.mcpTools(serverId);
+      const tools: McpToolSchema[] = (listed.tools || []).map(function (t) {
+        const one: McpToolSchema = {
+          name: String(t.name),
+          inputSchema: t.inputSchema || { type: "object", properties: {} },
+        };
+        if (t.description) one.description = String(t.description);
+        if (t.outputSchema) one.outputSchema = t.outputSchema;
+        return one;
+      });
+      await kv.set(cacheKey, { at: Date.now(), tools: tools });
+      return { tools: tools, cached: false, unsupported: false };
+    },
+
+    /**
+     * Jira's own field ids, so the picker offers real ones instead of a guess.
+     * Raw by nature: `jira_get_fields` declares an empty input and no output schema,
+     * so this is the one place that reads a hand-written shape.
+     */
+    async jiraFields(ctx, args) {
+      const serverId = String((args && args.serverId) || "");
+      if (!serverId) throw new Error("先选一个 MCP server");
+      const res = await ctx.mcp(serverId, "jira_get_fields", {});
+      const payload = unwrapMcp(res);
+      let rows: unknown[] = [];
+      if (Array.isArray(payload)) rows = payload;
+      else if (payload && typeof payload === "object") {
+        const values = (payload as { values?: unknown }).values;
+        if (Array.isArray(values)) rows = values;
+      }
+      const out: Array<{ id: string; name: string; custom: boolean }> = [];
+      for (let i = 0; i < rows.length; i++) {
+        const r = rows[i] as { id?: unknown; name?: unknown; custom?: unknown; navigable?: unknown };
+        if (!r || typeof r.id !== "string" || !r.id) continue;
+        if (r.navigable === false) continue;
+        out.push({ id: r.id, name: typeof r.name === "string" ? r.name : r.id, custom: r.custom === true });
+      }
+      return { fields: out };
+    },
+
+    /** Debug: the raw shape a MCP tool returns (for choosing rootPath). */    async connectorDebug(ctx, args) {
       const serverId = String((args && args.serverId) || "");
       const toolName = String((args && args.toolName) || "");
       if (!serverId || !toolName) throw new Error("serverId 和 toolName 都要填");
