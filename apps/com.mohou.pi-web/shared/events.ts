@@ -16,6 +16,22 @@ export type Events = {
 export type EventName = keyof Events
 export type InstallLog = Events['installLog']
 
+/** Live status of one Recent Sessions row. */
+export type RecentSessionStatus = 'running' | 'awaiting' | 'idle'
+
+/** One session in the shell Recent list (cross-project). */
+export interface RecentSessionItem {
+  readonly id: string
+  readonly title: string
+  readonly cwd: string
+  readonly repo: string
+  readonly projectRoot?: string
+  readonly status: RecentSessionStatus
+  /** ISO timestamp of last update (pi-web modified). */
+  readonly updated: string
+  readonly updatedMs: number
+}
+
 /** One plugin this app recommends installing. Pure data both sides read. */
 export interface RecommendedPlugin {
   readonly pkg: string
