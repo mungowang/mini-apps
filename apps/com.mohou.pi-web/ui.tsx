@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 
 import {
@@ -288,9 +288,17 @@ export default function Ui() {
 
   const applyRecent = useCallback((snap: RecentSnapshot | undefined) => {
     if (snap === undefined) return
-    setRecentItems(snap.items)
-    setRecentRunning(snap.runningCount)
-    setRecentAwaiting(snap.awaitingCount)
+    // Client safety net: unique by id (server also dedupes cwd+title).
+    const seen = new Set<string>()
+    const items: RecentSessionItem[] = []
+    for (const item of snap.items) {
+      if (seen.has(item.id)) continue
+      seen.add(item.id)
+      items.push(item)
+    }
+    setRecentItems(items)
+    setRecentRunning(items.filter(i => i.status === 'running').length)
+    setRecentAwaiting(items.filter(i => i.status === 'awaiting').length)
     if (typeof snap.sidebarWidth === 'number') setSidebarWidth(clampSidebarWidth(snap.sidebarWidth))
   }, [])
 
@@ -305,16 +313,26 @@ export default function Ui() {
     }
   }, [call, applyRecent])
 
-  /** Force full /api/sessions rebuild (open panel / manual refresh). */
+  /** Force full /api/sessions rebuild + prune orphans/title-dupes (open panel / manual refresh). */
   const refreshRecent = useCallback(async () => {
     try {
+      const before = recentItems.length
       const snap = asRecent(await call('recentSync', {}))
       applyRecent(snap)
+      const after = snap?.items.length ?? 0
+      const dropped = Math.max(0, before - after)
+      toast.add({
+        title: 'Recent 已刷新',
+        description: dropped > 0
+          ? `去重/清理 ${dropped} 条 · 现 ${after} 条`
+          : `共 ${after} 条 · 按最后更新排序`,
+      })
       return snap
-    } catch {
+    } catch (caught) {
+      toast.add({ title: '刷新失败', description: messageOf(caught), type: 'error' })
       return undefined
     }
-  }, [call, applyRecent])
+  }, [call, applyRecent, recentItems.length])
 
   useEffect(() => {
     const onVis = () => { setPageHidden(document.hidden) }
@@ -323,27 +341,47 @@ export default function Ui() {
     return () => { document.removeEventListener('visibilitychange', onVis) }
   }, [])
 
-  // Layered poll: interval depends on panel open + tab visibility.
+  // Stable pulse loop — avoid stacking intervals when callback identities churn.
+  const pulseRef = useRef(pulseRecent)
+  pulseRef.current = pulseRecent
+  const recentOpenRef = useRef(recentOpen)
+  recentOpenRef.current = recentOpen
+  const pageHiddenRef = useRef(pageHidden)
+  pageHiddenRef.current = pageHidden
+
   useEffect(() => {
     if (site.phase !== 'ready') return
     let cancelled = false
     let timer: number | undefined
-    const delay = pageHidden
-      ? PULSE_HIDDEN_MS
-      : recentOpen
-        ? PULSE_OPEN_MS
-        : PULSE_CLOSED_MS
-    const tick = async () => {
+    let inFlight = false
+    const schedule = () => {
       if (cancelled) return
-      await pulseRecent()
-      if (!cancelled) timer = window.setTimeout(() => { void tick() }, delay)
+      const delay = pageHiddenRef.current
+        ? PULSE_HIDDEN_MS
+        : recentOpenRef.current
+          ? PULSE_OPEN_MS
+          : PULSE_CLOSED_MS
+      timer = window.setTimeout(() => { void tick() }, delay)
+    }
+    const tick = async () => {
+      if (cancelled || inFlight) {
+        schedule()
+        return
+      }
+      inFlight = true
+      try {
+        await pulseRef.current()
+      } finally {
+        inFlight = false
+        schedule()
+      }
     }
     void tick()
     return () => {
       cancelled = true
       if (timer !== undefined) window.clearTimeout(timer)
     }
-  }, [site.phase, site.generation, recentOpen, pageHidden, pulseRecent])
+  }, [site.phase, site.generation])
 
   useEffect(() => {
     const timer = window.setInterval(() => { setNowMs(Date.now()) }, 5_000)

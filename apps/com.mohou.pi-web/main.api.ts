@@ -587,17 +587,64 @@ async function admitRunning(
   return next
 }
 
+/** Collapse whitespace for title fingerprinting. */
+function normTitle(title: string): string {
+  return title.trim().replace(/\s+/g, ' ').toLowerCase()
+}
+
+/** Same workspace + same prompt/title ⇒ one Recent row (keep newest / live). */
+function dedupeFingerprint(item: Pick<RecentSessionItem, 'cwd' | 'projectRoot' | 'title' | 'id'>): string {
+  const root = (item.projectRoot ?? item.cwd ?? '').replace(/\\/g, '/').replace(/\/+$/, '')
+  const title = normTitle(item.title)
+  // Fall back to id so empty titles never collapse unrelated rows.
+  if (root.length === 0 && title.length === 0) return `id:${item.id}`
+  return `${root}\n${title}`
+}
+
+function statusRank(status: RecentSessionStatus): number {
+  if (status === 'running') return 2
+  if (status === 'awaiting') return 1
+  return 0
+}
+
+/**
+ * Prefer live rows, then newest updatedMs. One row per workspace+title fingerprint.
+ */
+function dedupeRecentItems(items: readonly RecentSessionItem[]): RecentSessionItem[] {
+  const ranked = [...items].sort((a, b) => {
+    const live = statusRank(b.status) - statusRank(a.status)
+    if (live !== 0) return live
+    if (b.updatedMs !== a.updatedMs) return b.updatedMs - a.updatedMs
+    return a.id.localeCompare(b.id)
+  })
+  const seen = new Set<string>()
+  const out: RecentSessionItem[] = []
+  for (const item of ranked) {
+    const fp = dedupeFingerprint(item)
+    if (seen.has(fp)) continue
+    seen.add(fp)
+    out.push(item)
+  }
+  out.sort((a, b) => b.updatedMs - a.updatedMs)
+  return out
+}
+
 function buildRecentItems(
   store: RecentStore,
   catalogue: readonly PiWebSessionRow[],
   running: ReadonlySet<string>,
   awaiting: ReadonlySet<string>,
-): RecentSessionItem[] {
+  opts?: { readonly pruneMissing?: boolean },
+): { readonly items: RecentSessionItem[]; readonly keepIds: ReadonlySet<string> } {
   const byId = new Map(catalogue.map(row => [row.id, row]))
+  const catalogueReady = catalogue.length > 0
   const now = Date.now()
-  const items: RecentSessionItem[] = []
+  const raw: RecentSessionItem[] = []
   for (const id of Object.keys(store.ids)) {
     const row = byId.get(id)
+    const live = running.has(id) || awaiting.has(id)
+    // Drop tombstones once catalogue is known, unless still live in the agent runtime.
+    if (opts?.pruneMissing === true && catalogueReady && row === undefined && !live) continue
     const cwd = row?.cwd ?? ''
     const projectRoot = row?.projectRoot ?? row?.cwd ?? ''
     const repo = basenamePath(projectRoot || cwd || id)
@@ -606,7 +653,7 @@ function buildRecentItems(
     let status: RecentSessionStatus = 'idle'
     if (running.has(id)) status = 'running'
     else if (awaiting.has(id)) status = 'awaiting'
-    items.push({
+    raw.push({
       id,
       title: row !== undefined ? titleOf(row) : id.slice(0, 8),
       cwd,
@@ -617,8 +664,29 @@ function buildRecentItems(
       updatedMs: Number.isFinite(updatedMs) ? updatedMs : (store.ids[id]?.lastRunningAt ?? now),
     })
   }
-  items.sort((a, b) => b.updatedMs - a.updatedMs)
-  return items
+  const items = dedupeRecentItems(raw)
+  return { items, keepIds: new Set(items.map(item => item.id)) }
+}
+
+async function persistPrunedStore(
+  ctx: AppContext,
+  store: RecentStore,
+  keepIds: ReadonlySet<string>,
+): Promise<RecentStore> {
+  const nextIds: Record<string, RecentMember> = {}
+  let changed = false
+  for (const [id, meta] of Object.entries(store.ids)) {
+    if (keepIds.has(id)) nextIds[id] = meta
+    else changed = true
+  }
+  // Keep any keepId that was missing from store (shouldn't happen).
+  for (const id of keepIds) {
+    if (nextIds[id] === undefined && store.ids[id] !== undefined) nextIds[id] = store.ids[id]!
+  }
+  if (!changed && Object.keys(nextIds).length === Object.keys(store.ids).length) return store
+  const next: RecentStore = { version: 1, ids: nextIds }
+  await writeRecentStore(ctx, next)
+  return next
 }
 
 async function fetchRunning(ctx: AppContext, origin: string): Promise<{
@@ -703,7 +771,19 @@ async function composeRecent(
     catalogFetched = cat.fetched
   }
 
-  const items = buildRecentItems(store, rows, pulse.running, pulse.awaiting)
+  const built = buildRecentItems(store, rows, pulse.running, pulse.awaiting, {
+    pruneMissing: catalogFetched || opts.forceCatalog === true,
+  })
+  // Always collapse cwd+title twins in the payload; persist the pruned set on force refresh
+  // or whenever membership shrank (orphans / dupes dropped).
+  if (
+    opts.forceCatalog === true
+    || built.keepIds.size !== Object.keys(store.ids).length
+  ) {
+    await persistPrunedStore(ctx, store, built.keepIds)
+  }
+
+  const items = built.items
   const open = (await ctx.storage.kv().get(RECENT_OPEN_KEY)) === true
   const widthRaw = await ctx.storage.kv().get(SIDEBAR_WIDTH_KEY)
   const sidebarWidth = clampSidebarWidth(typeof widthRaw === 'number' ? widthRaw : SIDEBAR_DEFAULT)
@@ -717,11 +797,14 @@ async function composeRecent(
     sessionListVersion: version,
     catalogFetched,
     sidebarWidth,
+    pruned: Object.keys(store.ids).length - items.length,
   }
 }
 
-/** Full compose (force catalogue refresh). */
+/** Full compose (force catalogue refresh + prune orphans/dupes into kv). */
 async function syncRecentSessions(ctx: AppContext) {
+  // Bust catalogue cache so refresh is a real rebuild.
+  await ctx.storage.kv().delete(CATALOG_CACHE_KEY).catch(() => undefined)
   return await composeRecent(ctx, { forceCatalog: true })
 }
 
