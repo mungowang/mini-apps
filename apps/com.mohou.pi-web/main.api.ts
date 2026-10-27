@@ -732,7 +732,7 @@ async function pulseRecentSessions(ctx: AppContext) {
 
 export default defineApp({
   name: 'Pi Web',
-  description: 'Local Pi Web UI without opening a browser',
+  description: 'Pi terminal coding agent in the browser, with install/host extras',
   api: {
     async status(ctx) {
       const [version, latest] = await Promise.all([piWebVersion(ctx), npmLatest(ctx, PACKAGE)])

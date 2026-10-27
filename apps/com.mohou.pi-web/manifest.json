@@ -1,8 +1,8 @@
 {
   "id": "com.mohou.pi-web",
   "name": "Pi Web",
-  "description": "检测、安装（自动选源 + 国际/国内镜像）并托管 pi-web；Recent Sessions 跨项目列表；检测 pi/插件更新与推荐插件。安装 pi-web 约 500 MB。",
-  "version": "0.4.11",
+  "description": "Pi 是一个极简的终端 AI 编程助手，在命令行里用自然语言帮你完成编码。Pi Web 小程序以插件方式把它跑在网页端，并托管检测、安装（自动选源 + 国际/国内镜像）等能力。首次安装会稍耗时。",
+  "version": "0.4.12",
   "entry": "ui.tsx",
   "kind": "website",
   "url": "http://127.0.0.1:30141",

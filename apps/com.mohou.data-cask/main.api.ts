@@ -609,7 +609,7 @@ async function runImportCaskPack(storage: Storage, pack: CaskPack, conflict: "sk
 
 export default defineApp({
   name: "数据手账",
-  description: "本地的表和行。建表、查阅、从 CSV 或 Excel 导入。",
+  description: "动态数据表与视图，用于管理各种琐碎常用数据：测试账号、环境变量等。支持完全自定义表结构与视图，以及从多种数据源导入。",
   api: {
     async overview(ctx) {
       const { schemas, records } = await load(ctx.storage)
