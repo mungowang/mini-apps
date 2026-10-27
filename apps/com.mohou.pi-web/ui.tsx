@@ -716,7 +716,7 @@ export default function Ui() {
       {recentOpen ? (
         <motion.aside
           key="recent-rail"
-          className="absolute inset-y-0 left-0 z-20 flex flex-col border-r border-border bg-background shadow-[12px_0_40px_rgba(0,0,0,0.14)]"
+          className="absolute inset-y-0 left-0 z-20 flex flex-col border-r border-border bg-background"
           style={{ width: sidebarWidth }}
           aria-label="Recent Sessions"
           initial={{ x: '-100%' }}

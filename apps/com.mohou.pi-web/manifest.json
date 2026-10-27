@@ -2,7 +2,7 @@
   "id": "com.mohou.pi-web",
   "name": "Pi Web",
   "description": "Pi 是一个极简的终端 AI 编程助手，在命令行里用自然语言帮你完成编码。Pi Web 小程序以插件方式把它跑在网页端，并托管检测、安装（自动选源 + 国际/国内镜像）等能力。首次安装会稍耗时。",
-  "version": "0.4.13",
+  "version": "0.4.14",
   "entry": "ui.tsx",
   "kind": "website",
   "url": "http://127.0.0.1:30141",
